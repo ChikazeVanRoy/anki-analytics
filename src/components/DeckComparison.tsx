@@ -64,7 +64,7 @@ interface DeckComparisonProps {
 export function DeckComparison({ summaries, againRows, decks, range }: DeckComparisonProps) {
   return (
     <Panel title="Deck comparison" subtitle={`How your decks compare over the last ${range} days`}>
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className={`grid gap-4 ${summaries.length === 2 ? 'md:grid-cols-2' : 'md:grid-cols-3'}`}>
         {summaries.map((s) => (
           <DeckCard key={s.deck.id} summary={s} range={range} />
         ))}
