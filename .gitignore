@@ -35,4 +35,4 @@ dist-ssr
 *.sqlite3
 *-wal
 *-shm
-.env
+.env*

@@ -4,7 +4,7 @@
 //        ANKI_PROFILE=Name npm run copy-collection
 
 import { execSync } from 'node:child_process'
-import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -17,14 +17,18 @@ function fail(message: string): never {
   process.exit(1)
 }
 
-function ankiIsRunning() {
+function matches(pgrepArgs: string) {
   try {
-    execSync('pgrep -i anki', { stdio: 'ignore' })
+    execSync(`pgrep ${pgrepArgs}`, { stdio: 'ignore' })
     return true
   } catch {
     return false // pgrep exits non-zero when nothing matches
   }
 }
+
+// Exact process name, or anything launched from Anki.app. A loose "anki" match would also
+// hit unrelated processes such as macOS's "voicebankingd".
+const ankiIsRunning = () => matches('-x -i anki') || matches('-f "Anki\\.app/Contents/"')
 
 if (ankiIsRunning()) fail('Anki is running. Quit Anki completely, then try again.')
 
@@ -39,5 +43,7 @@ if (existsSync(`${source}-wal`)) fail('Found collection.anki2-wal. Open and quit
 
 mkdirSync(DEST_DIR, { recursive: true })
 const dest = join(DEST_DIR, 'collection.anki2')
+// Remove SQLite side-files left by reading the previous copy, so they can't be replayed onto the new one
+for (const suffix of ['-wal', '-shm']) rmSync(`${dest}${suffix}`, { force: true })
 copyFileSync(source, dest)
 console.log(`✓ Copied profile "${profile}" (${(statSync(dest).size / 1e6).toFixed(1)} MB) -> data/collection.anki2`)
