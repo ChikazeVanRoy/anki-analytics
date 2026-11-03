@@ -5,6 +5,8 @@ import { statSync } from 'node:fs'
 import { DatabaseSync } from 'node:sqlite'
 import type { AnkiData, DailyDeckStat, Deck } from '../src/data/types.ts'
 import { toDateKey } from '../src/lib/dates.ts'
+import { readConfigJson } from './ankiConfig.ts'
+import { readFsrsData } from './fsrsData.ts'
 
 // Top-level Anki decks are grouped into the dashboard's decks by name.
 // Anything that doesn't match goes into "Other decks".
@@ -23,7 +25,7 @@ function groupFor(topLevelName: string | undefined) {
 
 const MATURE_DAYS = 21 // Anki's definition: interval of 21+ days
 
-export function readAnkiData(path: string): AnkiData {
+export function readAnkiData(path: string, now = Date.now()): AnkiData {
   const db = new DatabaseSync(path, { readOnly: true })
   try {
     // Anki stores deck hierarchy as "Parent\x1fChild"; we only need the top level.
@@ -35,8 +37,9 @@ export function readAnkiData(path: string): AnkiData {
       if (EXCLUDED_DECKS.some((re) => re.test(topLevel))) excludedDecks.add(Number(row.id))
     }
 
-    const rolloverRow = db.prepare("SELECT CAST(val AS TEXT) AS v FROM config WHERE key = 'rollover'").get()
-    const dayStartHour = rolloverRow ? Number(JSON.parse(String(rolloverRow.v))) : 4
+    // Hour at which Anki starts a new day; 4 is Anki's default
+    const rollover = readConfigJson(db, 'rollover')
+    const dayStartHour = Number.isInteger(rollover) && (rollover as number) >= 0 && (rollover as number) < 24 ? (rollover as number) : 4
 
     // --- Card counts per deck group ---
     // cards.type: 0 = new, 1 = learning, 2 = review, 3 = relearning
@@ -46,12 +49,13 @@ export function readAnkiData(path: string): AnkiData {
     }
     const cardRows = db
       .prepare(
-        `SELECT did,
+        // A card in a filtered deck keeps its home deck in odid; count it there
+        `SELECT CASE WHEN odid != 0 THEN odid ELSE did END AS did,
                 COUNT(*) AS total,
                 SUM(type = 0) AS new,
                 SUM(type IN (1, 3) OR (type = 2 AND ivl < ${MATURE_DAYS})) AS young,
                 SUM(type = 2 AND ivl >= ${MATURE_DAYS}) AS mature
-         FROM cards GROUP BY did`,
+         FROM cards GROUP BY 1`,
       )
       .all()
     for (const r of cardRows) {
@@ -68,7 +72,7 @@ export function readAnkiData(path: string): AnkiData {
     // type 0-3 are real reviews (learn/review/relearn/filtered); 4+ are manual reschedules.
     const reviews = db
       .prepare(
-        `SELECT r.id AS ts, r.ease, r.time, r.type, r.lastIvl, c.did
+        `SELECT r.id AS ts, r.ease, r.time, r.type, r.lastIvl, CASE WHEN c.odid != 0 THEN c.odid ELSE c.did END AS did
          FROM revlog r LEFT JOIN cards c ON c.id = r.cid
          WHERE r.type BETWEEN 0 AND 3 AND r.ease BETWEEN 1 AND 4`,
       )
@@ -115,6 +119,24 @@ export function readAnkiData(path: string): AnkiData {
       .map((s) => ({ ...s, studySeconds: Math.round(s.studySeconds) }))
       .sort((a, b) => a.date.localeCompare(b.date))
 
+    // FSRS data is optional: if it can't be read (unexpected schema, damaged settings), the rest of the
+    // dashboard still works and the page explains why the FSRS sections are missing.
+    let fsrs: AnkiData['fsrs']
+    let fsrsError: string | undefined
+    try {
+      fsrs = readFsrsData({
+        db,
+        deckGroup,
+        excludedDecks,
+        dayStartHour,
+        groupIds: [...GROUPS.map((g) => g.id), OTHER.id],
+        now,
+      })
+    } catch (err) {
+      console.error('FSRS data could not be read:', err)
+      fsrsError = 'FSRS data could not be read from this collection.'
+    }
+
     return {
       source: 'anki',
       generatedAt: statSync(path).mtime.toISOString(), // when the copy was made
@@ -122,6 +144,8 @@ export function readAnkiData(path: string): AnkiData {
       // Hide groups with nothing to show (e.g. "Other decks" when every other deck is excluded)
       decks: [...decks.values()].filter((d) => d.totalCards > 0 || daily.some((s) => s.deckId === d.id)),
       daily,
+      fsrs,
+      fsrsError,
     }
   } finally {
     db.close()

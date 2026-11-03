@@ -32,4 +32,88 @@ export interface AnkiData {
   dayStartHour: number
   decks: Deck[]
   daily: DailyDeckStat[]
+  /** FSRS memory states, presets and replayed history. Absent for mock data. */
+  fsrs?: FsrsData
+  /** Why FSRS data couldn't be read, when the rest of the collection could. */
+  fsrsError?: string
+}
+
+// ---------- FSRS (only present for real Anki data) ----------
+
+/** One studied card's current FSRS memory state, exactly as Anki stored it. */
+export interface FsrsCard {
+  deckId: string
+  stability: number // days
+  difficulty: number // 1-10
+  lastReview: string // Anki day (YYYY-MM-DD) of the last review
+  due: string // Anki day the card is next due
+  interval: number // current scheduled interval in days
+  state: 'review' | 'learning' | 'relearning'
+}
+
+/** Scheduler settings of the preset a deck group uses. */
+export interface DeckPreset {
+  deckId: string
+  presetName: string
+  desiredRetention: number
+  newPerDay: number
+  reviewsPerDay: number
+  maxInterval: number
+  learnSteps: number[] // minutes
+  relearnSteps: number[] // minutes
+  params: number[] // FSRS-6 weights (21)
+  paramsSource: 'optimised' | 'default'
+}
+
+/** Historical review-card reviews per month, with FSRS's prediction replayed from the review log. */
+export interface CalibrationPoint {
+  month: string // YYYY-MM
+  deckId: string
+  reviews: number
+  passed: number
+  predicted: number // sum of predicted recall probabilities
+  matureReviews: number
+  maturePassed: number
+  maturePredicted: number
+}
+
+/** Predicted-vs-actual recall, grouped by predicted probability. */
+export interface CalibrationBin {
+  deckId: string
+  from: number // predicted R bin start, e.g. 0.85
+  to: number
+  reviews: number
+  passed: number
+  predicted: number
+}
+
+/** Answer patterns measured from your review log, used by the simulator. */
+export interface DeckBehaviour {
+  deckId: string
+  firstRating: [number, number, number, number] // counts of Again/Hard/Good/Easy on a new card's first answer
+  passRating: [number, number, number] // counts of Hard/Good/Easy on passed review-card reviews
+  reviewAgain: number // Again presses on review cards
+  secondsPerReview: number // mean answer time (each answer capped at 60 s), all review types
+  answers: number // answers counted in secondsPerReview (for weighting across decks)
+  learningReviewsPerNewCard: number // measured same-day learning answers per introduced card
+  newCardsIntroduced: number // cards first studied in the measurement window
+}
+
+export interface FsrsData {
+  enabled: boolean
+  version: 'FSRS-6'
+  ankiVersion: string | null // read from the installed Anki app, if found
+  windowDays: number // measurement window for DeckBehaviour
+  presets: DeckPreset[]
+  cards: FsrsCard[]
+  newCards: Record<string, number> // unsuspended new cards available per deck group
+  suspended: Record<string, number>
+  missingState: Record<string, number> // studied cards without an FSRS memory state (excluded everywhere)
+  invalidDue: Record<string, number> // studied cards with a memory state but an unreadable due date (excluded)
+  resetCards: number // cards whose history was cut by a "Forget" reset (Anki ignores reviews before it)
+  calibration: CalibrationPoint[]
+  calibrationBins: CalibrationBin[]
+  behaviour: DeckBehaviour[]
+  /** How closely replaying the review log through our FSRS code reproduces Anki's stored states. */
+  validation: { cards: number; stabilityMatched: number; difficultyMatched: number }
 }
