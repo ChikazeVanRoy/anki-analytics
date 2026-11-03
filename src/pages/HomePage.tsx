@@ -178,33 +178,35 @@ function Hero({
 }) {
   return (
     <section
-      className="animate-rise relative overflow-hidden rounded-[2rem] bg-brand-soft p-6 sm:p-8"
+      className="animate-rise relative overflow-hidden rounded-3xl bg-brand-soft px-5 py-4 sm:px-6 sm:py-5"
       style={{
         backgroundImage:
           'radial-gradient(circle at 92% 10%, var(--color-sun-soft), transparent 42%), radial-gradient(circle at 0% 100%, color-mix(in oklab, var(--color-brand) 14%, transparent), transparent 45%)',
       }}
     >
-      <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+      <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
         <div className="max-w-xl">
           <div className="flex items-center gap-2">
-            <h1 className="text-3xl font-black tracking-tight text-ink sm:text-4xl">{greeting}</h1>
+            <h1 className="text-2xl font-black tracking-tight text-ink sm:text-[1.75rem]">{greeting}</h1>
             {sample && <SourceBadge kind="sample" />}
           </div>
-          <p className="mt-2 text-base font-semibold text-ink-2 sm:text-lg">{status}</p>
+          <p className="mt-1 text-sm font-semibold text-ink-2 sm:text-base">{status}</p>
           {due && (
-            <p className="mt-3 inline-flex items-center gap-1.5 rounded-2xl bg-surface/70 px-3 py-1.5 text-sm font-bold text-ink">
+            <p className="mt-2 inline-flex items-center gap-1.5 rounded-xl bg-surface/70 px-2.5 py-1 text-sm font-bold text-ink">
               {due}
               <InfoTip label={m.due.tipLabel}>{m.due.tip}</InfoTip>
             </p>
           )}
         </div>
-        <div className="flex items-center gap-3 self-start rounded-3xl bg-surface px-5 py-4 shadow-card sm:self-auto">
-          <Flame lit={streak > 0} />
+        <div className="flex shrink-0 items-center gap-2 self-start rounded-2xl bg-surface px-3.5 py-2.5 shadow-card sm:self-auto">
+          <Flame lit={streak > 0} size={30} />
           <div>
-            <p className="text-3xl leading-none font-black text-ink tabular-nums">
-              <CountUp value={streak} format={formatInt} />
+            <p className="text-sm leading-tight text-ink">
+              <span className="text-xl font-black tabular-nums">
+                <CountUp value={streak} format={formatInt} />
+              </span>{' '}
+              <span className="font-bold text-sun-ink">{m.streak.label}</span>
             </p>
-            <p className="mt-1 text-sm font-bold text-sun-ink">{m.streak.label}</p>
             {best > 0 && <p className="text-xs text-muted">{m.streak.best(best)}</p>}
           </div>
         </div>
