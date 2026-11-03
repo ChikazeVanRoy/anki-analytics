@@ -84,8 +84,21 @@ test('a refused refresh explains itself and keeps the real data', async ({ page 
   await expect(page.getByText(messages.data.sampleTitle)).toHaveCount(0)
 })
 
-test('keyboard users can reach the sideways-scrolling study calendar', async ({ page }) => {
+test('the study calendar is a keyboard stop only when it has to scroll', async ({ page }, info) => {
   await useRealShapedData(page)
   await page.goto('#/activity')
-  await expect(page.getByRole('region', { name: /Study calendar/ })).toHaveAttribute('tabindex', '0')
+  await expect(page.getByRole('heading', { name: 'When did I study?' })).toBeVisible()
+  const region = page.getByRole('region', { name: messages.activity.calendarRegion })
+  if (info.project.name === 'phone') await expect(region).toHaveAttribute('tabindex', '0')
+  else await expect(region).toHaveCount(0)
+})
+
+test('a keyboard user can read each day on the Home activity chart', async ({ page }) => {
+  await useRealShapedData(page)
+  await page.goto('#/')
+  const chart = page.getByRole('list', { name: /of the last 14 days/ })
+  await chart.focus()
+  await page.keyboard.press('ArrowLeft')
+  await expect(chart.locator('li > span.absolute:visible')).toHaveCount(1)
+  await expect(chart.locator('li > span.absolute:visible')).toContainText('review')
 })

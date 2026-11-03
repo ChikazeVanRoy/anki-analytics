@@ -72,7 +72,7 @@ export function ActivityPage({ data, range, onRangeChange }: Props) {
           value={formatInt(summary.avgPerDay)}
           delta={
             canCompare
-              ? { text: avgSame ? m.noChange : `${avgChange >= 0 ? '▲' : '▼'} ${formatPct(Math.abs(avgChange), 0)}`, good: avgChange >= 0 }
+              ? { text: avgSame ? m.noChange : `${avgChange >= 0 ? '▲' : '▼'} ${formatPct(Math.abs(avgChange), 0)}`, good: avgSame || avgChange >= 0 }
               : undefined
           }
           hint={compareHint}
@@ -85,7 +85,7 @@ export function ActivityPage({ data, range, onRangeChange }: Props) {
             canCompare
               ? {
                   text: againSame ? m.noChange : `${againChange <= 0 ? '▼' : '▲'} ${(Math.abs(againChange) * 100).toFixed(1)} pts`,
-                  good: againChange <= 0,
+                  good: againSame || againChange <= 0,
                 }
               : undefined
           }
@@ -97,12 +97,14 @@ export function ActivityPage({ data, range, onRangeChange }: Props) {
           tip={m.rememberedTip}
           value={reviewCards.reviews > 0 ? formatRate(reviewCards.rate) : '—'}
           hint={
-            <>
-              {m.rememberedSub(reviewCards.reviews, reviewCards.reviews - reviewCards.passed, reviewCards.hard)}
-              {reviewCards.reviews > 0 && (
+            reviewCards.reviews === 0 ? (
+              m.rememberedNone
+            ) : (
+              <>
+                {m.rememberedSub(reviewCards.reviews, reviewCards.reviews - reviewCards.passed, reviewCards.hard)}
                 <span className="mt-0.5 block">{matureThin ? m.rememberedThin : m.rememberedKnown(formatRate(mature.rate))}</span>
-              )}
-            </>
+              </>
+            )
           }
           style={{ animationDelay: '120ms' }}
         />

@@ -33,7 +33,7 @@ function DeckCard({ summary }: { summary: DeckSummary }) {
       <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
         <Metric label="Reviews" value={formatInt(summary.reviews)} />
         <Metric label="Per day" value={formatInt(summary.avgPerDay)} />
-        <Metric label="Forgot (all answers)" value={formatPct(summary.againRate)} />
+        <Metric label={messages.activity.forgot} value={formatPct(summary.againRate)} />
         <Metric label="Study time" value={formatMinutes(summary.minutes)} />
         <RetentionMetric label="Remembered" {...summary.retention.reviewCards} />
         <RetentionMetric label="Remembered, known-well cards" minReviews={MIN_MATURE_SAMPLE} {...summary.retention.mature} />
@@ -68,7 +68,7 @@ function Metric({ label, value, note }: { label: string; value: string; note?: s
 /** Pass rate with its sample size, since small samples (or none) are common for mature cards. */
 function RetentionMetric({ label, reviews, rate, minReviews = 1 }: { label: string; reviews: number; rate: number; minReviews?: number }) {
   if (reviews === 0) return <Metric label={label} value="—" note="no reviews yet" />
-  if (reviews < minReviews) return <Metric label={label} value="—" note={`only ${formatInt(reviews)}, too few to rate`} />
+  if (reviews < minReviews) return <Metric label={label} value="—" note={messages.activity.deckThin(reviews)} />
   return <Metric label={label} value={formatRate(rate)} note={`of ${formatInt(reviews)}`} />
 }
 

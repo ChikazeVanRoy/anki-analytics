@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { messages } from '../i18n'
 import {
   Bar,
   BarChart,
@@ -31,7 +32,7 @@ import {
 import { calibrationColors, chart } from '../lib/theme'
 import { ChartTooltip } from './ChartTooltip'
 import { LegendItem, Panel } from './Panel'
-import { Disclosure, InfoTip, Metric, Notice, SourceBadge } from './ui'
+import { Disclosure, InfoTip, Metric, Notice, ScrollRegion, SourceBadge } from './ui'
 
 interface Props {
   fsrs: FsrsData
@@ -102,7 +103,7 @@ function SummaryTable({ rows, decks }: { rows: MemorySummary[]; decks: Deck[] })
   const deckColor = useDeckColor()
   const name = (id: string) => (id === 'all' ? 'All decks' : (decks.find((d) => d.id === id)?.name ?? id))
   return (
-    <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Deck summary table, scrolls sideways">
+    <ScrollRegion label={messages.advanced.summaryRegion}>
       <table className="w-full min-w-[640px] text-sm">
         <thead>
           <tr className="border-b border-line text-left text-xs text-muted">
@@ -151,7 +152,7 @@ function SummaryTable({ rows, decks }: { rows: MemorySummary[]; decks: Deck[] })
           ))}
         </tbody>
       </table>
-    </div>
+    </ScrollRegion>
   )
 }
 
@@ -315,7 +316,7 @@ export function FsrsAnalytics({ fsrs, decks: allDecks, todayKey }: Props) {
                 definition). Only reviews of graduated cards count, as in Anki’s True Retention table.
               </InfoTip>
             </h3>
-            <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Recall check table, scrolls sideways">
+            <ScrollRegion label={messages.advanced.recallRegion}>
               <table className="mt-3 w-full min-w-[420px] text-sm tabular-nums">
                 <thead>
                   <tr className="border-b border-line text-left text-xs text-muted">
@@ -347,7 +348,7 @@ export function FsrsAnalytics({ fsrs, decks: allDecks, todayKey }: Props) {
                   })}
                 </tbody>
               </table>
-            </div>
+            </ScrollRegion>
             {trend.length > 0 && (
               <p className="mt-3 text-xs leading-relaxed text-muted">
                 By month:{' '}

@@ -154,7 +154,7 @@ export function homeInsight(data: AnkiData, byDate: Map<string, DayTotal>, today
   if (week.change !== null && week.lastWeek >= 20) {
     if (week.change >= 0.15) {
       return {
-        text: `You reviewed ${pct(week.change)} more this week than last (${fmt(week.thisWeek)} vs ${fmt(week.lastWeek)}). Great momentum.`,
+        text: `You reviewed ${pct(week.change)} more in the last 7 days than the 7 before (${fmt(week.thisWeek)} vs ${fmt(week.lastWeek)}). Great momentum.`,
         tone: 'good',
         link: 'activity',
       }

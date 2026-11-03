@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { ActivityIcon, AdvancedIcon, ArrowRightIcon, BrainIcon, CheckIcon, Flame, LayersIcon, PlannerIcon, SparkleIcon, TrophyIcon } from '../components/icons'
 import { MemoryGarden } from '../components/MemoryGarden'
 import { StatCard } from '../components/StatCard'
@@ -90,7 +90,7 @@ export function HomePage({ data }: { data: AnkiData }) {
                     Math.abs(week.change) < 0.005
                       ? m.kpi.weekSame
                       : m.kpi.weekVs(formatPct(Math.abs(week.change), 0), week.change >= 0),
-                  good: week.change >= 0,
+                  good: Math.abs(week.change) < 0.005 || week.change >= 0,
                 }
               : undefined
           }
@@ -254,6 +254,14 @@ function SectionHeading({ id, title, question }: { id: string; title: string; qu
 }
 
 function RecentActivity({ rows, sample, className = '' }: { rows: { date: string; reviews: number }[]; sample: boolean; className?: string }) {
+  // One tab stop for the whole chart: arrow keys or a tap pick the day whose count is shown
+  const [picked, setPicked] = useState<number | null>(null)
+  const onBarKey = (e: KeyboardEvent) => {
+    const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0
+    if (!step) return
+    e.preventDefault()
+    setPicked((p) => Math.max(0, Math.min(rows.length - 1, (p ?? rows.length) + step)))
+  }
   const max = Math.max(1, ...rows.map((r) => r.reviews))
   const total = rows.reduce((n, r) => n + r.reviews, 0)
   const active = rows.filter((r) => r.reviews > 0).length
@@ -270,16 +278,23 @@ function RecentActivity({ rows, sample, className = '' }: { rows: { date: string
         <SourceBadge kind={sample ? 'sample' : 'measured'} />
       </div>
       <p className="mt-1 text-sm text-muted">{m.recent.summary(total, active)}</p>
-      <ol className="mt-5 flex h-36 items-end gap-1 sm:gap-2" aria-label={m.recent.summary(total, active)}>
+      <ol
+        className="mt-5 flex h-36 items-end gap-1 sm:gap-2"
+        aria-label={`${m.recent.summary(total, active)}. ${m.recent.barsHint}`}
+        tabIndex={0}
+        onKeyDown={onBarKey}
+        onFocus={() => setPicked((p) => p ?? rows.length - 1)}
+        onBlur={() => setPicked(null)}
+      >
         {rows.map((r, i) => {
           const isToday = i === rows.length - 1
           const label = m.recent.bar(fmtDay(r.date), r.reviews)
           return (
-            <li key={r.date} className="group relative flex h-full flex-1 flex-col items-center justify-end">
+            <li key={r.date} className="group relative flex h-full flex-1 flex-col items-center justify-end" onClick={() => setPicked(i)}>
               <span className="sr-only">{label}</span>
               <span
                 aria-hidden
-                className="pointer-events-none absolute -top-2 z-10 hidden -translate-y-full rounded-xl border border-line bg-surface px-2.5 py-1 text-xs font-bold whitespace-nowrap text-ink shadow-pop group-hover:block"
+                className={`pointer-events-none absolute -top-2 z-10 hidden -translate-y-full rounded-xl border border-line bg-surface px-2.5 py-1 text-xs font-bold whitespace-nowrap text-ink shadow-pop group-hover:block ${picked === i ? '!block' : ''}`}
               >
                 {label}
               </span>

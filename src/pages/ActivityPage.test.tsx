@@ -56,9 +56,17 @@ describe('Activity headline cards', () => {
     expect(screen.queryByText(/cards known well 100/)).toBeNull()
   })
 
+  it('gives a short message, not a row of zeros, with no scheduled reviews', () => {
+    const d = data([0, 0])
+    d.daily[0] = { ...d.daily[0], reviewCardReviews: 0, reviewCardPassed: 0, reviewCardHard: 0 }
+    show(d)
+    expect(screen.getByText(m.rememberedNone)).toBeTruthy()
+    expect(screen.queryByText(/of 0 reviews/)).toBeNull()
+  })
+
   it('rates cards known well once there are enough reviews', () => {
     show(data([100, 95]))
-    expect(screen.getByText(/cards known well 95%/)).toBeTruthy()
+    expect(screen.getByText(/cards known well 95\.0%/)).toBeTruthy()
   })
 
   it('says "no change" rather than an arrow when nothing moved', () => {
@@ -69,6 +77,6 @@ describe('Activity headline cards', () => {
     d.daily = [{ ...d.daily[0], date: toDateKey(earlier) }, ...d.daily]
     show(d)
     const card = screen.getAllByText(m.forgot)[0].closest('div.animate-rise') as HTMLElement
-    expect(within(card).getByText(m.noChange)).toBeTruthy()
+    expect(within(card).getByText(m.noChange).className).toContain('bg-good-soft')
   })
 })

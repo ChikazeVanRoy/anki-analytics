@@ -7,6 +7,7 @@ import type { DayTotal } from '../lib/stats'
 import { heatmapLevels } from '../lib/theme'
 import { PlayIcon, StopIcon } from './icons'
 import { Panel } from './Panel'
+import { ScrollRegion } from './ui'
 
 const CELL = 12
 const GAP = 3
@@ -150,7 +151,7 @@ export function ActivityHeatmap({ byDate, today, years }: ActivityHeatmapProps) 
         )}
       </div>
 
-      <div ref={scrollRef} className="relative overflow-x-auto pb-1" tabIndex={0} role="region" aria-label="Study calendar, scrolls sideways">
+      <ScrollRegion ref={scrollRef} label={m.calendarRegion} className="relative pb-1">
         <div className="relative flex gap-2" style={{ width: width + 32 }}>
           <div className="flex flex-col pt-5 text-[10px] text-muted" style={{ gap: GAP, width: 24 }} aria-hidden>
             {['Mon', '', 'Wed', '', 'Fri', '', ''].map((d, i) => (
@@ -207,7 +208,7 @@ export function ActivityHeatmap({ byDate, today, years }: ActivityHeatmapProps) 
             )}
           </div>
         </div>
-      </div>
+      </ScrollRegion>
     </Panel>
   )
 }

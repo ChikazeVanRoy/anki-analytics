@@ -1,5 +1,5 @@
 // Small shared UI pieces: tooltips, badges, controls, metric tiles, disclosure, empty/loading states.
-import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { messages } from '../i18n'
 import { prefersReducedMotion } from '../lib/motion'
@@ -84,6 +84,39 @@ export function InfoTip({ children, label = 'More info' }: { children: ReactNode
         document.body,
       )}
     </span>
+  )
+}
+
+/**
+ * A sideways-scrolling area. It only becomes a keyboard stop and a named region while its content really
+ * overflows, so keyboard users can scroll it on a phone-sized window and skip past it on a wide one.
+ */
+export function ScrollRegion({
+  label,
+  className = '',
+  children,
+  ref,
+}: {
+  label: string
+  className?: string
+  children: ReactNode
+  ref?: RefObject<HTMLDivElement | null>
+}) {
+  const own = useRef<HTMLDivElement>(null)
+  const box = ref ?? own
+  const [overflows, setOverflows] = useState(false)
+  useEffect(() => {
+    const el = box.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const check = () => setOverflows(el.scrollWidth > el.clientWidth)
+    const observer = new ResizeObserver(check)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [box])
+  return (
+    <div ref={box} className={`overflow-x-auto ${className}`} {...(overflows ? { tabIndex: 0, role: 'region', 'aria-label': label } : {})}>
+      {children}
+    </div>
   )
 }
 

@@ -133,7 +133,7 @@ describe('homeInsight', () => {
     const d = data([...on([0, 1, 2], 20), ...on([8, 9], 15)])
     const i = homeInsight(d, totalsByDate(d.daily), TODAY)!
     expect(i.tone).toBe('good')
-    expect(i.text).toContain('100% more this week')
+    expect(i.text).toContain('100% more in the last 7 days')
   })
   it('describes a quieter week without blame', () => {
     const d = data([...on([0], 10), ...on([8, 9], 30)])
@@ -144,7 +144,7 @@ describe('homeInsight', () => {
   it('names the strongest deck when both have enough reviews', () => {
     const rc = (passed: number) => ({ reviewCardReviews: 40, reviewCardPassed: passed, reviewCardHard: 0, matureReviews: 35, maturePassed: passed - 2 })
     const d = data([stat('2026-11-01', 'a', 40, rc(30)), stat('2026-11-01', 'b', 40, rc(38))])
-    expect(homeInsight(d, totalsByDate(d.daily), TODAY)!.text).toMatch(/^Your strongest deck this month is Beta.*95%/)
+    expect(homeInsight(d, totalsByDate(d.daily), TODAY)!.text).toMatch(/^Your strongest deck this month is Beta.*95\.0%/)
   })
   it('falls back to consistency over the last 30 days', () => {
     const d = data(on([0, 2, 4]))

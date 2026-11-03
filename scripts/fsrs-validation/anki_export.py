@@ -6,13 +6,13 @@
 # Writes data/fsrs-validation/anki.json (git-ignored with the rest of /data/). Nothing is written to
 # Anki's own files or to data/collection.anki2: Anki opens a temporary copy, which is deleted afterwards.
 
-import fnmatch
 import json
 import os
 import re
 import shutil
 import sys
 import tempfile
+import unicodedata
 
 APP_PACKAGES = '/Applications/Anki.app/Contents/Resources/app_packages'
 sys.path.insert(0, APP_PACKAGES)
@@ -26,12 +26,22 @@ OUT = os.path.join(ROOT, 'data', 'fsrs-validation', 'anki.json')
 CONFIG = os.path.join(ROOT, 'anki-analytics.config.json')
 
 
+def slug(name):
+    """Same as `slug` in server/deckGroups.ts, so ids match the app's deck ids."""
+    plain = ''.join(c for c in unicodedata.normalize('NFKD', name) if not unicodedata.combining(c))
+    return re.sub(r'[^a-z0-9]+', '-', plain.lower()).strip('-') or 'deck'
+
+
+def name_pattern(pattern):
+    """Same as `namePattern` in server/deckGroups.ts: whole name, ignoring case, and only * is special."""
+    return re.compile('.*'.join(re.escape(part) for part in pattern.split('*')), re.I)
+
+
 def load_groups():
     """Deck groups from the git-ignored config, so no deck names live in this script."""
     with open(CONFIG, encoding='utf-8') as f:
         groups = json.load(f).get('groups', [])
-    return [(re.sub(r'[^a-z0-9]+', '-', g['name'].lower()).strip('-'),
-             re.compile('|'.join(fnmatch.translate(p) for p in g['decks']), re.I)) for g in groups]
+    return [(slug(g['name']), [name_pattern(p) for p in g['decks']]) for g in groups]
 
 
 GROUPS = load_groups()
@@ -49,8 +59,8 @@ try:
     tops = {}
     for d in col.decks.all_names_and_ids():
         top = d.name.split('::')[0]
-        for gid, rx in GROUPS:
-            if rx.search(top):
+        for gid, patterns in GROUPS:
+            if any(p.fullmatch(top) for p in patterns):
                 tops.setdefault(gid, set()).add(top)
     for gid, names in tops.items():
         search = '(' + ' OR '.join(f'"deck:{n}"' for n in sorted(names)) + ')'

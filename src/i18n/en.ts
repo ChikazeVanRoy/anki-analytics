@@ -101,6 +101,7 @@ export const en = {
         `${int(total)} reviews on ${active} of the last 14 days`,
       today: 'Today',
       bar: (date: string, n: number) => `${date}: ${int(n)} ${plural(n, 'review', 'reviews')}`,
+      barsHint: 'Arrow keys or tap to read each day',
     },
     decks: {
       title: 'Your decks',
@@ -110,7 +111,7 @@ export const en = {
       started: (pct: string) => `${pct} started`,
       week: 'Reviews, 7 days',
       remembered: 'Remembered, 30 days',
-      rememberedYoung: 'few cards known well yet',
+      rememberedYoung: 'few reviews of cards known well',
       notStarted: 'Not started',
       learning: 'Learning',
       known: 'Known well',
@@ -163,7 +164,10 @@ export const en = {
       `of ${int(reviews)} reviews · ${int(again)} Again · ${int(hard)} Hard (counted as remembered)`,
     rememberedKnown: (rate: string) => `cards known well ${rate}`,
     rememberedThin: 'too few reviews of cards known well to rate them',
+    rememberedNone: 'no scheduled reviews in this period',
     noChange: 'no change',
+    deckThin: (n: number) => `only ${int(n)}, too few to rate`,
+    calendarRegion: 'Study calendar',
     replay: 'Replay',
     stopReplay: 'Stop',
     replayTotal: (date: string) => `reviews by ${date}`,
@@ -176,6 +180,8 @@ export const en = {
   advanced: {
     title: 'Advanced',
     subtitle: 'The FSRS memory model behind your schedule, for when you want the details.',
+    summaryRegion: 'Deck summary table',
+    recallRegion: 'Recall check table',
   },
   fsrsMissing: {
     planner: 'The Planner needs your real FSRS data',

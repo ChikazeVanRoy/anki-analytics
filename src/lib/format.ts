@@ -8,15 +8,12 @@ export const formatInt = (n: number) => int.format(Math.round(n))
 export const formatPct = (n: number, digits = 1) => `${(n * 100).toFixed(digits)}%`
 
 /**
- * Whole-number percentage, but never rounds a rate below 100% up to "100%" (or above 0% down to "0%"):
+ * A rate to one decimal, the same on every page. Exactly 0 and 1 stay whole, and nothing else rounds to them:
  * 99.9% retention with one lapse must not read as perfect.
  */
 export function formatRate(n: number) {
-  const whole = Math.round(n * 100)
-  // Clamped, because one decimal can round up to 100.0% (or down to 0.0%) too
-  if (whole === 100 && n < 1) return `${Math.min(99.9, n * 100).toFixed(1)}%`
-  if (whole === 0 && n > 0) return `${Math.max(0.1, n * 100).toFixed(1)}%`
-  return `${whole}%`
+  if (n <= 0 || n >= 1) return `${n <= 0 ? 0 : 100}%`
+  return `${Math.max(0.1, Math.min(99.9, n * 100)).toFixed(1)}%`
 }
 
 /** When the collection was copied, e.g. "3 Nov 2026, 22:28". */

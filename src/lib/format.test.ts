@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { formatRate } from './format'
 
 describe('formatRate', () => {
-  it('uses whole percentages normally', () => {
-    expect(formatRate(0.873)).toBe('87%')
+  it('shows one decimal, and whole numbers only for exactly 0 and 100%', () => {
+    expect(formatRate(0.873)).toBe('87.3%')
     expect(formatRate(1)).toBe('100%')
     expect(formatRate(0)).toBe('0%')
   })
