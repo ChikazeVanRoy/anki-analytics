@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import {
   Area,
   Bar,
@@ -22,8 +22,9 @@ import { lapseEvidence } from '../lib/fsrsStats'
 import { buildSimDecks, HORIZONS, presetRetentionLabel, type SimDay, type SimSettings } from '../lib/simulator'
 import { chart, deckColor, forecast } from '../lib/theme'
 import { ChartTooltip } from './ChartTooltip'
-import { LegendItem, Panel } from './Panel'
-import { HatchPattern, InfoTip, Metric, Segmented, Slider, SourceBadge } from './ui'
+import { CheckIcon, RefreshIcon, SparkleIcon, WarningIcon } from './icons'
+import { Panel } from './Panel'
+import { Disclosure, HatchPattern, InfoTip, Metric, Segmented, Slider } from './ui'
 
 interface Props {
   fsrs: FsrsData
@@ -134,169 +135,288 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
   const { reviews: calibrationReviews, lapses: observedLapses } = lapseEvidence(fsrs.calibration, deckIds)
   const selectedSimDecks = simDecks.filter((d) => deckIds.includes(d.deckId))
 
-  return (
+  const minutesPerStudyDay = summary ? toMin(summary.avgPerStudyDay) : 0
+  const heaviest = year ? toMin(year.maxWindowPerStudyDay) : 0
+  // Same test as the sustainability insight: backlog first, then the heaviest month of a simulated year vs the budget
+  const verdict = !year
+    ? null
+    : year.backlogEnd > 1
+      ? ({ tone: 'warning', label: 'Reviews pile up' } as const)
+      : heaviest <= budget
+        ? ({ tone: 'good', label: 'Fits your time budget' } as const)
+        : ({ tone: 'warning', label: 'Over your time budget' } as const)
+  const horizonLabel = horizon === 365 ? 'year' : `${horizon} days`
+
+  const controls = (
     <Panel
-      title="Review workload forecast"
-      subtitle={`FSRS-6 Monte Carlo simulation of your real cards · ${main ? `${main.runs} runs` : 'running…'}${running ? ' · updating…' : ''}`}
-      actions={<SourceBadge kind="projection" />}
-      className="border-dashed"
+      title="Your plan"
+      eyebrow="Settings"
+      subtitle="Change these and the projection updates."
+      variant="projection"
+      className="lg:col-span-2"
     >
-      {/* Controls */}
-      <div className="grid gap-x-6 gap-y-4 rounded-xl border border-line bg-surface-2/40 p-4 md:grid-cols-2 lg:grid-cols-4">
-        <Segmented
-          label="Decks"
-          value={deckSel}
-          options={[{ value: 'all', label: decks.length === 2 ? 'Both' : 'All' }, ...decks.map((d) => ({ value: d.id, label: d.name }))]}
-          onChange={setDeckSel}
-        />
-        <Segmented
-          label="Horizon"
-          value={horizon}
-          options={HORIZONS.map((h) => ({ value: h, label: h === 365 ? '1 yr' : `${h} d` }))}
-          onChange={setHorizon}
-        />
-        <Segmented
-          label="Recall model"
-          value={recall}
-          options={[
-            { value: 'fsrs', label: 'FSRS prediction' },
-            { value: 'calibrated', label: 'Your lapse rate' },
-          ]}
-          onChange={setRecall}
-        />
-        <p className="text-xs leading-relaxed text-muted lg:self-end">
-          <span className="text-ink-2">FSRS prediction</span> draws lapses from FSRS’s recall probability.{' '}
-          <span className="text-ink-2">Your lapse rate</span> scales them to how often you actually pressed Again.
-        </p>
+      <div className="space-y-5">
         <Slider
           label="New cards per day"
+          size="lg"
           value={newPerDay}
           min={0}
           max={100}
           onChange={setNewPerDay}
           hint={`Total across the selected decks, split evenly while each still has new cards (${formatInt(pool)} available).`}
         />
-        <div className="space-y-3">
-          <Segmented
-            label="Desired retention"
-            value={retentionMode}
-            options={[
-              { value: 'preset', label: presetLabel ? `Presets (${presetLabel})` : 'Presets' },
-              { value: 'custom', label: 'Custom' },
-            ]}
-            onChange={setRetentionMode}
-          />
-          {retentionMode === 'custom' && (
+        <Slider
+          label="Daily time budget"
+          size="lg"
+          value={budget}
+          min={5}
+          max={180}
+          step={5}
+          format={(v) => `${v} min`}
+          onChange={setBudget}
+          hint={`How long you’d like to study on a study day. Used for the recommendations. Default: your measured ${Math.round(measured.minutesPerStudyDay)} min per study day over the last 4 weeks, rounded up.`}
+        />
+        <Segmented
+          label="Look ahead"
+          value={horizon}
+          options={HORIZONS.map((h) => ({ value: h, label: h === 365 ? '1 yr' : h === 180 ? '6 mo' : `${h} d` }))}
+          onChange={setHorizon}
+        />
+        <Segmented
+          label="Decks"
+          value={deckSel}
+          options={[{ value: 'all', label: decks.length === 2 ? 'Both' : 'All' }, ...decks.map((d) => ({ value: d.id, label: d.name }))]}
+          onChange={setDeckSel}
+        />
+        <Disclosure title="Fine-tune the simulation" subtitle="Study days, answer speed, retention target and recall model">
+          <div className="space-y-5 pt-2">
             <Slider
-              label="Custom desired retention"
-              value={retention}
-              min={0.7}
-              max={0.97}
-              step={0.01}
-              format={(v) => formatPct(v, 0)}
-              onChange={setRetention}
-              hint={`Applies to every selected deck. Your presets: ${fsrs.presets.map((p) => `${deckNames[p.deckId] ?? p.deckId} ${formatPct(p.desiredRetention, 0)}`).join(', ')}. Existing cards keep their current due dates; the new target applies from their next review, as in Anki when you change it without rescheduling.`}
+              label="Study days per week"
+              value={studyDays}
+              min={1}
+              max={7}
+              onChange={setStudyDays}
+              hint={`Measured: about ${measured.studyDaysPerWeek} over the last 4 weeks. Rest days come first on Sunday, then Saturday, then mid-week; cards due on them wait for the next study day.`}
             />
-          )}
-        </div>
-        <Slider
-          label="Study days per week"
-          value={studyDays}
-          min={1}
-          max={7}
-          onChange={setStudyDays}
-          hint={`Measured: about ${measured.studyDaysPerWeek} over the last 4 weeks. Rest days come first on Sunday, then Saturday, then mid-week; cards due on them wait for the next study day.`}
-        />
-        <Slider
-          label="Seconds per review"
-          value={secs}
-          min={3}
-          max={60}
-          format={(v) => `${v} s`}
-          onChange={setSecs}
-          hint={`Measured: ${measured.secondsPerReview.toFixed(1)} s per answer over the last 4 weeks. Only affects minutes, not review counts.`}
-        />
+            <Slider
+              label="Seconds per review"
+              value={secs}
+              min={3}
+              max={60}
+              format={(v) => `${v} s`}
+              onChange={setSecs}
+              hint={`Measured: ${measured.secondsPerReview.toFixed(1)} s per answer over the last 4 weeks. Only affects minutes, not review counts.`}
+            />
+            <div className="space-y-3">
+              <Segmented
+                label="Desired retention"
+                value={retentionMode}
+                options={[
+                  { value: 'preset', label: presetLabel ? `Presets (${presetLabel})` : 'Presets' },
+                  { value: 'custom', label: 'Custom' },
+                ]}
+                onChange={setRetentionMode}
+              />
+              {retentionMode === 'custom' && (
+                <Slider
+                  label="Custom desired retention"
+                  value={retention}
+                  min={0.7}
+                  max={0.97}
+                  step={0.01}
+                  format={(v) => formatPct(v, 0)}
+                  onChange={setRetention}
+                  hint={`Applies to every selected deck. Your presets: ${fsrs.presets.map((p) => `${deckNames[p.deckId] ?? p.deckId} ${formatPct(p.desiredRetention, 0)}`).join(', ')}. Existing cards keep their current due dates; the new target applies from their next review, as in Anki when you change it without rescheduling.`}
+                />
+              )}
+            </div>
+            <div>
+              <Segmented
+                label="Recall model"
+                value={recall}
+                options={[
+                  { value: 'fsrs', label: 'FSRS prediction' },
+                  { value: 'calibrated', label: 'Your lapse rate' },
+                ]}
+                onChange={setRecall}
+              />
+              <p className="mt-2 text-xs leading-relaxed text-muted">
+                <span className="font-bold text-ink-2">FSRS prediction</span> draws lapses from FSRS’s recall probability.{' '}
+                <span className="font-bold text-ink-2">Your lapse rate</span> scales them to how often you actually pressed Again.
+              </p>
+            </div>
+          </div>
+        </Disclosure>
+      </div>
+    </Panel>
+  )
+
+  const status = unavailable ? (
+    <PlannerState title="Nothing to simulate">The selected decks have no studied or new cards with FSRS data.</PlannerState>
+  ) : error ? (
+    <PlannerState title="The simulation didn’t finish" alert>
+      Something went wrong ({error}). Try different settings or reload the page.
+    </PlannerState>
+  ) : !main || !summary ? (
+    <PlannerState title="Simulating your cards…" busy>
+      Running {settings.runs} simulated futures of every card. This takes a moment.
+    </PlannerState>
+  ) : null
+
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-6 lg:grid-cols-5">
+        {controls}
+
+        <Panel
+          title="What to expect"
+          eyebrow={`Next ${horizonLabel}`}
+          subtitle={`FSRS-6 simulation of your real cards · ${main ? `${main.runs} runs` : 'running…'}`}
+          variant="projection"
+          className="lg:col-span-3"
+          actions={
+            running && main ? (
+              <span role="status" className="inline-flex items-center gap-1.5 rounded-full bg-brand-soft px-2.5 py-1 text-xs font-bold text-brand-strong">
+                <RefreshIcon size={14} spinning /> Updating…
+              </span>
+            ) : undefined
+          }
+        >
+          {status ??
+            (summary && main && (
+              <>
+                <div className="rounded-3xl bg-brand-soft p-5">
+                  <p className="text-sm font-bold text-brand-strong">On a typical study day</p>
+                  <p className="mt-1 flex flex-wrap items-baseline gap-x-3 text-ink">
+                    <span className="text-5xl font-black tracking-tight tabular-nums">≈ {formatInt(minutesPerStudyDay)} min</span>
+                    <span className="text-lg font-bold text-ink-2">{formatInt(summary.avgPerStudyDay)} reviews</span>
+                  </p>
+                  <p className="mt-2 text-sm text-ink-2">
+                    At {newPerDay} new {newPerDay === 1 ? 'card' : 'cards'} a day, {studyDays} {studyDays === 1 ? 'day' : 'days'} a week, over the
+                    next {horizonLabel}. Busiest day: about {formatInt(summary.peak.mean)} reviews.
+                  </p>
+                  {verdict && (
+                    <p
+                      className={`mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-extrabold ${
+                        verdict.tone === 'good' ? 'bg-good-soft text-good' : 'bg-warning-soft text-warning'
+                      }`}
+                    >
+                      {verdict.tone === 'good' ? <CheckIcon size={16} /> : <WarningIcon size={16} />}
+                      {verdict.label}
+                      <InfoTip label="About this verdict">
+                        Judged on the heaviest 30 days of a simulated year ({formatInt(heaviest)} min per study day) against
+                        your {budget}-minute budget, and whether the daily review limit leaves cards waiting.
+                      </InfoTip>
+                    </p>
+                  )}
+                </div>
+
+                <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  <Metric
+                    label="Total reviews"
+                    value={formatInt(summary.total.mean)}
+                    sub={`likely ${formatInt(summary.total.p10)}–${formatInt(summary.total.p90)}`}
+                    tip="Mean over simulation runs; the range covers the middle 80% of runs (10th–90th percentile)."
+                  />
+                  <Metric
+                    label="Per study day"
+                    value={formatInt(summary.avgPerStudyDay)}
+                    sub={`${formatInt(summary.avgPerDay)} per calendar day`}
+                  />
+                  <Metric
+                    label="Busiest day"
+                    value={formatInt(summary.peak.mean)}
+                    sub={`90% of runs ≤ ${formatInt(summary.peak.p90)}`}
+                    tip="Busiest single day in each run, averaged over runs."
+                  />
+                  <Metric label="Minutes per study day" value={formatInt(minutesPerStudyDay)} sub={`at ${secs} s per review`} />
+                  <Metric
+                    label="Cards known well"
+                    value={formatInt(summary.matureEnd)}
+                    sub={`${formatInt(mature0(fsrs, settings.deckIds))} today → end of period`}
+                    tip="Cards with a scheduled interval of 21 days or more at the end of the period (Anki’s “mature”)."
+                  />
+                  <Metric
+                    label="New cards introduced"
+                    value={formatInt(summary.newIntroduced)}
+                    sub={
+                      summary.newIntroduced < newPerDay * main.days.slice(0, horizon).filter((d) => d.study).length - 0.5
+                        ? 'limited by remaining new cards'
+                        : `${formatInt(pool - summary.newIntroduced)} new cards left after`
+                    }
+                  />
+                </div>
+              </>
+            ))}
+        </Panel>
       </div>
 
-      {unavailable ? (
-        <p className="py-16 text-center text-sm text-muted">
-          Nothing to simulate: the selected decks have no studied or new cards with FSRS data.
-        </p>
-      ) : error ? (
-        <p role="alert" className="py-16 text-center text-sm text-ink-2">
-          The simulation failed ({error}). Try different settings or reload the page.
-        </p>
-      ) : !main || !summary ? (
-        <p className="py-16 text-center text-sm text-muted">Simulating your cards…</p>
-      ) : (
+      {!status && main && summary && (
         <>
-          <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-6">
-            <Metric
-              label="Total reviews"
-              value={formatInt(summary.total.mean)}
-              sub={`range ${formatInt(summary.total.p10)}–${formatInt(summary.total.p90)}`}
-              tip="Mean over simulation runs; range is the 10th–90th percentile of runs."
-            />
-            <Metric
-              label="Average per study day"
-              value={formatInt(summary.avgPerStudyDay)}
-              sub={`${formatInt(summary.avgPerDay)} per calendar day`}
-            />
-            <Metric
-              label="Peak day"
-              value={formatInt(summary.peak.mean)}
-              sub={`90% of runs ≤ ${formatInt(summary.peak.p90)}`}
-              tip="Busiest single day in each run, averaged over runs."
-            />
-            <Metric label="Minutes per study day" value={formatInt(toMin(summary.avgPerStudyDay))} sub={`at ${secs} s per review`} />
-            <Metric
-              label="Mature cards"
-              value={formatInt(summary.matureEnd)}
-              sub={`${formatInt(mature0(fsrs, settings.deckIds))} today → end of period`}
-              tip="Cards with a scheduled interval of 21 days or more at the end of the period (Anki’s definition)."
-            />
-            <Metric
-              label="New cards introduced"
-              value={formatInt(summary.newIntroduced)}
-              sub={
-                summary.newIntroduced < newPerDay * main.days.slice(0, horizon).filter((d) => d.study).length - 0.5
-                  ? 'limited by remaining new cards'
-                  : `${formatInt(pool - summary.newIntroduced)} new cards left after`
-              }
-            />
-          </div>
+          {/* Recommendations */}
+          <Panel
+            title="Recommendations"
+            eyebrow="Answers from the simulation"
+            subtitle="Plain answers to common planning questions, using your settings above."
+            variant="projection"
+          >
+            {insights.length ? (
+              <dl className="grid gap-4 md:grid-cols-2">
+                {insights.map((i) => (
+                  <div key={i.question} className="rounded-2xl bg-surface-2 p-4">
+                    <dt className="flex items-start gap-2.5 font-extrabold text-ink">
+                      <span
+                        aria-hidden
+                        className={`mt-0.5 grid size-6 shrink-0 place-items-center rounded-full ${
+                          i.tone === 'good' ? 'bg-good-soft text-good' : i.tone === 'warning' ? 'bg-warning-soft text-warning' : 'bg-surface text-muted'
+                        }`}
+                      >
+                        {i.tone === 'good' ? <CheckIcon size={14} /> : i.tone === 'warning' ? <WarningIcon size={14} /> : <SparkleIcon size={14} />}
+                      </span>
+                      {i.question}
+                    </dt>
+                    <dd className="mt-2 text-sm leading-relaxed text-ink-2">{i.answer}</dd>
+                    <dd className="mt-1.5 text-xs text-muted">Based on: {i.basis}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : (
+              <PlannerState title="Comparing scenarios…" busy>
+                Simulating other new-card limits to compare with yours.
+              </PlannerState>
+            )}
+          </Panel>
 
           {/* Timeline */}
-          <div className="mt-5 rounded-xl border border-dashed border-line p-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-semibold text-ink">
-                  Projected {weekly ? 'reviews per day (weekly average)' : 'daily reviews'}
-                  <InfoTip>
-                    Already scheduled: the next review of each existing card, on the date Anki has set (moved only by rest
-                    days or the review limit). Everything after that is estimated by the FSRS simulation. The grey band is
-                    the 10th–90th percentile across runs.
-                  </InfoTip>
-                </h3>
-                <p className="text-xs text-muted">
-                  Starting {formatLongDate(todayKey)} · known schedule vs estimated reviews
-                  {summary.backlogEnd > 1 && ` · ${formatInt(summary.backlogEnd)} cards held back by the daily review limit at the end`}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-3">
-                {SERIES.map((s) => (
-                  <span key={s.key} className="inline-flex items-center gap-1.5 text-xs text-ink-2">
-                    <svg width="12" height="12" aria-hidden>
-                      <defs>
-                        <HatchPattern id={`lg-${s.key}`} color={s.color} />
-                      </defs>
-                      <rect width="12" height="12" rx="2" fill={s.estimated ? `url(#lg-${s.key})` : s.color} />
-                    </svg>
-                    {s.label}
-                  </span>
-                ))}
-                <LegendItem color="rgb(195 194 183 / 0.35)" label="Range across runs" />
-              </div>
+          <Panel
+            title="How will my reviews add up?"
+            eyebrow={weekly ? 'Projected reviews per day (weekly average)' : 'Projected daily reviews'}
+            subtitle={`Starting ${formatLongDate(todayKey)}${summary.backlogEnd > 1 ? ` · ${formatInt(summary.backlogEnd)} cards held back by the daily review limit at the end` : ''}`}
+            variant="projection"
+            actions={
+              <InfoTip label="About this chart">
+                Already scheduled: the next review of each existing card, on the date Anki has set (moved only by rest days or
+                the review limit). Everything after that is estimated by the FSRS simulation. The shaded band covers the middle
+                80% of runs.
+              </InfoTip>
+            }
+          >
+            <div className="flex flex-wrap gap-x-4 gap-y-2">
+              {SERIES.map((s) => (
+                <span key={s.key} className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink-2">
+                  <svg width="12" height="12" aria-hidden>
+                    <defs>
+                      <HatchPattern id={`lg-${s.key}`} color={s.color} />
+                    </defs>
+                    <rect width="12" height="12" rx="3" fill={s.estimated ? `url(#lg-${s.key})` : s.color} />
+                  </svg>
+                  {s.label}
+                </span>
+              ))}
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink-2">
+                <span className="size-2.5 rounded-full opacity-35" style={{ background: forecast.band }} />
+                Likely range
+              </span>
             </div>
             <div className="mt-3 h-72">
               <ResponsiveContainer width="100%" height="100%">
@@ -333,7 +453,7 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
                           footer={
                             row
                               ? {
-                                  label: `Total (range ${formatInt(row.band[0])}–${formatInt(row.band[1])})`,
+                                  label: `Total (likely ${formatInt(row.band[0])}–${formatInt(row.band[1])})`,
                                   value: `${formatInt(row.total)} · ${formatInt(toMin(row.total))} min`,
                                 }
                               : undefined
@@ -372,7 +492,7 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
                         dataKey={s.key}
                         stackId="w"
                         fill={s.estimated ? `url(#hatch-${s.key})` : s.color}
-                        radius={i === SERIES.length - 1 ? [2, 2, 0, 0] : 0}
+                        radius={i === SERIES.length - 1 ? [3, 3, 0, 0] : 0}
                         isAnimationActive={false}
                       />
                     ),
@@ -384,20 +504,21 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
               Over {horizon} days: {formatInt(summary.known)} already-scheduled reviews, {formatInt(summary.followUp)} estimated
               follow-ups of existing cards, {formatInt(summary.fresh)} from new cards.
             </p>
-          </div>
+          </Panel>
 
-          <div className="mt-5 grid gap-4 lg:grid-cols-3">
-            {/* Scenarios */}
-            <div className="rounded-xl border border-dashed border-line p-4">
-              <h3 className="text-sm font-semibold text-ink">
-                New cards per day
-                <InfoTip>
-                  Minutes per study day in the heaviest 30 days of the next {horizon} days, for each scenario. All scenarios
-                  share the same random draws, so differences come from the setting. Dashed line: your time budget.
-                </InfoTip>
-              </h3>
-              <p className="text-xs text-muted">Heaviest month, minutes per study day</p>
-              <div className="mt-3 h-52">
+          {/* Scenarios */}
+          <Panel
+            title="What if I change my settings?"
+            eyebrow="Compare scenarios"
+            subtitle="Each bar is a separate simulation with the same random draws, so differences come from the setting."
+            variant="projection"
+          >
+            <div className="grid gap-4 lg:grid-cols-3">
+              <ScenarioCard
+                title="New cards per day"
+                question="How much time does each new-card limit cost?"
+                tip={`Minutes per study day in the heaviest 30 days of the next ${horizon} days, for each scenario. Dashed line: your ${budget}-minute budget. Your current setting is the solid bar.`}
+              >
                 {scenarioRows.length ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={scenarioRows} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
@@ -422,43 +543,23 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
                           ) : null
                         }}
                       />
-                      <Bar dataKey="minutes" radius={[3, 3, 0, 0]} isAnimationActive={false}>
+                      <Bar dataKey="minutes" radius={[4, 4, 0, 0]} isAnimationActive={false}>
                         {scenarioRows.map((r) => (
-                          <Cell key={r.value} fill={forecast.fresh} fillOpacity={r.value === newPerDay ? 1 : 0.45} />
+                          <Cell key={r.value} fill={forecast.fresh} fillOpacity={r.value === newPerDay ? 1 : 0.4} />
                         ))}
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
-                  <p className="pt-16 text-center text-xs text-muted">Simulating scenarios…</p>
+                  <ChartPending />
                 )}
-              </div>
-              <div className="mt-3">
-                <Slider
-                  label="Daily time budget"
-                  value={budget}
-                  min={5}
-                  max={180}
-                  step={5}
-                  format={(v) => `${v} min`}
-                  onChange={setBudget}
-                  hint={`Used by the insights below. Default: your measured ${Math.round(measured.minutesPerStudyDay)} min per study day over the last 4 weeks, rounded up.`}
-                />
-              </div>
-            </div>
+              </ScenarioCard>
 
-            {/* Retention */}
-            <div className="rounded-xl border border-dashed border-line p-4">
-              <h3 className="text-sm font-semibold text-ink">
-                Desired retention
-                <InfoTip>
-                  Total reviews over the next {horizon} days at each desired retention, with your other settings. Higher
-                  retention means shorter intervals and more reviews. Expected recall at review time is roughly the
-                  target itself.
-                </InfoTip>
-              </h3>
-              <p className="text-xs text-muted">Total reviews over {horizon} days</p>
-              <div className="mt-3 h-52">
+              <ScenarioCard
+                title="Desired retention"
+                question="How many more reviews does a higher target mean?"
+                tip={`Total reviews over the next ${horizon} days at each desired retention, with your other settings. Higher retention means shorter intervals and more reviews. Expected recall at review time is roughly the target itself.`}
+              >
                 {retentionRows.length ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={retentionRows} margin={{ top: 8, right: 8, bottom: 0, left: -8 }}>
@@ -481,31 +582,27 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
                           ) : null
                         }}
                       />
-                      <Bar dataKey="total" radius={[3, 3, 0, 0]} isAnimationActive={false}>
+                      <Bar dataKey="total" radius={[4, 4, 0, 0]} isAnimationActive={false}>
                         {retentionRows.map((r) => (
                           <Cell
                             key={r.value}
                             fill={forecast.known}
-                            fillOpacity={effectiveRetention !== null && Math.abs(r.value - effectiveRetention) < 0.001 ? 1 : 0.45}
+                            fillOpacity={effectiveRetention !== null && Math.abs(r.value - effectiveRetention) < 0.001 ? 1 : 0.4}
                           />
                         ))}
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
-                  <p className="pt-16 text-center text-xs text-muted">Simulating scenarios…</p>
+                  <ChartPending />
                 )}
-              </div>
-            </div>
+              </ScenarioCard>
 
-            {/* Deck burden */}
-            <div className="rounded-xl border border-dashed border-line p-4">
-              <h3 className="text-sm font-semibold text-ink">
-                Burden by deck
-                <InfoTip>Projected reviews over the next {horizon} days: existing cards (solid) vs cards introduced during the period (hatched).</InfoTip>
-              </h3>
-              <p className="text-xs text-muted">Reviews over {horizon} days</p>
-              <div className="mt-3 h-52">
+              <ScenarioCard
+                title="Burden by deck"
+                question="Which deck will keep me busiest?"
+                tip={`Projected reviews over the next ${horizon} days: existing cards (solid) vs cards introduced during the period (hatched).`}
+              >
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={deckRows} layout="vertical" margin={{ top: 8, right: 12, bottom: 0, left: 8 }} barSize={22}>
                     <defs>
@@ -538,44 +635,19 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
                         <Cell key={d.deckId} fill={deckColor(d.deckId)} />
                       ))}
                     </Bar>
-                    <Bar dataKey="fresh" stackId="d" radius={[0, 3, 3, 0]} isAnimationActive={false}>
+                    <Bar dataKey="fresh" stackId="d" radius={[0, 4, 4, 0]} isAnimationActive={false}>
                       {deckRows.map((d) => (
                         <Cell key={d.deckId} fill={`url(#hatch-deck-${d.deckId})`} />
                       ))}
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
-              </div>
+              </ScenarioCard>
             </div>
-          </div>
+          </Panel>
 
-          {/* Insights */}
-          <div className="mt-5 rounded-xl border border-line bg-surface-2/40 p-4">
-            <h3 className="text-sm font-semibold text-ink">Insights</h3>
-            {insights.length ? (
-              <dl className="mt-3 grid gap-4 md:grid-cols-2">
-                {insights.map((i) => (
-                  <div key={i.question} className="rounded-lg border border-line/70 p-3">
-                    <dt className="flex items-start gap-2 text-sm font-medium text-ink">
-                      <span
-                        aria-hidden
-                        className={`mt-1.5 size-2 shrink-0 rounded-full ${i.tone === 'good' ? 'bg-good' : i.tone === 'warning' ? 'bg-warning' : 'bg-ink-2'}`}
-                      />
-                      {i.question}
-                    </dt>
-                    <dd className="mt-1.5 text-sm text-ink-2">{i.answer}</dd>
-                    <dd className="mt-1 text-xs text-muted">Based on: {i.basis}</dd>
-                  </div>
-                ))}
-              </dl>
-            ) : (
-              <p className="mt-2 text-xs text-muted">Simulating scenarios…</p>
-            )}
-          </div>
-
-          <details className="mt-5 rounded-xl border border-line px-4 py-3 text-xs leading-relaxed text-ink-2">
-            <summary className="cursor-pointer text-sm font-medium text-ink">How the forecast works, and its limits</summary>
-            <ul className="mt-2 list-disc space-y-1 pl-5">
+          <Disclosure title="How the forecast works, and its limits" subtitle="Assumptions, what’s modelled and what isn’t">
+            <ul className="list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-ink-2">
               <li>
                 Starts from every studied card’s real FSRS state and due date. Each review draws recall from FSRS-6’s
                 predicted probability (or your measured lapse rate), uses your measured Hard/Good/Easy mix, updates the
@@ -598,10 +670,40 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
                 {observedLapses < 20 && ' With this few lapses, the “Your lapse rate” model rests on limited evidence.'}
               </li>
             </ul>
-          </details>
+          </Disclosure>
         </>
       )}
-    </Panel>
+    </div>
+  )
+}
+
+/** Loading, empty and error states inside the Planner, friendly rather than blank. */
+function PlannerState({ title, children, busy, alert }: { title: string; children: ReactNode; busy?: boolean; alert?: boolean }) {
+  return (
+    <div role={alert ? 'alert' : 'status'} className="flex flex-col items-center py-12 text-center">
+      <span className={`grid size-14 place-items-center rounded-3xl ${alert ? 'bg-critical-soft text-critical' : 'bg-brand-soft text-brand'}`}>
+        {alert ? <WarningIcon size={26} /> : <RefreshIcon size={26} spinning={busy} />}
+      </span>
+      <p className="mt-3 font-extrabold text-ink">{title}</p>
+      <p className="mt-1 max-w-sm text-sm text-muted">{children}</p>
+    </div>
+  )
+}
+
+function ChartPending() {
+  return <div className="skeleton h-full" aria-label="Simulating scenarios" />
+}
+
+function ScenarioCard({ title, question, tip, children }: { title: string; question: string; tip: string; children: ReactNode }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-line p-4">
+      <h3 className="font-extrabold text-ink">
+        {title}
+        <InfoTip label={`About ${title}`}>{tip}</InfoTip>
+      </h3>
+      <p className="text-xs text-muted">{question}</p>
+      <div className="mt-3 h-52">{children}</div>
+    </div>
   )
 }
 
