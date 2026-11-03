@@ -61,10 +61,14 @@ function forgetStability(d: number, s: number, r: number, w: readonly number[]) 
   return Math.min(longTerm, s / Math.exp(w[17] * w[18]))
 }
 
-/** Same-day review (learning/relearning steps). */
+/**
+ * Same-day review (learning/relearning steps). Only Again can lower stability: for Hard, Good and
+ * Easy the increase is floored at 1, as in Anki's engine (checked against Anki 26.9.3, see
+ * fixtures/anki-fsrs-reference.json).
+ */
 function shortTermStability(s: number, g: Rating, w: readonly number[]) {
   let inc = Math.exp(w[17] * (g - 3 + w[18])) * Math.pow(s, -w[19])
-  if (g >= 3) inc = Math.max(inc, 1)
+  if (g >= 2) inc = Math.max(inc, 1)
   return s * inc
 }
 

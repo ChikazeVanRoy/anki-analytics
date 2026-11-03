@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_PARAMS as W, difficultyPercent, nextInterval, replay, retrievability, step } from './fsrs'
+import reference from './fixtures/anki-fsrs-reference.json'
+import {
+  DEFAULT_PARAMS as W,
+  difficultyPercent,
+  nextInterval,
+  replay,
+  retrievability,
+  step,
+  type MemoryState,
+  type Rating,
+} from './fsrs'
 
 describe('forgetting curve', () => {
   it('gives 90% recall after exactly `stability` days, for any stability', () => {
@@ -50,16 +60,33 @@ describe('memory state updates (FSRS-6 defaults)', () => {
     expect(s.difficulty).toBeGreaterThan(9)
   })
 
-  it('uses the short-term formula for same-day reviews: Good never lowers stability, Again does', () => {
-    const state = { stability: 2, difficulty: 5 }
-    expect(step(state, 3, 0).stability).toBeGreaterThanOrEqual(2)
-    expect(step(state, 1, 0).stability).toBeLessThan(2)
+  it('uses the short-term formula for same-day reviews: Hard, Good and Easy never lower stability, Again does', () => {
+    for (const s of [0.212, 2, 30]) {
+      const state = { stability: s, difficulty: 5 }
+      for (const g of [2, 3, 4] as const) expect(step(state, g, 0).stability).toBeGreaterThanOrEqual(s)
+      expect(step(state, 1, 0).stability).toBeLessThan(s)
+    }
   })
 
   it('caps post-lapse stability so a lapse never increases it', () => {
     const state = { stability: 0.5, difficulty: 1 }
     expect(step(state, 1, 30).stability).toBeLessThanOrEqual(0.5)
   })
+})
+
+describe("matches Anki's own engine", () => {
+  // Reference states exported from Anki's Rust backend for synthetic review histories (no personal data)
+  for (const [name, seq] of Object.entries(reference.sequences)) {
+    it(name, () => {
+      let state: MemoryState | null = null
+      seq.reviews.forEach((r, i) => {
+        const elapsed = i ? r.day - seq.reviews[i - 1].day : 0
+        state = step(state, r.rating as Rating, elapsed)
+        expect(Math.abs(state.stability / seq.anki[i].stability - 1), `stability after review ${i + 1}`).toBeLessThan(1e-3)
+        expect(state.difficulty, `difficulty after review ${i + 1}`).toBeCloseTo(seq.anki[i].difficulty, 3)
+      })
+    })
+  }
 })
 
 describe('replay', () => {

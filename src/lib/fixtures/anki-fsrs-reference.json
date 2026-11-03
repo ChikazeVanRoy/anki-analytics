@@ -1,0 +1,311 @@
+{
+ "source": "Anki 26.09.3 Rust backend (card_stats memory states), default FSRS-6 parameters, synthetic review histories; regenerate with scripts/fsrs-validation/anki_reference.py",
+ "sequences": {
+  "again-then-same-day-hard-and-good": {
+   "reviews": [
+    {
+     "day": 0,
+     "rating": 1,
+     "type": 0
+    },
+    {
+     "day": 0,
+     "rating": 2,
+     "type": 0
+    },
+    {
+     "day": 0,
+     "rating": 3,
+     "type": 0
+    },
+    {
+     "day": 1,
+     "rating": 3,
+     "type": 1
+    },
+    {
+     "day": 4,
+     "rating": 3,
+     "type": 1
+    }
+   ],
+   "anki": [
+    {
+     "stability": 0.212,
+     "difficulty": 6.4133
+    },
+    {
+     "stability": 0.212,
+     "difficulty": 7.60421
+    },
+    {
+     "stability": 0.246689,
+     "difficulty": 7.591834
+    },
+    {
+     "stability": 1.562245,
+     "difficulty": 7.579471
+    },
+    {
+     "stability": 5.671295,
+     "difficulty": 7.56712
+    }
+   ]
+  },
+  "good-path-with-lapse": {
+   "reviews": [
+    {
+     "day": 0,
+     "rating": 3,
+     "type": 0
+    },
+    {
+     "day": 0,
+     "rating": 3,
+     "type": 0
+    },
+    {
+     "day": 2,
+     "rating": 3,
+     "type": 1
+    },
+    {
+     "day": 9,
+     "rating": 2,
+     "type": 1
+    },
+    {
+     "day": 24,
+     "rating": 1,
+     "type": 1
+    },
+    {
+     "day": 24,
+     "rating": 3,
+     "type": 2
+    },
+    {
+     "day": 25,
+     "rating": 3,
+     "type": 1
+    }
+   ],
+   "anki": [
+    {
+     "stability": 2.3065,
+     "difficulty": 2.118104
+    },
+    {
+     "stability": 2.3065,
+     "difficulty": 2.111214
+    },
+    {
+     "stability": 10.971057,
+     "difficulty": 2.104331
+    },
+    {
+     "stability": 26.114031,
+     "difficulty": 4.743716
+    },
+    {
+     "stability": 2.078075,
+     "difficulty": 8.257523
+    },
+    {
+     "stability": 2.080876,
+     "difficulty": 8.244493
+    },
+    {
+     "stability": 3.634309,
+     "difficulty": 8.231478
+    }
+   ]
+  },
+  "easy-first": {
+   "reviews": [
+    {
+     "day": 0,
+     "rating": 4,
+     "type": 0
+    },
+    {
+     "day": 8,
+     "rating": 4,
+     "type": 1
+    },
+    {
+     "day": 38,
+     "rating": 3,
+     "type": 1
+    }
+   ],
+   "anki": [
+    {
+     "stability": 8.2956,
+     "difficulty": 1.0
+    },
+    {
+     "stability": 65.62426,
+     "difficulty": 1.0
+    },
+    {
+     "stability": 161.622284,
+     "difficulty": 1.0
+    }
+   ]
+  },
+  "repeated-same-day-hard": {
+   "reviews": [
+    {
+     "day": 0,
+     "rating": 2,
+     "type": 0
+    },
+    {
+     "day": 0,
+     "rating": 2,
+     "type": 0
+    },
+    {
+     "day": 0,
+     "rating": 2,
+     "type": 0
+    },
+    {
+     "day": 1,
+     "rating": 1,
+     "type": 1
+    },
+    {
+     "day": 1,
+     "rating": 3,
+     "type": 2
+    },
+    {
+     "day": 3,
+     "rating": 3,
+     "type": 1
+    }
+   ],
+   "anki": [
+    {
+     "stability": 1.2931,
+     "difficulty": 5.112171
+    },
+    {
+     "stability": 1.2931,
+     "difficulty": 6.740459
+    },
+    {
+     "stability": 1.2931,
+     "difficulty": 7.821393
+    },
+    {
+     "stability": 0.36572,
+     "difficulty": 9.269135
+    },
+    {
+     "stability": 0.410564,
+     "difficulty": 9.255094
+    },
+    {
+     "stability": 1.532039,
+     "difficulty": 9.241067
+    }
+   ]
+  },
+  "repeated-same-day-again": {
+   "reviews": [
+    {
+     "day": 0,
+     "rating": 1,
+     "type": 0
+    },
+    {
+     "day": 0,
+     "rating": 1,
+     "type": 0
+    },
+    {
+     "day": 0,
+     "rating": 3,
+     "type": 0
+    },
+    {
+     "day": 1,
+     "rating": 4,
+     "type": 1
+    }
+   ],
+   "anki": [
+    {
+     "stability": 0.212,
+     "difficulty": 6.4133
+    },
+    {
+     "stability": 0.083357,
+     "difficulty": 8.806304
+    },
+    {
+     "stability": 0.103141,
+     "difficulty": 8.792727
+    },
+    {
+     "stability": 1.212111,
+     "difficulty": 8.37454
+    }
+   ]
+  },
+  "hard-reviews-across-days": {
+   "reviews": [
+    {
+     "day": 0,
+     "rating": 3,
+     "type": 0
+    },
+    {
+     "day": 3,
+     "rating": 2,
+     "type": 1
+    },
+    {
+     "day": 6,
+     "rating": 2,
+     "type": 1
+    },
+    {
+     "day": 12,
+     "rating": 2,
+     "type": 1
+    },
+    {
+     "day": 30,
+     "rating": 3,
+     "type": 1
+    }
+   ],
+   "anki": [
+    {
+     "stability": 2.3065,
+     "difficulty": 2.118104
+    },
+    {
+     "stability": 9.234876,
+     "difficulty": 4.752858
+    },
+    {
+     "stability": 14.497235,
+     "difficulty": 6.501931
+    },
+    {
+     "stability": 21.286211,
+     "difficulty": 7.663047
+    },
+    {
+     "stability": 41.634995,
+     "difficulty": 7.650612
+    }
+   ]
+  }
+ }
+}
