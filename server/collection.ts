@@ -2,7 +2,7 @@
 // The original is only ever read, never modified.
 // Used by both `npm run copy-collection` and the API's refresh endpoint.
 
-import { execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
@@ -15,9 +15,10 @@ export const COLLECTION_COPY = join(DEST_DIR, 'collection.anki2')
 /** An expected, user-fixable problem (e.g. Anki is open). Its message is shown in the UI. */
 export class CopyError extends Error {}
 
-function matches(pgrepArgs: string) {
+/** Runs pgrep with fixed arguments. execFileSync passes them directly, with no shell to interpret them. */
+function matches(...pgrepArgs: string[]) {
   try {
-    execSync(`pgrep ${pgrepArgs}`, { stdio: 'ignore' })
+    execFileSync('pgrep', pgrepArgs, { stdio: 'ignore' })
     return true
   } catch {
     return false // pgrep exits non-zero when nothing matches
@@ -26,7 +27,7 @@ function matches(pgrepArgs: string) {
 
 // Exact process name, or anything launched from Anki.app. A loose "anki" match would also
 // hit unrelated processes such as macOS's "voicebankingd".
-const ankiIsRunning = () => matches('-x -i anki') || matches('-f "Anki\\.app/Contents/"')
+const ankiIsRunning = () => matches('-x', '-i', 'anki') || matches('-f', 'Anki\\.app/Contents/')
 
 export function copyCollection(profileName = process.env.ANKI_PROFILE): { profile: string; bytes: number } {
   if (ankiIsRunning()) throw new CopyError('Anki is running. Quit Anki completely, then try again.')
@@ -36,6 +37,8 @@ export function copyCollection(profileName = process.env.ANKI_PROFILE): { profil
     : []
   const profile = profileName ?? (profiles.length === 1 ? profiles[0] : undefined)
   if (!profile) throw new CopyError(`Found profiles: ${profiles.join(', ') || 'none'}. Set ANKI_PROFILE=<name>.`)
+  // Only accept an existing profile folder name, so ANKI_PROFILE can't point outside Anki's folder (e.g. "../..")
+  if (!profiles.includes(profile)) throw new CopyError(`Unknown profile "${profile}". Found: ${profiles.join(', ') || 'none'}.`)
 
   const source = join(ANKI_DIR, profile, 'collection.anki2')
   if (!existsSync(source)) throw new CopyError(`No collection found for profile "${profile}".`)
