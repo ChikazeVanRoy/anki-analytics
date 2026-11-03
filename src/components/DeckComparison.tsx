@@ -1,6 +1,7 @@
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { useDeckColor } from '../data/deckColors'
 import type { Deck } from '../data/types'
+import { messages } from '../i18n'
 import type { Bucket, DeckSummary } from '../lib/stats'
 import { formatBucketTick, formatBucketTitle, formatInt, formatMinutes, formatPct } from '../lib/format'
 import { chart } from '../lib/theme'
@@ -23,7 +24,10 @@ function DeckCard({ summary }: { summary: DeckSummary }) {
       <div className="flex items-center gap-2">
         <span className="size-3 rounded-full" style={{ background: color }} />
         <h3 className="font-extrabold text-ink">{deck.name}</h3>
-        <span className="ml-auto text-xs text-muted">{formatInt(deck.totalCards)} cards</span>
+        <span className="ml-auto text-xs text-muted">
+          {formatInt(deck.totalCards)} cards
+          {deck.suspendedCards > 0 && ` · ${messages.home.decks.suspended(deck.suspendedCards)}`}
+        </span>
       </div>
 
       <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">

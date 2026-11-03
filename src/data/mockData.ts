@@ -16,9 +16,9 @@ function seededRandom(seed: number) {
 }
 
 const decks: Deck[] = [
-  { id: 'language', name: 'Language', color: 1, totalCards: 3240, newCards: 820, youngCards: 960, matureCards: 1460 },
-  { id: 'science', name: 'Science', color: 2, totalCards: 2110, newCards: 410, youngCards: 640, matureCards: 1060 },
-  { id: 'other', name: 'Other decks', totalCards: 640, newCards: 150, youngCards: 190, matureCards: 300 },
+  { id: 'language', name: 'Language', color: 1, totalCards: 3240, newCards: 820, youngCards: 960, matureCards: 1460, suspendedCards: 35 },
+  { id: 'science', name: 'Science', color: 2, totalCards: 2110, newCards: 410, youngCards: 640, matureCards: 1060, suspendedCards: 0 },
+  { id: 'other', name: 'Other decks', totalCards: 640, newCards: 150, youngCards: 190, matureCards: 300, suspendedCards: 12 },
 ]
 
 // Per-deck behaviour: daily review volume and Again rate at the start/end of the year.

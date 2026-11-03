@@ -30,12 +30,14 @@ export function readAnkiData(path: string, now = Date.now(), { deckConfig = {}, 
     // cards.type: 0 = new, 1 = learning, 2 = review, 3 = relearning
     const cardRows = db
       .prepare(
-        // A card in a filtered deck keeps its home deck in odid; count it there
+        // A card in a filtered deck keeps its home deck in odid; count it there.
+        // Suspended cards (queue -1) are counted on their own, whatever stage they were at.
         `SELECT CASE WHEN odid != 0 THEN odid ELSE did END AS did,
-                COUNT(*) AS total,
-                SUM(type = 0) AS new,
-                SUM(type IN (1, 3) OR (type = 2 AND ivl < ${MATURE_DAYS})) AS young,
-                SUM(type = 2 AND ivl >= ${MATURE_DAYS}) AS mature
+                SUM(queue != -1) AS total,
+                SUM(queue != -1 AND type = 0) AS new,
+                SUM(queue != -1 AND (type IN (1, 3) OR (type = 2 AND ivl < ${MATURE_DAYS}))) AS young,
+                SUM(queue != -1 AND type = 2 AND ivl >= ${MATURE_DAYS}) AS mature,
+                SUM(queue = -1) AS suspended
          FROM cards GROUP BY 1`,
       )
       .all()
@@ -61,6 +63,7 @@ export function readAnkiData(path: string, now = Date.now(), { deckConfig = {}, 
         newCards: 0,
         youngCards: 0,
         matureCards: 0,
+        suspendedCards: 0,
       })
     }
     for (const r of cardRows) {
@@ -70,6 +73,7 @@ export function readAnkiData(path: string, now = Date.now(), { deckConfig = {}, 
       deck.newCards += Number(r.new)
       deck.youngCards += Number(r.young)
       deck.matureCards += Number(r.mature)
+      deck.suspendedCards += Number(r.suspended)
     }
 
     // --- Daily review totals ---
@@ -147,7 +151,7 @@ export function readAnkiData(path: string, now = Date.now(), { deckConfig = {}, 
       generatedAt: statSync(path).mtime.toISOString(), // when the copy was made
       dayStartHour,
       // Hide groups with nothing to show (e.g. "Other decks" when every other deck is excluded)
-      decks: [...decks.values()].filter((d) => d.totalCards > 0 || daily.some((s) => s.deckId === d.id)),
+      decks: [...decks.values()].filter((d) => d.totalCards + d.suspendedCards > 0 || daily.some((s) => s.deckId === d.id)),
       daily,
       fsrs,
       fsrsError,

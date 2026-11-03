@@ -36,8 +36,8 @@ function data(daily: DailyDeckStat[], matureCards = [0, 0]): AnkiData {
     generatedAt: '',
     dayStartHour: 0,
     decks: [
-      { id: 'a', name: 'Alpha', totalCards: 10, newCards: 5, youngCards: 3, matureCards: matureCards[0] },
-      { id: 'b', name: 'Beta', totalCards: 5, newCards: 5, youngCards: 0, matureCards: matureCards[1] },
+      { id: 'a', name: 'Alpha', totalCards: 10, newCards: 5, youngCards: 3, matureCards: matureCards[0], suspendedCards: 0 },
+      { id: 'b', name: 'Beta', totalCards: 5, newCards: 5, youngCards: 0, matureCards: matureCards[1], suspendedCards: 0 },
     ],
     daily,
   }

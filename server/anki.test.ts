@@ -102,6 +102,7 @@ beforeAll(() => {
   // Intraday learning card: due is a Unix timestamp in seconds
   card.run(13, 2, 1, 1, Math.floor(at(2026, 3, 15, 13) / 1000), 0, data(replay13.state!.stability, replay13.state!.difficulty, at(2026, 3, 11, 3)))
   card.run(14, 1, 0, -1, 2, 0, '{}') // suspended new card
+  card.run(98, 1, 2, -1, 100, 30, '{}') // suspended mature card
   card.run(15, 1, 2, 2, dayNumber('2026-03-20') - crtDay, 5, data(99, 5, at(2026, 3, 1, 12))) // stored state that won't match its replay
   card.run(21, 3, 2, 2, dayNumber('2026-03-16') - crtDay, 5, data(5, 5, at(2026, 3, 11, 12)))
   card.run(41, 4, 2, 2, 100, 100, data(100, 5, at(2026, 3, 11, 14)))
@@ -160,7 +161,8 @@ describe('readAnkiData', () => {
     const decks = readAnkiData(path, NOW, { deckConfig: DECKS }).decks
     expect(decks.map((d) => d.id)).toEqual(['mandarin', 'portuguese', 'other'])
     // incl. the subdeck and the card currently in a filtered deck (counted in its home deck)
-    expect(decks[0]).toMatchObject({ totalCards: 8, newCards: 2, youngCards: 5, matureCards: 1 })
+    // Suspended cards are counted on their own, not in the total or a stage
+    expect(decks[0]).toMatchObject({ totalCards: 7, newCards: 1, youngCards: 5, matureCards: 1, suspendedCards: 2 })
     expect(decks[1]).toMatchObject({ totalCards: 1, youngCards: 1 })
     expect(decks[2]).toMatchObject({ name: 'Other decks', totalCards: 3 })
   })
@@ -169,7 +171,7 @@ describe('readAnkiData', () => {
     const data = readAnkiData(path, NOW)
     const ids = data.decks.map((d) => d.id)
     expect(data.decks.map((d) => [d.name, d.color, d.totalCards])).toEqual([
-      ['Chinese🇨🇳', 1, 8],
+      ['Chinese🇨🇳', 1, 7],
       ['Portuguese🇧🇷', 2, 1],
       ['Japanese', 3, 3], // its own deck now, instead of "Other decks"
       ['Other decks', undefined, 1], // Redundant isn't excluded without a config
@@ -240,7 +242,7 @@ describe('FSRS data', () => {
     expect(c12.stability).toBeCloseTo(replay12.state!.stability, 6)
     expect(c12.lastReview).toBe('2026-03-10')
     expect(f.newCards).toEqual({ mandarin: 1, other: 1 })
-    expect(f.suspended).toEqual({ mandarin: 1 })
+    expect(f.suspended).toEqual({ mandarin: 2 })
     expect(f.missingState).toEqual({ mandarin: 1, other: 1 }) // '{}' and 'null' card data
     expect(f.invalidDue).toEqual({ other: 1 }) // reported separately: it has a state, but no readable due date
   })
@@ -293,10 +295,10 @@ describe('FSRS data', () => {
     const db = new DatabaseSync(broken)
     db.exec(`CREATE TABLE decks (id INTEGER PRIMARY KEY, name TEXT);
              CREATE TABLE config (key TEXT PRIMARY KEY, val BLOB);
-             CREATE TABLE cards (id INTEGER PRIMARY KEY, did INTEGER, odid INTEGER, type INTEGER, ivl INTEGER);
+             CREATE TABLE cards (id INTEGER PRIMARY KEY, did INTEGER, odid INTEGER, type INTEGER, queue INTEGER, ivl INTEGER);
              CREATE TABLE revlog (id INTEGER PRIMARY KEY, cid INTEGER, ease INTEGER, time INTEGER, type INTEGER, lastIvl INTEGER);
              INSERT INTO decks VALUES (1, 'Chinese');
-             INSERT INTO cards VALUES (1, 1, 0, 2, 5);`)
+             INSERT INTO cards VALUES (1, 1, 0, 2, 2, 5);`)
     db.prepare('INSERT INTO revlog VALUES (?, 1, 3, 5000, 1, 3)').run(at(2026, 3, 10, 12))
     db.close()
     const quiet = vi.spyOn(console, 'error').mockImplementation(() => {})

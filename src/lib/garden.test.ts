@@ -9,6 +9,7 @@ const deck = (newCards: number, youngCards: number, matureCards: number, id = 'a
   newCards,
   youngCards,
   matureCards,
+  suspendedCards: 0,
 })
 
 /** A bed on its own, with the unit chosen for it alone (as in a one-deck garden of up to 60 plants). */

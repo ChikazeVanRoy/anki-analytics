@@ -45,7 +45,7 @@ export function HomePage({ data }: { data: AnkiData }) {
   const { reviewCards } = month.retention
   const fsrsOn = !!data.fsrs?.enabled
   const sample = data.source === 'mock'
-  const shownDecks = data.decks.filter((d) => d.totalCards > 0)
+  const shownDecks = data.decks.filter((d) => d.totalCards + d.suspendedCards > 0)
 
   return (
     <div className="space-y-6">
@@ -316,7 +316,8 @@ function DeckCard({ week, month }: { week: DeckSummary; month: DeckSummary }) {
         <div className="min-w-0">
           <h3 className="truncate font-extrabold text-ink">{deck.name}</h3>
           <p className="text-xs text-muted">
-            {m.decks.cards(deck.totalCards)} · {m.decks.started(formatPct(started, started < 0.1 ? 1 : 0))}
+            {m.decks.cards(deck.totalCards)}
+            {deck.suspendedCards > 0 && ` · ${m.decks.suspended(deck.suspendedCards)}`} · {m.decks.started(formatPct(started, started < 0.1 ? 1 : 0))}
           </p>
         </div>
       </div>

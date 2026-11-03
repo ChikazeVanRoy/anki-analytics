@@ -6,10 +6,11 @@ export interface Deck {
   name: string
   /** Colour slot (1-3), fixed per deck by the server. Absent: "Other decks", drawn in a neutral colour. */
   color?: number
-  totalCards: number
+  totalCards: number // new + young + mature; suspended cards are counted separately
   newCards: number
   youngCards: number // interval < 21 days
   matureCards: number // interval >= 21 days
+  suspendedCards: number
 }
 
 /** Review totals for one deck on one calendar day. */

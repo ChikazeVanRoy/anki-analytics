@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Deck } from '../data/types'
 import { deckColorMap, deckOtherColor } from './theme'
 
-const deck = (id: string, color?: number): Deck => ({ id, name: id, color, totalCards: 1, newCards: 0, youngCards: 1, matureCards: 0 })
+const deck = (id: string, color?: number): Deck => ({ id, name: id, color, totalCards: 1, newCards: 0, youngCards: 1, matureCards: 0, suspendedCards: 0 })
 
 describe('deckColorMap', () => {
   it('maps each deck to its colour slot, and decks without one to the neutral colour', () => {

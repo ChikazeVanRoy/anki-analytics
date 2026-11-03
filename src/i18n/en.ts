@@ -89,6 +89,7 @@ export const en = {
       title: 'Your decks',
       question: 'How far along is each deck?',
       cards: (n: number) => `${int(n)} cards`,
+      suspended: (n: number) => `${int(n)} suspended`,
       started: (pct: string) => `${pct} started`,
       week: 'Reviews, 7 days',
       remembered: 'Remembered, 30 days',
@@ -107,7 +108,7 @@ export const en = {
       bloom: (known: number, total: number) => `${int(known)} of ${int(total)} in bloom`,
       bedLabel: (deck: string, flower: number, sprout: number, seed: number, unit: number) =>
         `${deck}: ${int(flower)} known well, ${int(sprout)} learning, ${int(seed)} not started. Each plant is ${unit === 1 ? 'one card' : `about ${int(unit)} cards`}.`,
-      note: 'Grown from Anki’s card counts: a card blooms once its interval reaches 21 days. Suspended cards are planted too, as Anki counts them.',
+      note: 'Grown from Anki’s card counts: a card blooms once its interval reaches 21 days. Suspended cards aren’t planted.',
     },
     insight: { title: 'Insight', basis: 'Based on your review history', basisSample: 'Based on the generated sample data' },
     milestones: {
