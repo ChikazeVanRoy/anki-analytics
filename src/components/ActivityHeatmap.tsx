@@ -52,13 +52,14 @@ export function ActivityHeatmap({ byDate, today, years }: ActivityHeatmapProps) 
 
   return (
     <Panel
-      title="Study activity"
+      title="When did I study?"
+      eyebrow="Study calendar"
       subtitle={`${formatInt(total)} reviews ${period} · ${activeDays} active days`}
       actions={
-        <div className="flex items-center gap-1.5 text-xs text-muted" aria-hidden>
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-muted" aria-hidden>
           Less
           {heatmapLevels.map((c) => (
-            <span key={c} className="rounded-[3px]" style={{ width: CELL, height: CELL, background: c }} />
+            <span key={c} className="rounded-[4px]" style={{ width: CELL, height: CELL, background: c }} />
           ))}
           More
         </div>
@@ -72,8 +73,8 @@ export function ActivityHeatmap({ byDate, today, years }: ActivityHeatmapProps) 
             role="radio"
             aria-checked={v === view}
             onClick={() => setView(v)}
-            className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-              v === view ? 'bg-surface-2 text-ink' : 'text-muted hover:text-ink-2'
+            className={`rounded-xl px-3 py-1 text-xs font-bold transition-colors ${
+              v === view ? 'bg-brand-soft text-brand-strong' : 'text-muted hover:bg-surface-2 hover:text-ink'
             }`}
           >
             {v === 'last12' ? 'Last 12 months' : v}
@@ -107,7 +108,7 @@ export function ActivityHeatmap({ byDate, today, years }: ActivityHeatmapProps) 
                         key={d}
                         role="gridcell"
                         aria-label={`${formatLongDate(cell.date)}: ${cell.reviews} reviews`}
-                        className="rounded-[3px] outline-offset-1 hover:outline hover:outline-ink-2"
+                        className="rounded-[4px] outline-offset-1 transition-transform hover:scale-125 hover:outline-2 hover:outline-brand"
                         style={{ width: CELL, height: CELL, background: heatmapLevels[level(cell.reviews, t)] }}
                         onMouseEnter={(e) => {
                           const r = e.currentTarget.getBoundingClientRect()
@@ -124,10 +125,10 @@ export function ActivityHeatmap({ byDate, today, years }: ActivityHeatmapProps) 
             </div>
             {hover && (
               <div
-                className="pointer-events-none fixed z-10 -translate-x-1/2 -translate-y-full rounded-lg border border-line bg-surface-2 px-2.5 py-1.5 text-xs whitespace-nowrap shadow-lg"
+                className="pointer-events-none fixed z-10 -translate-x-1/2 -translate-y-full rounded-xl border border-line bg-surface px-3 py-1.5 text-xs whitespace-nowrap shadow-pop"
                 style={{ left: Math.min(Math.max(hover.x, 120), window.innerWidth - 120), top: hover.y - 6 }}
               >
-                <span className="font-semibold text-ink">{formatInt(hover.cell.reviews)} reviews</span>
+                <span className="font-bold text-ink">{formatInt(hover.cell.reviews)} reviews</span>
                 <span className="text-muted"> · {formatLongDate(hover.cell.date)}</span>
               </div>
             )}

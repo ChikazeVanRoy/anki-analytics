@@ -22,7 +22,8 @@ export function DailyReviewsChart({ rows, decks, bucket, period }: DailyReviewsC
 
   return (
     <Panel
-      title={TITLES[bucket]}
+      title="How much did I review?"
+      eyebrow={TITLES[bucket]}
       subtitle={`Reviews per ${bucket} by deck, ${period}`}
       actions={
         <div className="flex flex-wrap gap-3">
@@ -46,7 +47,7 @@ export function DailyReviewsChart({ rows, decks, bucket, period }: DailyReviewsC
             />
             <YAxis tick={{ fill: chart.muted, fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={formatInt} />
             <Tooltip
-              cursor={{ fill: 'rgb(255 255 255 / 0.05)' }}
+              cursor={{ fill: chart.cursor }}
               content={({ active, payload, label }) => (
                 <ChartTooltip
                   active={active}
@@ -71,7 +72,7 @@ export function DailyReviewsChart({ rows, decks, bucket, period }: DailyReviewsC
                 fill={deckColor(d.id)}
                 stroke={chart.surface}
                 strokeWidth={dense ? 0 : 1}
-                radius={d.id === lastDeck ? [3, 3, 0, 0] : 0}
+                radius={d.id === lastDeck ? [4, 4, 0, 0] : 0}
                 isAnimationActive={false}
               />
             ))}

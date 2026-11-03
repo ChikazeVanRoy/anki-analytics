@@ -1,0 +1,14 @@
+import { describe, expect, it } from 'vitest'
+import { formatRate } from './format'
+
+describe('formatRate', () => {
+  it('uses whole percentages normally', () => {
+    expect(formatRate(0.873)).toBe('87%')
+    expect(formatRate(1)).toBe('100%')
+    expect(formatRate(0)).toBe('0%')
+  })
+  it('keeps a decimal instead of rounding to 100% or 0%', () => {
+    expect(formatRate(0.9987)).toBe('99.9%')
+    expect(formatRate(0.003)).toBe('0.3%')
+  })
+})

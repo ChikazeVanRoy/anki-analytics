@@ -54,5 +54,7 @@ export function useAnkiData() {
     }
   }, [])
 
-  return { state, refresh, refreshing, refreshError }
+  const clearRefreshError = useCallback(() => setRefreshError(null), [])
+
+  return { state, refresh, refreshing, refreshError, clearRefreshError }
 }

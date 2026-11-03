@@ -406,7 +406,7 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
                       <YAxis tick={{ fill: chart.muted, fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={formatInt} />
                       <ReferenceLine y={budget} stroke={chart.ink} strokeDasharray="4 4" strokeOpacity={0.6} />
                       <Tooltip
-                        cursor={{ fill: 'rgb(255 255 255 / 0.05)' }}
+                        cursor={{ fill: chart.cursor }}
                         content={({ active, payload }) => {
                           const r = payload?.[0]?.payload as (typeof scenarioRows)[number] | undefined
                           return r ? (
@@ -466,7 +466,7 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
                       <XAxis dataKey="label" tick={{ fill: chart.muted, fontSize: 12 }} axisLine={{ stroke: chart.axis }} tickLine={false} />
                       <YAxis tick={{ fill: chart.muted, fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={formatInt} />
                       <Tooltip
-                        cursor={{ fill: 'rgb(255 255 255 / 0.05)' }}
+                        cursor={{ fill: chart.cursor }}
                         content={({ active, payload }) => {
                           const r = payload?.[0]?.payload as (typeof retentionRows)[number] | undefined
                           return r ? (
@@ -517,7 +517,7 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
                     <XAxis type="number" tick={{ fill: chart.muted, fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={formatInt} />
                     <YAxis type="category" dataKey="name" tick={{ fill: chart.muted, fontSize: 12 }} axisLine={false} tickLine={false} width={80} />
                     <Tooltip
-                      cursor={{ fill: 'rgb(255 255 255 / 0.05)' }}
+                      cursor={{ fill: chart.cursor }}
                       content={({ active, payload }) => {
                         const r = payload?.[0]?.payload as (typeof deckRows)[number] | undefined
                         return r ? (

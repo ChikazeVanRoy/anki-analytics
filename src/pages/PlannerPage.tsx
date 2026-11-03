@@ -1,0 +1,30 @@
+import { useMemo } from 'react'
+import { PlannerIcon } from '../components/icons'
+import { SourceBadge } from '../components/ui'
+import { WorkloadForecast } from '../components/WorkloadForecast'
+import type { AnkiData } from '../data/types'
+import { messages } from '../i18n'
+import { toDateKey } from '../lib/dates'
+import { measuredDefaults } from '../lib/measured'
+import { FsrsMissing } from './FsrsGate'
+import { PageHeader } from './PageHeader'
+
+export function PlannerPage({ data, today }: { data: AnkiData; today: Date }) {
+  const measured = useMemo(() => measuredDefaults(data, today), [data, today])
+  return (
+    <div className="space-y-6">
+      <PageHeader title={messages.planner.title} subtitle={messages.planner.subtitle} badge={<SourceBadge kind="projection" />} />
+      {data.fsrs?.enabled ? (
+        <WorkloadForecast
+          fsrs={data.fsrs}
+          decks={data.decks}
+          todayKey={toDateKey(today)}
+          startWeekday={(today.getDay() + 6) % 7}
+          measured={measured}
+        />
+      ) : (
+        <FsrsMissing data={data} icon={<PlannerIcon size={30} />} title={messages.fsrsMissing.planner} />
+      )}
+    </div>
+  )
+}

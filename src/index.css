@@ -1,27 +1,127 @@
 @import 'tailwindcss';
+@import '@fontsource-variable/nunito';
 
-/* Design tokens. Tailwind v4 turns each --color-* into utilities,
-   e.g. --color-surface -> bg-surface, text-surface, border-surface. */
-@theme {
-  --font-sans: system-ui, -apple-system, 'Segoe UI', sans-serif;
+/* ---------------------------------------------------------------------------
+   Design tokens
+   Every colour is one light-dark() pair, so light and dark themes come from a single definition.
+   The theme follows the OS unless <html data-theme="light|dark"> overrides it (see useTheme.ts).
+   Tailwind v4 turns each --color-* into utilities: --color-surface -> bg-surface, text-surface, ...
+   Chart colours live here too; src/lib/theme.ts references them as var(--...), validated with the
+   dataviz palette validator in both modes (see the comments there).
+   --------------------------------------------------------------------------- */
+:root {
+  color-scheme: light dark;
+}
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
 
-  --color-page: #0d0d0d;
-  --color-surface: #1a1a19;
-  --color-surface-2: #232322;
-  --color-ink: #f0efec;
-  --color-ink-2: #c3c2b7;
-  --color-muted: #898781;
-  --color-grid: #2c2c2a;
-  --color-axis: #383835;
-  --color-line: rgb(255 255 255 / 0.1);
+@theme inline {
+  --font-sans: 'Nunito Variable', ui-rounded, system-ui, -apple-system, 'Segoe UI', sans-serif;
 
-  --color-good: #0ca30c;
-  --color-warning: #fab219;
-  --color-critical: #d03b3b;
+  /* Surfaces and ink: warm cream by day, warm charcoal by night */
+  --color-page: light-dark(#fbf7f1, #15120f);
+  --color-surface: light-dark(#ffffff, #221e1a);
+  --color-surface-2: light-dark(#f6f0e8, #2c2722);
+  --color-surface-3: light-dark(#efe6da, #38312a);
+  --color-ink: light-dark(#2a241f, #f6efe6);
+  --color-ink-2: light-dark(#564c43, #d3c9bc);
+  --color-muted: light-dark(#746a5e, #a59b8e);
+  --color-line: light-dark(rgb(84 60 30 / 0.12), rgb(255 236 210 / 0.1));
+  --color-grid: light-dark(#efe8de, #322c26);
+  --color-axis: light-dark(#dcd2c5, #4a4139);
+
+  /* Brand: a friendly violet for navigation, controls and focus */
+  --color-brand: light-dark(#6a4fe0, #a99bf7);
+  --color-brand-strong: light-dark(#5539c9, #c4baff);
+  --color-brand-ink: light-dark(#ffffff, #1b1530);
+  --color-brand-soft: light-dark(#f0ecff, #2c2546);
+
+  /* Sun: streaks and celebration */
+  --color-sun: light-dark(#f07c12, #ffa340);
+  --color-sun-soft: light-dark(#fff1e0, #3a2a18);
+
+  /* Status (always paired with an icon or words, never colour alone) */
+  --color-good: light-dark(#1b8048, #4cc77f);
+  --color-good-soft: light-dark(#e4f5ea, #1b3324);
+  --color-warning: light-dark(#a86400, #f0b44a);
+  --color-warning-soft: light-dark(#fff3da, #3a2d16);
+  --color-critical: light-dark(#c23434, #f07272);
+  --color-critical-soft: light-dark(#fde8e6, #3d1f1e);
+
+  /* Decks: colour follows the deck, never its rank (validated, all pairs, both modes) */
+  --color-deck-mandarin: light-dark(#2a78d6, #3987e5);
+  --color-deck-portuguese: light-dark(#eb6834, #d95926);
+  --color-deck-other: light-dark(#1baf7a, #199e70);
+
+  /* Forecast composition (validated, both modes); estimated series are also hatched */
+  --color-fc-known: light-dark(#6250d6, #9085e9);
+  --color-fc-followup: light-dark(#eda100, #c98500);
+  --color-fc-fresh: light-dark(#e87ba4, #d55181);
+  --color-fc-band: light-dark(#8a7f72, #c3c2b7);
+
+  /* Heatmap: one hue (violet), light -> strong = few -> many reviews */
+  --color-heat-0: light-dark(#f1eadf, #2c2722);
+  --color-heat-1: light-dark(#d9d2fb, #3a3270);
+  --color-heat-2: light-dark(#a99bf2, #5a4cbc);
+  --color-heat-3: light-dark(#7864e2, #8a7aea);
+  --color-heat-4: light-dark(#4b37b5, #c2b8f7);
+
+  /* light-dark() only takes colours, so each shadow layer switches its colour (none in dark mode) */
+  --shadow-card: 0 1px 2px light-dark(rgb(60 40 20 / 0.05), transparent),
+    0 10px 30px -14px light-dark(rgb(60 40 20 / 0.16), transparent);
+  --shadow-pop: 0 12px 32px -12px light-dark(rgb(60 40 20 / 0.25), rgb(0 0 0 / 0.6));
+
+  --animate-rise: rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-pop: pop 0.45s cubic-bezier(0.3, 1.4, 0.5, 1) both;
+  --animate-flicker: flicker 2.4s ease-in-out infinite;
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  --animate-grow: grow 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+  }
+  @keyframes pop {
+    from {
+      opacity: 0;
+      transform: scale(0.85);
+    }
+  }
+  @keyframes flicker {
+    0%,
+    100% {
+      transform: scale(1) rotate(0deg);
+    }
+    30% {
+      transform: scale(1.05, 0.97) rotate(-2deg);
+    }
+    60% {
+      transform: scale(0.97, 1.04) rotate(2deg);
+    }
+  }
+  @keyframes shimmer {
+    from {
+      background-position: -200% 0;
+    }
+    to {
+      background-position: 200% 0;
+    }
+  }
+  @keyframes grow {
+    from {
+      transform: scaleX(0);
+    }
+  }
 }
 
 html {
-  color-scheme: dark;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -30,4 +130,38 @@ body {
   color: var(--color-ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+input[type='range'] {
+  accent-color: var(--color-brand);
+}
+
+/* Skeleton block for loading states */
+.skeleton {
+  border-radius: 1rem;
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-2) 25%,
+    var(--color-surface-3) 50%,
+    var(--color-surface-2) 75%
+  );
+  background-size: 200% 100%;
+  animation: var(--animate-shimmer);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

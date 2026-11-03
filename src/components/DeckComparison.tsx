@@ -11,30 +11,30 @@ function DeckCard({ summary }: { summary: DeckSummary }) {
   const color = deckColor(deck.id)
   // New -> young -> mature as one hue at increasing strength (an ordered scale)
   const segments = [
-    { label: 'New', value: deck.newCards, opacity: 0.35 },
-    { label: 'Young', value: deck.youngCards, opacity: 0.65 },
-    { label: 'Mature', value: deck.matureCards, opacity: 1 },
+    { label: 'Not started', value: deck.newCards, opacity: 0.3 },
+    { label: 'Learning', value: deck.youngCards, opacity: 0.65 },
+    { label: 'Known well', value: deck.matureCards, opacity: 1 },
   ]
 
   return (
-    <div className="rounded-xl border border-line bg-surface-2/50 p-4">
+    <div className="rounded-2xl bg-surface-2 p-4">
       <div className="flex items-center gap-2">
-        <span className="size-2.5 rounded-full" style={{ background: color }} />
-        <h3 className="font-semibold text-ink">{deck.name}</h3>
+        <span className="size-3 rounded-full" style={{ background: color }} />
+        <h3 className="font-extrabold text-ink">{deck.name}</h3>
         <span className="ml-auto text-xs text-muted">{formatInt(deck.totalCards)} cards</span>
       </div>
 
       <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
         <Metric label="Reviews" value={formatInt(summary.reviews)} />
         <Metric label="Per day" value={formatInt(summary.avgPerDay)} />
-        <Metric label="Again rate" value={formatPct(summary.againRate)} />
+        <Metric label="Forgot (Again)" value={formatPct(summary.againRate)} />
         <Metric label="Study time" value={formatMinutes(summary.minutes)} />
-        <RetentionMetric label="Retention" {...summary.retention.reviewCards} />
-        <RetentionMetric label="Mature retention" {...summary.retention.mature} />
+        <RetentionMetric label="Remembered" {...summary.retention.reviewCards} />
+        <RetentionMetric label="Remembered, known-well cards" {...summary.retention.mature} />
       </dl>
 
       <div className="mt-4">
-        <div className="flex h-2 gap-0.5 overflow-hidden rounded-full" aria-hidden>
+        <div className="flex h-2.5 gap-0.5 overflow-hidden rounded-full" aria-hidden>
           {segments.map((s) => (
             <div key={s.label} style={{ flexGrow: s.value, background: color, opacity: s.opacity }} />
           ))}
@@ -51,7 +51,7 @@ function Metric({ label, value, note }: { label: string; value: string; note?: s
   return (
     <div>
       <dt className="text-xs text-muted">{label}</dt>
-      <dd className="mt-0.5 font-semibold text-ink tabular-nums">
+      <dd className="mt-0.5 font-extrabold text-ink tabular-nums">
         {value}
         {note && <span className="ml-1.5 text-xs font-normal text-muted">{note}</span>}
       </dd>
@@ -61,7 +61,7 @@ function Metric({ label, value, note }: { label: string; value: string; note?: s
 
 /** Pass rate with its sample size, since small samples (or none) are common for mature cards. */
 function RetentionMetric({ label, reviews, rate }: { label: string; reviews: number; rate: number }) {
-  return <Metric label={label} value={reviews > 0 ? formatPct(rate) : '—'} note={`n=${formatInt(reviews)}`} />
+  return <Metric label={label} value={reviews > 0 ? formatPct(rate) : '—'} note={`of ${formatInt(reviews)}`} />
 }
 
 interface DeckComparisonProps {
@@ -75,7 +75,7 @@ interface DeckComparisonProps {
 
 export function DeckComparison({ summaries, againRows, decks, bucket, period }: DeckComparisonProps) {
   return (
-    <Panel title="Deck comparison" subtitle={`How your decks compare, ${period}`}>
+    <Panel title="How do my decks compare?" eyebrow="Decks" subtitle={`Each deck, ${period}. “Remembered” counts reviews of learned cards not answered Again.`}>
       <div className={`grid gap-4 ${summaries.length === 2 ? 'md:grid-cols-2' : 'md:grid-cols-3'}`}>
         {summaries.map((s) => (
           <DeckCard key={s.deck.id} summary={s} />
@@ -85,9 +85,9 @@ export function DeckComparison({ summaries, againRows, decks, bucket, period }: 
       <div className="mt-6">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h3 className="text-sm font-semibold text-ink">Again rate by deck</h3>
+            <h3 className="text-base font-extrabold text-ink">Am I forgetting less over time?</h3>
             <p className="text-xs text-muted">
-              {bucket === 'day' ? '7-day rolling average' : `Per ${bucket}`} · lower is better
+              Share of answers that were Again · {bucket === 'day' ? '7-day rolling average' : `per ${bucket}`} · lower is better
             </p>
           </div>
           <div className="flex flex-wrap gap-3">

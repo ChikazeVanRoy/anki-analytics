@@ -70,7 +70,7 @@ function DistributionChart({
             />
             <YAxis tick={{ fill: chart.muted, fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
             <Tooltip
-              cursor={{ fill: 'rgb(255 255 255 / 0.05)' }}
+              cursor={{ fill: chart.cursor }}
               content={({ active, payload, label }) => (
                 <ChartTooltip
                   active={active}

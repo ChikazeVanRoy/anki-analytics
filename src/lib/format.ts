@@ -6,6 +6,16 @@ const int = new Intl.NumberFormat('en-GB')
 export const formatInt = (n: number) => int.format(Math.round(n))
 export const formatPct = (n: number, digits = 1) => `${(n * 100).toFixed(digits)}%`
 
+/**
+ * Whole-number percentage, but never rounds a rate below 100% up to "100%" (or above 0% down to "0%"):
+ * 99.9% retention with one lapse must not read as perfect.
+ */
+export function formatRate(n: number) {
+  const whole = Math.round(n * 100)
+  if ((whole === 100 && n < 1) || (whole === 0 && n > 0)) return formatPct(n, 1)
+  return `${whole}%`
+}
+
 export const formatShortDate = (key: string) =>
   parseDateKey(key).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 

@@ -1,3 +1,6 @@
+import type { ReactNode } from 'react'
+import { InfoTip } from './ui'
+
 interface Delta {
   text: string
   /** Whether this change is an improvement (e.g. a lower Again rate is good). */
@@ -6,20 +9,38 @@ interface Delta {
 
 interface StatCardProps {
   label: string
-  value: string
-  hint?: string
+  value: ReactNode
+  hint?: ReactNode
   delta?: Delta
+  tip?: ReactNode
+  icon?: ReactNode
+  /** Tint behind the icon, e.g. var(--color-sun-soft). */
+  tint?: string
   className?: string
+  style?: React.CSSProperties
 }
 
-export function StatCard({ label, value, hint, delta, className = '' }: StatCardProps) {
+/** Headline number with a label, an optional change and a short explanation. */
+export function StatCard({ label, value, hint, delta, tip, icon, tint, className = '', style }: StatCardProps) {
   return (
-    <div className={`rounded-2xl border border-line bg-surface p-5 ${className}`}>
-      <p className="text-sm text-muted">{label}</p>
-      <p className="mt-2 text-3xl font-semibold tracking-tight text-ink">{value}</p>
-      <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+    <div className={`animate-rise rounded-3xl border border-line bg-surface p-5 shadow-card ${className}`} style={style}>
+      <div className="flex items-center gap-2.5">
+        {icon && (
+          <span className="grid size-9 shrink-0 place-items-center rounded-2xl" style={{ background: tint ?? 'var(--color-surface-2)' }}>
+            {icon}
+          </span>
+        )}
+        <p className="text-sm font-bold text-muted">
+          {label}
+          {tip && <InfoTip label={`About ${label}`}>{tip}</InfoTip>}
+        </p>
+      </div>
+      <p className="mt-3 text-3xl font-extrabold tracking-tight text-ink tabular-nums">{value}</p>
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
         {delta && (
-          <span className={`font-medium ${delta.good ? 'text-good' : 'text-critical'}`}>
+          <span
+            className={`rounded-full px-2 py-0.5 font-bold ${delta.good ? 'bg-good-soft text-good' : 'bg-critical-soft text-critical'}`}
+          >
             {/* Arrow + text, so meaning isn't carried by colour alone */}
             {delta.text}
           </span>
