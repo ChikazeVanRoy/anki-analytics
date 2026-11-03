@@ -8,11 +8,9 @@
 
 import json
 import os
-import re
 import shutil
 import sys
 import tempfile
-import unicodedata
 
 APP_PACKAGES = '/Applications/Anki.app/Contents/Resources/app_packages'
 sys.path.insert(0, APP_PACKAGES)
@@ -23,28 +21,9 @@ from anki import scheduler_pb2  # noqa: E402
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SOURCE = os.path.join(ROOT, 'data', 'collection.anki2')
 OUT = os.path.join(ROOT, 'data', 'fsrs-validation', 'anki.json')
-CONFIG = os.path.join(ROOT, 'anki-analytics.config.json')
-
-
-def slug(name):
-    """Same as `slug` in server/deckGroups.ts, so ids match the app's deck ids."""
-    plain = ''.join(c for c in unicodedata.normalize('NFKD', name) if not unicodedata.combining(c))
-    return re.sub(r'[^a-z0-9]+', '-', plain.lower()).strip('-') or 'deck'
-
-
-def name_pattern(pattern):
-    """Same as `namePattern` in server/deckGroups.ts: whole name, ignoring case, and only * is special."""
-    return re.compile('.*'.join(re.escape(part) for part in pattern.split('*')), re.I)
-
-
-def load_groups():
-    """Deck groups from the git-ignored config, so no deck names live in this script."""
-    with open(CONFIG, encoding='utf-8') as f:
-        groups = json.load(f).get('groups', [])
-    return [(slug(g['name']), [name_pattern(p) for p in g['decks']]) for g in groups]
-
-
-GROUPS = load_groups()
+PLAN = os.path.join(ROOT, 'data', 'fsrs-validation', 'deck-plan.json')
+if not os.path.exists(PLAN):
+    sys.exit(f'{PLAN} is missing: run deck_plan.ts first (see README.md in this folder)')
 DEFAULT_PARAMS = [0.212, 1.2931, 2.3065, 8.2956, 6.4133, 0.8334, 3.0194, 0.001, 1.8722, 0.1666, 0.796, 1.4835,
                   0.0614, 0.2629, 1.6483, 0.6014, 1.8729, 0.5425, 0.0912, 0.0658, 0.1542]
 NEW_PER_DAY = [0, 10, 30]
@@ -56,12 +35,8 @@ try:
     shutil.copyfile(SOURCE, copy)  # the -wal/-shm of data/ are not needed: the API copy is checkpointed
     col = Collection(copy)
     out = {'ankiVersion': version, 'groups': {}}
-    tops = {}
-    for d in col.decks.all_names_and_ids():
-        top = d.name.split('::')[0]
-        for gid, patterns in GROUPS:
-            if any(p.fullmatch(top) for p in patterns):
-                tops.setdefault(gid, set()).add(top)
+    with open(PLAN, encoding='utf-8') as f:
+        tops = json.load(f)  # the dashboard's own grouping, so both sides compare the same cards
     for gid, names in tops.items():
         search = '(' + ' OR '.join(f'"deck:{n}"' for n in sorted(names)) + ')'
         did = col.decks.id_for_name(sorted(names)[0])

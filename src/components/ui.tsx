@@ -77,7 +77,7 @@ export function InfoTip({ children, label = 'More info' }: { children: ReactNode
           role="tooltip"
           id={tipId}
           style={position ?? undefined}
-          className={`pointer-events-none fixed z-50 w-64 max-w-[calc(100vw-16px)] rounded-2xl border border-line bg-surface px-3.5 py-2.5 text-left text-xs leading-relaxed font-medium tracking-normal text-ink-2 normal-case shadow-pop ${shown ? 'block' : 'hidden'}`}
+          className={`pointer-events-none fixed z-50 w-64 max-w-[calc(100vw-16px)] rounded-2xl border border-line bg-surface px-3.5 py-2.5 text-left text-xs leading-relaxed font-medium text-ink-2 shadow-pop ${shown ? 'block' : 'hidden'}`}
         >
           {children}
         </span>,
@@ -111,6 +111,8 @@ export function ScrollRegion({
     const check = () => setOverflows(el.scrollWidth > el.clientWidth)
     const observer = new ResizeObserver(check)
     observer.observe(el)
+    // The content can change width without the box resizing
+    if (el.firstElementChild) observer.observe(el.firstElementChild)
     return () => observer.disconnect()
   }, [box])
   return (

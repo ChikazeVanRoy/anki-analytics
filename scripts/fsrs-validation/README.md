@@ -6,7 +6,8 @@ inside Anki.app. They produce the results in [docs/fsrs-validation.md](../../doc
 | Script | Reads | Writes |
 |---|---|---|
 | `anki_reference.py` | nothing personal (makes a temporary synthetic collection) | `src/lib/fixtures/anki-fsrs-reference.json` (committed; used by `src/lib/fsrs.test.ts`) |
-| `anki_export.py` | a **temporary copy** of `data/collection.anki2` | `data/fsrs-validation/anki.json` (git-ignored) |
+| `deck_plan.ts` | `data/collection.anki2` (read-only) and your optional deck config | `data/fsrs-validation/deck-plan.json` (git-ignored) |
+| `anki_export.py` | a **temporary copy** of `data/collection.anki2` and the deck plan | `data/fsrs-validation/anki.json` (git-ignored) |
 | `compare.ts` | `data/collection.anki2` (read-only) and the file above | nothing; prints aggregate numbers |
 
 Safety: Anki's backend writes to any collection it opens, so `anki_export.py` opens a copy in a temporary

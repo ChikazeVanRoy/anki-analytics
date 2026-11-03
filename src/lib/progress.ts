@@ -4,7 +4,7 @@
 
 import type { AnkiData } from '../data/types'
 import { ankiDayKey, dayNumber, toDateKey } from './dates'
-import { formatInt, formatRate } from './format'
+import { formatInt, formatPct, formatRate } from './format'
 import { measuredDefaults } from './measured'
 import { deckSummaries, lastNDays, MIN_RATE_SAMPLE, ratio, retentionSplit, type DayTotal } from './stats'
 
@@ -154,7 +154,7 @@ export function homeInsight(data: AnkiData, byDate: Map<string, DayTotal>, today
   if (week.change !== null && week.lastWeek >= 20) {
     if (week.change >= 0.15) {
       return {
-        text: `You reviewed ${pct(week.change)} more in the last 7 days than the 7 before (${fmt(week.thisWeek)} vs ${fmt(week.lastWeek)}). Great momentum.`,
+        text: `You reviewed ${formatPct(week.change, 0)} more in the last 7 days than the 7 before (${fmt(week.thisWeek)} vs ${fmt(week.lastWeek)}). Great momentum.`,
         tone: 'good',
         link: 'activity',
       }

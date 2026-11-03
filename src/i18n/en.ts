@@ -90,7 +90,8 @@ export const en = {
       rememberedSplit: (learning: string, known: string) => `learning ${learning} · known well ${known}`,
       rememberedNone: 'no scheduled reviews in the last 30 days',
       rememberedTip:
-        'Share of scheduled reviews (not new cards or learning steps) that you didn’t answer “Again”. Anki calls this true retention. Hard counts as remembered, so pressing Hard when you’ve forgotten lifts this figure. Advanced compares it with what FSRS expected.',
+        'Share of scheduled reviews (not new cards or learning steps) that you didn’t answer “Again”. Anki calls this true retention. Hard counts as remembered, so pressing Hard when you’ve forgotten lifts this figure.',
+      rememberedTipAdvanced: 'Advanced compares it with what FSRS expected.',
       active: 'Active days',
       activeSub: 'in the last 30 days',
     },

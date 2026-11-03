@@ -71,6 +71,7 @@ These are covered by `src/lib/fixtures/anki-fsrs-reference.json`, which uses no 
 
 ```sh
 # 1. A Python 3.13 matching Anki.app's bundled backend (see scripts/fsrs-validation/README.md)
+node scripts/fsrs-validation/deck_plan.ts                   # the dashboard's deck grouping
 <python3.13> -I scripts/fsrs-validation/anki_export.py      # Anki's engine on a throwaway copy
 node --import ./scripts/fsrs-validation/ts-resolve.ts scripts/fsrs-validation/compare.ts
 <python3.13> -I scripts/fsrs-validation/anki_reference.py   # regenerates the synthetic test fixture

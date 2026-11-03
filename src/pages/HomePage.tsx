@@ -7,7 +7,7 @@ import { useDeckColor } from '../data/deckColors'
 import type { AnkiData } from '../data/types'
 import { LOCALE, messages } from '../i18n'
 import { parseDateKey, toDateKey } from '../lib/dates'
-import { formatCopiedAt, formatInt, formatPct, formatRate } from '../lib/format'
+import { changeDelta, formatCopiedAt, formatInt, formatPct, formatRate, SAME_RELATIVE } from '../lib/format'
 import {
   dayStatus,
   dueToday,
@@ -85,13 +85,11 @@ export function HomePage({ data }: { data: AnkiData }) {
           value={<CountUp value={week.thisWeek} format={formatInt} />}
           delta={
             week.change !== null
-              ? {
-                  text:
-                    Math.abs(week.change) < 0.005
-                      ? m.kpi.weekSame
-                      : m.kpi.weekVs(formatPct(Math.abs(week.change), 0), week.change >= 0),
-                  good: Math.abs(week.change) < 0.005 || week.change >= 0,
-                }
+              ? changeDelta(week.change, {
+                  tolerance: SAME_RELATIVE,
+                  same: m.kpi.weekSame,
+                  text: (size, up) => m.kpi.weekVs(formatPct(size, 0), up),
+                })
               : undefined
           }
           hint={week.change === null ? m.kpi.weekNoPrev : undefined}
@@ -99,7 +97,7 @@ export function HomePage({ data }: { data: AnkiData }) {
         />
         <StatCard
           label={m.kpi.remembered}
-          tip={m.kpi.rememberedTip}
+          tip={fsrsOn ? `${m.kpi.rememberedTip} ${m.kpi.rememberedTipAdvanced}` : m.kpi.rememberedTip}
           icon={<BrainIcon size={18} className="text-sun-ink" />}
           tint="var(--color-sun-soft)"
           value={reviewCards.reviews > 0 ? <CountUp value={reviewCards.rate} format={formatRate} /> : '—'}
@@ -254,9 +252,11 @@ function SectionHeading({ id, title, question }: { id: string; title: string; qu
 }
 
 function RecentActivity({ rows, sample, className = '' }: { rows: { date: string; reviews: number }[]; sample: boolean; className?: string }) {
-  // One tab stop for the whole chart: arrow keys or a tap pick the day whose count is shown
+  // One tab stop for the whole chart: hover, a tap or the arrow keys pick the day shown in the line above the
+  // bars. A single fixed line can't run off the side of a phone, and only ever shows one day.
   const [picked, setPicked] = useState<number | null>(null)
   const onBarKey = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') return setPicked(null)
     const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0
     if (!step) return
     e.preventDefault()
@@ -278,30 +278,33 @@ function RecentActivity({ rows, sample, className = '' }: { rows: { date: string
         <SourceBadge kind={sample ? 'sample' : 'measured'} />
       </div>
       <p className="mt-1 text-sm text-muted">{m.recent.summary(total, active)}</p>
+      <p data-testid="day-readout" aria-hidden className="mt-2 h-5 text-sm font-bold text-ink">
+        {picked !== null && m.recent.bar(fmtDay(rows[picked].date), rows[picked].reviews)}
+      </p>
       <ol
-        className="mt-5 flex h-36 items-end gap-1 sm:gap-2"
+        className="mt-2 flex h-36 items-end gap-1 sm:gap-2"
         aria-label={`${m.recent.summary(total, active)}. ${m.recent.barsHint}`}
         tabIndex={0}
         onKeyDown={onBarKey}
         onFocus={() => setPicked((p) => p ?? rows.length - 1)}
         onBlur={() => setPicked(null)}
+        onMouseLeave={() => setPicked(null)}
       >
         {rows.map((r, i) => {
           const isToday = i === rows.length - 1
           const label = m.recent.bar(fmtDay(r.date), r.reviews)
           return (
-            <li key={r.date} className="group relative flex h-full flex-1 flex-col items-center justify-end" onClick={() => setPicked(i)}>
+            <li
+              key={r.date}
+              className="group relative flex h-full flex-1 flex-col items-center justify-end"
+              onMouseEnter={() => setPicked(i)}
+              onClick={() => setPicked(i)}
+            >
               <span className="sr-only">{label}</span>
-              <span
-                aria-hidden
-                className={`pointer-events-none absolute -top-2 z-10 hidden -translate-y-full rounded-xl border border-line bg-surface px-2.5 py-1 text-xs font-bold whitespace-nowrap text-ink shadow-pop group-hover:block ${picked === i ? '!block' : ''}`}
-              >
-                {label}
-              </span>
               <div
                 className={`w-full max-w-9 origin-bottom rounded-t-lg rounded-b-sm transition-all group-hover:brightness-110 ${
                   r.reviews > 0 ? '' : 'bg-surface-3'
-                } ${isToday ? 'ring-2 ring-sun ring-offset-2 ring-offset-surface' : ''}`}
+                } ${isToday ? 'ring-2 ring-sun ring-offset-2 ring-offset-surface' : ''} ${picked === i && !isToday ? 'ring-2 ring-brand ring-offset-2 ring-offset-surface' : ''}`}
                 style={{
                   height: r.reviews > 0 ? `${Math.max(8, (r.reviews / max) * 100)}%` : 6,
                   background: r.reviews > 0 ? 'var(--color-brand)' : undefined,

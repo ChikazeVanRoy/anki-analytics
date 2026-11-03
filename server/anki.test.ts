@@ -10,7 +10,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { ankiDayKey, dayNumber, keyFromDayNumber } from '../src/lib/dates.ts'
 import reference from '../src/lib/fixtures/anki-fsrs-reference.json' with { type: 'json' }
 import { DEFAULT_PARAMS, replay, retrievability, toFsrs6Params } from '../src/lib/fsrs.ts'
-import { readAnkiData } from './anki.ts'
+import { readAnkiData, readDeckTops } from './anki.ts'
 import type { DeckConfig } from './deckGroups.ts'
 import { readPreset } from './fsrsData.ts'
 import { parseProto } from './protobuf.ts'
@@ -196,6 +196,12 @@ describe('readAnkiData', () => {
       expect.objectContaining({ date: '2026-03-11', deckId: 'german', reviews: 1, again: 0 }),
       expect.objectContaining({ date: '2026-03-12', deckId: 'other', reviews: 1 }),
     ])
+  })
+
+  it('lists each dashboard deck’s top-level Anki decks for the validation scripts', () => {
+    const tops = readDeckTops(path, DECKS)
+    expect(Object.keys(tops).sort()).toEqual(['german', 'spanish'])
+    expect(Object.values(tops).flat()).not.toContain('Archive')
   })
 
   it('counts retention from review cards only, split by maturity', () => {

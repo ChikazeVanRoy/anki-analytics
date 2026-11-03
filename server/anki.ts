@@ -18,6 +18,53 @@ export interface ReadOptions {
   previousColors?: Map<string, number>
 }
 
+type Rows = ReturnType<ReturnType<DatabaseSync['prepare']>['all']>
+
+function readCardRows(db: DatabaseSync): Rows {
+  return db
+    .prepare(
+      // A card in a filtered deck keeps its home deck in odid; count it there.
+      // Suspended cards (queue -1) are counted on their own, whatever stage they were at.
+      `SELECT CASE WHEN odid != 0 THEN odid ELSE did END AS did,
+              SUM(queue != -1) AS total,
+              SUM(queue != -1 AND type = 0) AS new,
+              SUM(queue != -1 AND (type IN (1, 3) OR (type = 2 AND ivl < ${MATURE_DAYS}))) AS young,
+              SUM(queue != -1 AND type = 2 AND ivl >= ${MATURE_DAYS}) AS mature,
+              SUM(queue = -1) AS suspended
+       FROM cards GROUP BY 1`,
+    )
+    .all()
+}
+
+/** Groups the Anki decks (hierarchy is stored as "Parent\x1fChild"), most-studied first unless configured. */
+function planFromRows(db: DatabaseSync, cardRows: Rows, deckConfig?: DeckConfig, previousColors?: Map<string, number>) {
+  return planDeckGroups(
+    db.prepare('SELECT id, name FROM decks').all().map((r) => ({ id: Number(r.id), name: String(r.name) })),
+    new Map(cardRows.map((r) => [Number(r.did), Number(r.young) + Number(r.mature)])),
+    deckConfig,
+    previousColors,
+  )
+}
+
+/**
+ * The top-level Anki decks in each dashboard deck, from the same plan the dashboard uses, for the validation
+ * scripts. "Other decks" is left out: it mixes presets, so it isn't compared.
+ */
+export function readDeckTops(path: string, deckConfig?: DeckConfig): Record<string, string[]> {
+  const db = new DatabaseSync(path, { readOnly: true })
+  try {
+    const plan = planFromRows(db, readCardRows(db), deckConfig)
+    const tops: Record<string, Set<string>> = {}
+    for (const r of db.prepare('SELECT id, name FROM decks').all()) {
+      const group = plan.deckGroup.get(Number(r.id))
+      if (group && group !== OTHER.id) (tops[group] ??= new Set()).add(String(r.name).split('\x1f')[0])
+    }
+    return Object.fromEntries(Object.entries(tops).map(([group, names]) => [group, [...names].sort()]))
+  } finally {
+    db.close()
+  }
+}
+
 export function readAnkiData(path: string, now = Date.now(), { deckConfig = {}, previousColors }: ReadOptions = {}): AnkiData {
   const db = new DatabaseSync(path, { readOnly: true })
   try {
@@ -28,27 +75,8 @@ export function readAnkiData(path: string, now = Date.now(), { deckConfig = {}, 
 
     // --- Card counts per deck group ---
     // cards.type: 0 = new, 1 = learning, 2 = review, 3 = relearning
-    const cardRows = db
-      .prepare(
-        // A card in a filtered deck keeps its home deck in odid; count it there.
-        // Suspended cards (queue -1) are counted on their own, whatever stage they were at.
-        `SELECT CASE WHEN odid != 0 THEN odid ELSE did END AS did,
-                SUM(queue != -1) AS total,
-                SUM(queue != -1 AND type = 0) AS new,
-                SUM(queue != -1 AND (type IN (1, 3) OR (type = 2 AND ivl < ${MATURE_DAYS}))) AS young,
-                SUM(queue != -1 AND type = 2 AND ivl >= ${MATURE_DAYS}) AS mature,
-                SUM(queue = -1) AS suspended
-         FROM cards GROUP BY 1`,
-      )
-      .all()
-
-    // Group the Anki decks (hierarchy is stored as "Parent\x1fChild"), most-studied first unless configured
-    const plan = planDeckGroups(
-      db.prepare('SELECT id, name FROM decks').all().map((r) => ({ id: Number(r.id), name: String(r.name) })),
-      new Map(cardRows.map((r) => [Number(r.did), Number(r.young) + Number(r.mature)])),
-      deckConfig,
-      previousColors,
-    )
+    const cardRows = readCardRows(db)
+    const plan = planFromRows(db, cardRows, deckConfig, previousColors)
     if (plan.unmatched.length) {
       console.warn(`anki-analytics.config.json: no deck matches group ${plan.unmatched.map((n) => `"${n}"`).join(', ')}`)
     }

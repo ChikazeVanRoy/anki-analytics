@@ -14,7 +14,7 @@ import {
 } from 'recharts'
 import { useDeckColor } from '../data/deckColors'
 import type { Deck, FsrsData } from '../data/types'
-import { formatInt, formatPct } from '../lib/format'
+import { formatInt, formatPct, formatRate } from '../lib/format'
 import { difficultyPercent } from '../lib/fsrs'
 import {
   calibrationCurve,
@@ -227,7 +227,7 @@ export function FsrsAnalytics({ fsrs, decks: allDecks, todayKey }: Props) {
           />
           <Metric
             label="Actually remembered vs FSRS expected"
-            value={`${formatPct(retention.actual)} vs ${formatPct(retention.predicted)}`}
+            value={`${formatRate(retention.actual)} vs ${formatRate(retention.predicted)}`}
             sub={`${formatInt(retention.reviews)} review-card reviews${firstMonth ? ` since ${firstMonth}` : ''} · target ${sameTarget ? formatPct(target, 0) : 'varies'}`}
             tip="Actual: share of reviews of graduated cards not answered Again. Predicted: FSRS’s recall probability just before each of those reviews, reconstructed by replaying your review log (the same way Anki computes memory states)."
           />
@@ -340,8 +340,8 @@ export function FsrsAnalytics({ fsrs, decks: allDecks, todayKey }: Props) {
                           </span>
                         </td>
                         <td className="py-2 text-right text-ink-2">{formatInt(r[k].reviews)}</td>
-                        <td className="py-2 text-right font-bold text-ink">{r[k].reviews ? formatPct(r[k].actual) : '—'}</td>
-                        <td className="py-2 text-right text-ink-2">{r[k].reviews ? formatPct(r[k].predicted) : '—'}</td>
+                        <td className="py-2 text-right font-bold text-ink">{r[k].reviews ? formatRate(r[k].actual) : '—'}</td>
+                        <td className="py-2 text-right text-ink-2">{r[k].reviews ? formatRate(r[k].predicted) : '—'}</td>
                         <td className="py-2 text-right text-ink-2">{formatPct(preset?.desiredRetention ?? 0.9, 0)}</td>
                       </tr>
                     ))
@@ -352,7 +352,7 @@ export function FsrsAnalytics({ fsrs, decks: allDecks, todayKey }: Props) {
             {trend.length > 0 && (
               <p className="mt-3 text-xs leading-relaxed text-muted">
                 By month:{' '}
-                {trend.map((t) => `${t.month} ${formatPct(t.actual)} actual vs ${formatPct(t.predicted)} predicted (${formatInt(t.reviews)})`).join(' · ')}
+                {trend.map((t) => `${t.month} ${formatRate(t.actual)} actual vs ${formatRate(t.predicted)} predicted (${formatInt(t.reviews)})`).join(' · ')}
               </p>
             )}
           </div>
@@ -395,7 +395,7 @@ export function FsrsAnalytics({ fsrs, decks: allDecks, todayKey }: Props) {
                           rows={(payload ?? []).map((p) => ({
                             color: p.dataKey === 'actual' ? calibrationColors.actual : calibrationColors.predicted,
                             label: p.dataKey === 'actual' ? 'Actually recalled' : 'FSRS predicted',
-                            value: formatPct(Number(p.value)),
+                            value: formatRate(Number(p.value)),
                           }))}
                           footer={row ? { label: 'Reviews', value: formatInt(row.reviews) } : undefined}
                         />
@@ -413,7 +413,7 @@ export function FsrsAnalytics({ fsrs, decks: allDecks, todayKey }: Props) {
         {retention.reviews > 0 && retention.actual - retention.predicted > 0.05 && (
           <div className="mt-4">
             <Notice>
-              You recall far more often than FSRS expects ({formatPct(retention.actual)} vs {formatPct(retention.predicted)}).
+              You recall far more often than FSRS expects ({formatRate(retention.actual)} vs {formatRate(retention.predicted)}).
               Either your reviews are easier than the default parameters assume, or you press Hard when you forget. FSRS
               treats Hard as a pass. Optimising the presets’ FSRS parameters in Anki (Deck options → FSRS → Optimise) would
               fit the model to your history.

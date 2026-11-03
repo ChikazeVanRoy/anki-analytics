@@ -7,7 +7,7 @@ import { StatCard } from '../components/StatCard'
 import { SourceBadge } from '../components/ui'
 import type { AnkiData } from '../data/types'
 import { messages } from '../i18n'
-import { formatInt, formatMinutes, formatPct, formatRate } from '../lib/format'
+import { changeDelta, formatInt, formatMinutes, formatPct, formatRate, SAME_POINTS, SAME_RELATIVE } from '../lib/format'
 import {
   activeYears,
   againRateSeries,
@@ -53,8 +53,6 @@ export function ActivityPage({ data, range, onRangeChange }: Props) {
     range === 'all' ? 'all time' : canCompare ? `vs previous ${days} days` : `no reviews in the previous ${days} days`
   const { reviewCards, mature } = summary.retention
   const { matureThin } = retentionSplit(summary.retention)
-  const avgSame = Math.abs(avgChange) < 0.005
-  const againSame = Math.abs(againChange) < 0.0005
   const minutes = decks.reduce((n, d) => n + d.minutes, 0)
 
   return (
@@ -72,7 +70,11 @@ export function ActivityPage({ data, range, onRangeChange }: Props) {
           value={formatInt(summary.avgPerDay)}
           delta={
             canCompare
-              ? { text: avgSame ? m.noChange : `${avgChange >= 0 ? '▲' : '▼'} ${formatPct(Math.abs(avgChange), 0)}`, good: avgSame || avgChange >= 0 }
+              ? changeDelta(avgChange, {
+                  tolerance: SAME_RELATIVE,
+                  same: m.noChange,
+                  text: (size, up) => `${up ? '▲' : '▼'} ${formatPct(size, 0)}`,
+                })
               : undefined
           }
           hint={compareHint}
@@ -83,10 +85,12 @@ export function ActivityPage({ data, range, onRangeChange }: Props) {
           value={formatPct(summary.againRate)}
           delta={
             canCompare
-              ? {
-                  text: againSame ? m.noChange : `${againChange <= 0 ? '▼' : '▲'} ${(Math.abs(againChange) * 100).toFixed(1)} pts`,
-                  good: againSame || againChange <= 0,
-                }
+              ? changeDelta(againChange, {
+                  tolerance: SAME_POINTS,
+                  same: m.noChange,
+                  lowerIsBetter: true,
+                  text: (size, up) => `${up ? '▲' : '▼'} ${(size * 100).toFixed(1)} pts`,
+                })
               : undefined
           }
           hint={compareHint}

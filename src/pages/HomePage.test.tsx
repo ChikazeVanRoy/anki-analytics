@@ -5,6 +5,7 @@ import { mockData } from '../data/mockData'
 import type { AnkiData } from '../data/types'
 import { messages } from '../i18n'
 import { ankiToday, toDateKey } from '../lib/stats'
+import { realShapedData } from '../test/fsrsFixture'
 import { HomePage } from './HomePage'
 
 afterEach(cleanup)
@@ -58,6 +59,18 @@ describe('Home "Remembered" card', () => {
   it('shows a dash and an explanation with no scheduled reviews', () => {
     render(<HomePage data={withRetention([0, 0], [0, 0])} />)
     expect(screen.getByText(messages.home.kpi.rememberedNone)).toBeTruthy()
+  })
+})
+
+describe('Home "Remembered" tip', () => {
+  const advancedLine = messages.home.kpi.rememberedTipAdvanced
+
+  it('only points to Advanced when Advanced has something to show', () => {
+    render(<HomePage data={withRetention([40, 40], [0, 0])} />)
+    expect(document.body.textContent).not.toContain(advancedLine)
+    cleanup()
+    render(<HomePage data={realShapedData()} />)
+    expect(document.body.textContent).toContain(advancedLine)
   })
 })
 

@@ -16,6 +16,23 @@ export function formatRate(n: number) {
   return `${Math.max(0.1, Math.min(99.9, n * 100)).toFixed(1)}%`
 }
 
+/** Below this, a change in a count is shown as no change. */
+export const SAME_RELATIVE = 0.005
+/** Below this, a change in a rate (0.0005 = 0.05 points) is shown as no change. */
+export const SAME_POINTS = 0.0005
+
+/**
+ * The text and tone of a change between two periods. A change too small to show is never marked as worse.
+ * `text` gets the size of the change and whether it went up.
+ */
+export function changeDelta(
+  change: number,
+  { tolerance, same, text, lowerIsBetter = false }: { tolerance: number; same: string; text: (size: number, up: boolean) => string; lowerIsBetter?: boolean },
+) {
+  if (Math.abs(change) < tolerance) return { text: same, good: true }
+  return { text: text(Math.abs(change), change >= 0), good: lowerIsBetter ? change <= 0 : change >= 0 }
+}
+
 /** When the collection was copied, e.g. "3 Nov 2026, 22:28". */
 export const formatCopiedAt = (iso: string) =>
   new Date(iso).toLocaleString(LOCALE, { dateStyle: 'medium', timeStyle: 'short' })
