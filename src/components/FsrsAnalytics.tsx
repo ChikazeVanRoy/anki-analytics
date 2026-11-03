@@ -165,6 +165,7 @@ export function FsrsAnalytics({ fsrs, decks: allDecks, todayKey }: Props) {
   const target = fsrs.presets[0]?.desiredRetention ?? 0.9
   const sameTarget = fsrs.presets.every((p) => Math.abs(p.desiredRetention - target) < 0.001)
   const defaultParams = fsrs.presets.every((p) => p.paramsSource === 'default')
+  const paramsLabel = defaultParams ? 'default' : fsrs.presets.every((p) => p.paramsSource === 'optimised') ? 'optimised' : 'a mix of optimised and default'
   const firstMonth = trend[0]?.month
   const missing = Object.values(fsrs.missingState).reduce((a, n) => a + n, 0)
   const invalidDue = Object.values(fsrs.invalidDue).reduce((a, n) => a + n, 0)
@@ -200,7 +201,7 @@ export function FsrsAnalytics({ fsrs, decks: allDecks, todayKey }: Props) {
       <Panel
         title="How well do I remember my cards right now?"
         eyebrow="Memory today"
-        subtitle={`Current state of ${formatInt(all.cards)} studied cards · FSRS-6 with ${defaultParams ? 'default' : 'optimised'} parameters${fsrs.ankiVersion ? ` · Anki ${fsrs.ankiVersion}` : ''}`}
+        subtitle={`Current state of ${formatInt(all.cards)} studied cards · FSRS-6 with ${paramsLabel} parameters${fsrs.ankiVersion ? ` · Anki ${fsrs.ankiVersion}` : ''}`}
         actions={<SourceBadge kind="measured" />}
       >
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

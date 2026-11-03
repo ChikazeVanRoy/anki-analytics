@@ -4,7 +4,7 @@
 // a second language is added.
 
 const plural = (n: number, one: string, many: string) => (n === 1 ? one : many)
-const int = (n: number) => Math.round(n).toLocaleString('en-GB')
+const int = (n: number) => Math.round(n).toLocaleString('en-GB') // this file's locale
 
 export const en = {
   appName: 'Anki Analytics',

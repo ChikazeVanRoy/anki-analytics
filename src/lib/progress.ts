@@ -4,6 +4,7 @@
 
 import type { AnkiData } from '../data/types'
 import { dayNumber } from './dates'
+import { formatInt, formatRate } from './format'
 import { deckSummaries, lastNDays, MIN_RATE_SAMPLE, ratio, type DayTotal } from './stats'
 
 /** Longest run of consecutive days with at least one review, across the whole history. */
@@ -117,12 +118,8 @@ export interface HomeInsight {
   link: 'activity'
 }
 
-const fmt = (n: number) => Math.round(n).toLocaleString('en-GB')
-const pct = (n: number) => {
-  const whole = Math.round(n * 100)
-  // Never round a rate below 100% up to "100%"
-  return whole === 100 && n < 1 ? `${(n * 100).toFixed(1)}%` : `${whole}%`
-}
+const fmt = formatInt
+const pct = formatRate
 
 /**
  * A single sentence from measured data, in priority order: a clear change in weekly volume, the

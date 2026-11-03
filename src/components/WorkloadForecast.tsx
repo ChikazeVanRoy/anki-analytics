@@ -205,7 +205,7 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
               max={60}
               format={(v) => `${v} s`}
               onChange={setSecs}
-              hint={`Measured: ${measured.secondsPerReview.toFixed(1)} s per answer over the last 4 weeks. Only affects minutes, not review counts.`}
+              hint={`Measured: ${measured.secondsPerReview.toFixed(1)} s per answer over the last ${fsrs.windowDays} days (each answer capped at 60 s). Only affects minutes, not review counts.`}
             />
             <div className="space-y-3">
               <Segmented

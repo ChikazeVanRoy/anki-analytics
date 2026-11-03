@@ -1,5 +1,6 @@
 // Plain-language answers built only from measured data and the simulator's outputs.
 
+import { formatInt } from './format'
 import type { HorizonSummary } from './simulator'
 
 export interface Insight {
@@ -21,7 +22,7 @@ export interface InsightInputs {
 }
 
 const mins = (reviews: number, secs: number) => (reviews * secs) / 60
-const fmt = (n: number) => Math.round(n).toLocaleString('en-GB')
+const fmt = formatInt
 
 /** Largest new/day whose heaviest 30-day stretch fits the budget, interpolated between scenarios. */
 export function maxSustainableNewPerDay(
