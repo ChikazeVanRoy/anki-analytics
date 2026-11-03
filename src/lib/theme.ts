@@ -1,4 +1,5 @@
-// Colours that Recharts needs as JS values. They reference the CSS tokens in index.css, so charts follow
+// Colours that Recharts needs as JS values. Always write var(--color-…) names in full here (no template
+// strings), or Tailwind won't emit the variable. They reference the CSS tokens in index.css, so charts follow
 // the light/dark theme automatically (SVG presentation attributes and inline styles both resolve var()).
 //
 // Palettes were checked with the dataviz validator (OKLab CVD/normal-vision separation, lightness band,
@@ -29,7 +30,14 @@ const deckColors: Record<string, string> = {
 export const deckColor = (deckId: string) => deckColors[deckId] ?? chart.muted
 
 // Heatmap: one hue (violet), faint -> strong = few -> many reviews.
-export const heatmapLevels = [0, 1, 2, 3, 4].map((i) => `var(--color-heat-${i})`)
+// Written out in full: Tailwind only emits theme variables whose names appear literally in the source.
+export const heatmapLevels = [
+  'var(--color-heat-0)',
+  'var(--color-heat-1)',
+  'var(--color-heat-2)',
+  'var(--color-heat-3)',
+  'var(--color-heat-4)',
+]
 
 // Forecast composition. Distinct from deck colours so a series never reads as a deck.
 export const forecast = {

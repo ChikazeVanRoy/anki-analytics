@@ -61,7 +61,7 @@ function Metric({ label, value, note }: { label: string; value: string; note?: s
 
 /** Pass rate with its sample size, since small samples (or none) are common for mature cards. */
 function RetentionMetric({ label, reviews, rate }: { label: string; reviews: number; rate: number }) {
-  return <Metric label={label} value={reviews > 0 ? formatPct(rate) : '—'} note={`of ${formatInt(reviews)}`} />
+  return <Metric label={label} value={reviews > 0 ? formatPct(rate) : '—'} note={reviews > 0 ? `of ${formatInt(reviews)}` : "no reviews yet"} />
 }
 
 interface DeckComparisonProps {

@@ -89,7 +89,7 @@ export const en = {
       known: 'Known well',
       knownTip: 'Cards with an interval of 21 days or more (Anki calls these “mature”).',
     },
-    insight: { title: 'Insight', basis: 'Based on your review history' },
+    insight: { title: 'Insight', basis: 'Based on your review history', basisSample: 'Based on the generated sample data' },
     milestones: {
       title: 'Milestones',
       question: 'What have I achieved so far?',

@@ -142,7 +142,7 @@ describe('homeInsight', () => {
   it('names the strongest deck when both have enough reviews', () => {
     const rc = (passed: number) => ({ reviewCardReviews: 40, reviewCardPassed: passed })
     const d = data([stat('2026-11-01', 'a', 40, rc(30)), stat('2026-11-01', 'b', 40, rc(38))])
-    expect(homeInsight(d, totalsByDate(d.daily), TODAY)!.text).toMatch(/^Beta is your strongest deck.*95%/)
+    expect(homeInsight(d, totalsByDate(d.daily), TODAY)!.text).toMatch(/^Your strongest deck this month is Beta.*95%/)
   })
   it('falls back to consistency over the last 30 days', () => {
     const d = data(on([0, 2, 4]))

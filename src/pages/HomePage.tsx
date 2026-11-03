@@ -86,7 +86,7 @@ export function HomePage({ data }: { data: AnkiData }) {
         <StatCard
           label={m.kpi.remembered}
           tip={m.kpi.rememberedTip}
-          icon={<BrainIcon size={18} className="text-sun" />}
+          icon={<BrainIcon size={18} className="text-sun-ink" />}
           tint="var(--color-sun-soft)"
           value={reviewCards.reviews > 0 ? <CountUp value={reviewCards.rate} format={formatRate} /> : '—'}
           hint={reviewCards.reviews > 0 ? m.kpi.rememberedSub(reviewCards.reviews) : m.kpi.rememberedNone}
@@ -107,8 +107,8 @@ export function HomePage({ data }: { data: AnkiData }) {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <RecentActivity rows={recent} className="lg:col-span-2" />
-        <InsightCard text={insight?.text ?? m.status.empty} tone={insight?.tone ?? 'neutral'} />
+        <RecentActivity rows={recent} sample={sample} className="lg:col-span-2" />
+        <InsightCard text={insight?.text ?? m.status.empty} tone={insight?.tone ?? 'neutral'} sample={sample} />
       </div>
 
       {shownDecks.length > 0 && (
@@ -178,7 +178,7 @@ function Hero({ greeting, status, streak, best, sample }: { greeting: string; st
             <p className="text-3xl leading-none font-black text-ink tabular-nums">
               <CountUp value={streak} format={formatInt} />
             </p>
-            <p className="mt-1 text-sm font-bold text-sun">{m.streak.label}</p>
+            <p className="mt-1 text-sm font-bold text-sun-ink">{m.streak.label}</p>
             {best > 0 && <p className="text-xs text-muted">{m.streak.best(best)}</p>}
           </div>
         </div>
@@ -198,7 +198,7 @@ function SectionHeading({ id, title, question }: { id: string; title: string; qu
   )
 }
 
-function RecentActivity({ rows, className = '' }: { rows: { date: string; reviews: number }[]; className?: string }) {
+function RecentActivity({ rows, sample, className = '' }: { rows: { date: string; reviews: number }[]; sample: boolean; className?: string }) {
   const max = Math.max(1, ...rows.map((r) => r.reviews))
   const total = rows.reduce((n, r) => n + r.reviews, 0)
   const active = rows.filter((r) => r.reviews > 0).length
@@ -212,7 +212,7 @@ function RecentActivity({ rows, className = '' }: { rows: { date: string; review
             {m.recent.question}
           </h2>
         </div>
-        <SourceBadge kind="measured" />
+        <SourceBadge kind={sample ? 'sample' : 'measured'} />
       </div>
       <p className="mt-1 text-sm text-muted">{m.recent.summary(total, active)}</p>
       <ol className="mt-5 flex h-36 items-end gap-1 sm:gap-2" aria-label={m.recent.summary(total, active)}>
@@ -235,7 +235,7 @@ function RecentActivity({ rows, className = '' }: { rows: { date: string; review
                   animationDelay: `${i * 25}ms`,
                 }}
               />
-              <span className={`mt-2 text-[11px] font-bold ${isToday ? 'text-sun' : 'text-muted'}`} aria-hidden>
+              <span className={`mt-2 text-[11px] font-bold ${isToday ? 'text-sun-ink' : 'text-muted'}`} aria-hidden>
                 {isToday ? m.recent.today : parseDateKey(r.date).toLocaleDateString(LOCALE, { weekday: 'narrow' })}
               </span>
             </li>
@@ -249,21 +249,21 @@ function RecentActivity({ rows, className = '' }: { rows: { date: string; review
   )
 }
 
-function InsightCard({ text, tone }: { text: string; tone: 'good' | 'neutral' }) {
+function InsightCard({ text, tone, sample }: { text: string; tone: 'good' | 'neutral'; sample: boolean }) {
   return (
     <section
       aria-labelledby="home-insight"
       className="animate-rise relative overflow-hidden rounded-3xl border border-line bg-surface p-5 shadow-card sm:p-6"
       style={{ animationDelay: '80ms' }}
     >
-      <div className={`grid size-11 place-items-center rounded-2xl ${tone === 'good' ? 'bg-good-soft text-good' : 'bg-sun-soft text-sun'}`}>
+      <div className={`grid size-11 place-items-center rounded-2xl ${tone === 'good' ? 'bg-good-soft text-good' : 'bg-sun-soft text-sun-ink'}`}>
         <SparkleIcon size={22} />
       </div>
       <h2 id="home-insight" className="mt-4 text-xs font-bold tracking-wide text-muted uppercase">
         {m.insight.title}
       </h2>
       <p className="mt-1 text-lg leading-snug font-extrabold text-ink">{text}</p>
-      <p className="mt-3 text-xs text-muted">{m.insight.basis}</p>
+      <p className="mt-3 text-xs text-muted">{sample ? m.insight.basisSample : m.insight.basis}</p>
     </section>
   )
 }
@@ -323,7 +323,7 @@ function DeckCard({ week, month }: { week: DeckSummary; month: DeckSummary }) {
 
 const MILESTONE_STYLE: Record<MilestoneTrack['kind'], { icon: ReactNode; color: string; tint: string; title: string }> = {
   reviews: { icon: <TrophyIcon size={20} />, color: 'var(--color-brand)', tint: 'var(--color-brand-soft)', title: m.milestones.reviews },
-  streak: { icon: <Flame lit size={24} />, color: 'var(--color-sun)', tint: 'var(--color-sun-soft)', title: m.milestones.streak },
+  streak: { icon: <Flame lit size={24} />, color: 'var(--color-sun-ink)', tint: 'var(--color-sun-soft)', title: m.milestones.streak },
   known: { icon: <BrainIcon size={20} />, color: 'var(--color-good)', tint: 'var(--color-good-soft)', title: m.milestones.known },
 }
 

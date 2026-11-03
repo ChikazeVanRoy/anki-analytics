@@ -87,7 +87,7 @@ export function ActivityPage({ data, range, onRangeChange }: Props) {
           label="Remembered"
           tip="Reviews of graduated cards not answered Again (Anki’s true retention). “Known well” = cards whose previous interval was 21 days or more."
           value={reviewCards.reviews > 0 ? formatPct(reviewCards.rate) : '—'}
-          hint={`${formatInt(reviewCards.reviews)} reviews · known well ${mature.reviews > 0 ? formatPct(mature.rate) : '—'}`}
+          hint={`of ${formatInt(reviewCards.reviews)} reviews${mature.reviews > 0 ? ` · cards known well ${formatPct(mature.rate)}` : ''}`}
           style={{ animationDelay: '120ms' }}
         />
         <StatCard

@@ -43,11 +43,13 @@
   /* Sun: streaks and celebration */
   --color-sun: light-dark(#f07c12, #ffa340);
   --color-sun-soft: light-dark(#fff1e0, #3a2a18);
+  /* Sun as text: darker by day so small labels keep 4.5:1 */
+  --color-sun-ink: light-dark(#b04f00, #ffa340);
 
   /* Status (always paired with an icon or words, never colour alone) */
-  --color-good: light-dark(#1b8048, #4cc77f);
+  --color-good: light-dark(#16703f, #4cc77f);
   --color-good-soft: light-dark(#e4f5ea, #1b3324);
-  --color-warning: light-dark(#a86400, #f0b44a);
+  --color-warning: light-dark(#8f5300, #f0b44a);
   --color-warning-soft: light-dark(#fff3da, #3a2d16);
   --color-critical: light-dark(#c23434, #f07272);
   --color-critical-soft: light-dark(#fde8e6, #3d1f1e);
