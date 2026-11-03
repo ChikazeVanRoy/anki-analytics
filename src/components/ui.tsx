@@ -1,24 +1,54 @@
 // Small shared UI pieces: tooltips, badges, controls, metric tiles, disclosure, empty/loading states.
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { messages } from '../i18n'
 import { prefersReducedMotion } from '../lib/motion'
 import { ChevronIcon, InfoIcon } from './icons'
 
-/** "i" icon with an explanation on hover, tap or keyboard focus. */
+/** "i" icon with an explanation on hover, tap or keyboard focus. Escape hides it (WCAG 1.4.13). */
 export function InfoTip({ children, label = 'More info' }: { children: ReactNode; label?: string }) {
+  const [hovered, setHovered] = useState(false)
+  const [focused, setFocused] = useState(false)
+  const [dismissed, setDismissed] = useState(false)
+  const tipId = useId()
+  const shown = (hovered || focused) && !dismissed
+
+  // A dismissed tip stays hidden until the pointer and focus have both left.
+  // Listen on the document, so Escape works for a tip opened by hover while focus is elsewhere
+  useEffect(() => {
+    if (!shown) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setDismissed(true)
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [shown])
+
   return (
-    <span className="group relative inline-flex align-middle">
+    <span
+      className="relative inline-flex align-middle"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => {
+        setHovered(false)
+        if (!focused) setDismissed(false)
+      }}
+      onFocus={() => setFocused(true)}
+      onBlur={() => {
+        setFocused(false)
+        if (!hovered) setDismissed(false)
+      }}
+    >
       <button
         type="button"
         aria-label={label}
-        className="ml-1 inline-grid size-5 place-items-center rounded-full text-muted transition-colors hover:text-brand focus:text-brand focus:outline-none"
+        aria-describedby={tipId}
+        // The ::before halo makes the touch target 28px (the icon stays 20px); small enough not to cover neighbours
+        className="relative ml-1 inline-grid size-5 place-items-center rounded-full text-muted transition-colors before:absolute before:-inset-1 before:content-[''] hover:text-brand focus:text-brand focus:outline-none"
       >
         <InfoIcon size={15} />
       </button>
       <span
         role="tooltip"
+        id={tipId}
         // `hidden` (display: none) rather than invisible: a hidden tooltip near the screen edge must not widen the page
-        className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 hidden w-64 max-w-[min(16rem,80vw)] -translate-x-1/2 rounded-2xl border border-line bg-surface px-3.5 py-2.5 text-left text-xs leading-relaxed font-medium tracking-normal text-ink-2 normal-case shadow-pop group-focus-within:block group-hover:block"
+        className={`pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 w-64 max-w-[min(16rem,80vw)] -translate-x-1/2 rounded-2xl border border-line bg-surface px-3.5 py-2.5 text-left text-xs leading-relaxed font-medium tracking-normal text-ink-2 normal-case shadow-pop ${shown ? 'block' : 'hidden'}`}
       >
         {children}
       </span>

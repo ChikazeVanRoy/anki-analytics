@@ -305,10 +305,11 @@ export function FsrsAnalytics({ fsrs, decks: allDecks, todayKey }: Props) {
         subtitle="What you actually remembered, compared with what FSRS expected and your target."
         actions={<SourceBadge kind="measured" />}
       >
+        {/* min-w-0: a grid item won't shrink below its content, so the wide table would stretch the page on a phone */}
         <div className="grid gap-4 lg:grid-cols-2">
-          <div className="rounded-2xl bg-surface-2 p-4">
+          <div className="min-w-0 rounded-2xl bg-surface-2 p-4">
             <h3 className="font-extrabold text-ink">
-              Remembered: actual vs predicted vs target
+              Recall check: actual vs predicted vs target
               <InfoTip label="About this table">
                 Young = the card’s previous interval was under 21 days; mature (known well) = 21 days or more (Anki’s
                 definition). Only reviews of graduated cards count, as in Anki’s True Retention table.
@@ -355,7 +356,7 @@ export function FsrsAnalytics({ fsrs, decks: allDecks, todayKey }: Props) {
             )}
           </div>
 
-          <div className="rounded-2xl bg-surface-2 p-4">
+          <div className="min-w-0 rounded-2xl bg-surface-2 p-4">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <h3 className="font-extrabold text-ink">
                 Calibration

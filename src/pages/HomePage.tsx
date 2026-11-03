@@ -20,7 +20,7 @@ import {
   type MilestoneTrack,
 } from '../lib/progress'
 import { routeHref, type Route } from '../lib/route'
-import { ankiToday, deckSummaries, summarize, totalsByDate, type DeckSummary } from '../lib/stats'
+import { ankiToday, deckSummaries, retentionSplit, summarize, totalsByDate, type DeckSummary } from '../lib/stats'
 
 const m = messages.home
 
@@ -43,6 +43,7 @@ export function HomePage({ data }: { data: AnkiData }) {
   const status = dayStatus(hasAny, week7.reviewsToday, week7.streak)
   const todayMinutes = (byDate.get(toDateKey(today))?.seconds ?? 0) / 60
   const { reviewCards } = month.retention
+  const split = retentionSplit(month.retention)
   const fsrsOn = !!data.fsrs?.enabled
   const sample = data.source === 'mock'
   const shownDecks = data.decks.filter((d) => d.totalCards + d.suspendedCards > 0)
@@ -93,7 +94,20 @@ export function HomePage({ data }: { data: AnkiData }) {
           icon={<BrainIcon size={18} className="text-sun-ink" />}
           tint="var(--color-sun-soft)"
           value={reviewCards.reviews > 0 ? <CountUp value={reviewCards.rate} format={formatRate} /> : '—'}
-          hint={reviewCards.reviews > 0 ? m.kpi.rememberedSub(reviewCards.reviews) : m.kpi.rememberedNone}
+          hint={
+            reviewCards.reviews === 0 ? (
+              m.kpi.rememberedNone
+            ) : (
+              <>
+                {m.kpi.rememberedSub(reviewCards.reviews)}
+                <span className="mt-0.5 block">
+                  {split.matureThin
+                    ? m.kpi.rememberedYoungNote(split.mature.reviews)
+                    : m.kpi.rememberedSplit(split.young.reviews > 0 ? formatRate(split.young.rate) : '—', formatRate(split.mature.rate))}
+                </span>
+              </>
+            )
+          }
           style={{ animationDelay: '120ms' }}
         />
         <StatCard
@@ -307,6 +321,7 @@ function DeckCard({ week, month }: { week: DeckSummary; month: DeckSummary }) {
     { label: m.decks.known, value: deck.matureCards, opacity: 1 },
   ]
   const rc = month.retention.reviewCards
+  const rcThin = retentionSplit(month.retention).matureThin
   return (
     <article className="rounded-3xl border border-line bg-surface p-5 shadow-card transition-transform hover:-translate-y-0.5">
       <div className="flex items-center gap-3">
@@ -345,6 +360,7 @@ function DeckCard({ week, month }: { week: DeckSummary; month: DeckSummary }) {
         <div className="rounded-2xl bg-surface-2 px-3 py-2.5">
           <dt className="text-xs font-bold text-muted">{m.decks.remembered}</dt>
           <dd className="text-xl font-extrabold text-ink tabular-nums">{rc.reviews > 0 ? formatRate(rc.rate) : '—'}</dd>
+          {rcThin && <dd className="text-xs text-muted">{m.decks.rememberedYoung}</dd>}
         </div>
       </dl>
     </article>

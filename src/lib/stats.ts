@@ -91,8 +91,8 @@ export function currentStreak(byDate: Map<string, DayTotal>, today = new Date())
 }
 
 export interface Retention {
-  reviewCards: { reviews: number; rate: number }
-  mature: { reviews: number; rate: number }
+  reviewCards: { reviews: number; passed: number; rate: number }
+  mature: { reviews: number; passed: number; rate: number }
 }
 
 function retentionOf(stats: DailyDeckStat[]): Retention {
@@ -107,8 +107,23 @@ function retentionOf(stats: DailyDeckStat[]): Retention {
     mPassed += s.maturePassed
   }
   return {
-    reviewCards: { reviews: rc, rate: ratio(rcPassed, rc) },
-    mature: { reviews: m, rate: ratio(mPassed, m) },
+    reviewCards: { reviews: rc, passed: rcPassed, rate: ratio(rcPassed, rc) },
+    mature: { reviews: m, passed: mPassed, rate: ratio(mPassed, m) },
+  }
+}
+
+/**
+ * Splits graduated-card retention into young (previous interval under 21 days) and mature cards.
+ * `matureThin` is true when too few mature reviews exist for the overall rate to say anything about
+ * long-term memory: it is then almost entirely young cards, which are easier to recall.
+ */
+export function retentionSplit(r: Retention) {
+  const youngReviews = r.reviewCards.reviews - r.mature.reviews
+  const youngPassed = r.reviewCards.passed - r.mature.passed
+  return {
+    young: { reviews: youngReviews, rate: ratio(youngPassed, youngReviews) },
+    mature: r.mature,
+    matureThin: r.reviewCards.reviews > 0 && r.mature.reviews < MIN_MATURE_SAMPLE,
   }
 }
 
@@ -197,6 +212,9 @@ export function deckSummaries(data: AnkiData, days: number): DeckSummary[] {
 
 /** Fewer reviews than this in a window/bucket gives a meaningless rate (e.g. 1 review = 0% or 100%). */
 export const MIN_RATE_SAMPLE = 10
+
+/** Below this many mature reviews in a window, the overall Remembered rate is really a young-card rate. */
+export const MIN_MATURE_SAMPLE = 30
 
 const rateOrGap = (t: DayTotal) => (t.reviews >= MIN_RATE_SAMPLE ? t.again / t.reviews : null)
 

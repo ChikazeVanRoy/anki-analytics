@@ -39,6 +39,7 @@ export default function App() {
       route={route}
       data={state.data}
       fallbackReason={state.fallbackReason}
+      fallbackKind={state.fallbackKind}
       onRefresh={refresh}
       refreshing={refreshing}
       refreshError={refreshError}

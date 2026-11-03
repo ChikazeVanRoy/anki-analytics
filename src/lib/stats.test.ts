@@ -9,6 +9,7 @@ import {
   deckSummaries,
   lastNDays,
   rangeDays,
+  retentionSplit,
   reviewsByPeriod,
   summarize,
   toDateKey,
@@ -105,8 +106,8 @@ describe('summarize', () => {
       data([stat('2026-03-15', 'a', 50, 10, { reviewCardReviews: 20, reviewCardPassed: 18, matureReviews: 5, maturePassed: 5 })]),
       7,
     )
-    expect(s.retention.reviewCards).toEqual({ reviews: 20, rate: 0.9 })
-    expect(s.retention.mature).toEqual({ reviews: 5, rate: 1 })
+    expect(s.retention.reviewCards).toEqual({ reviews: 20, passed: 18, rate: 0.9 })
+    expect(s.retention.mature).toEqual({ reviews: 5, passed: 5, rate: 1 })
   })
   it('has zero rates (not NaN) with no data', () => {
     const s = summarize(data([]), 30)
@@ -172,5 +173,30 @@ describe('deckSummaries', () => {
     expect(a.reviews).toBe(10)
     expect(a.againRate).toBeCloseTo(0.1)
     expect(b.againRate).toBeCloseTo(0.25)
+  })
+})
+
+describe('retentionSplit', () => {
+  it('derives young retention exactly from the overall and mature counts', () => {
+    const split = retentionSplit({
+      reviewCards: { reviews: 100, passed: 90, rate: 0.9 },
+      mature: { reviews: 40, passed: 38, rate: 0.95 },
+    })
+    expect(split.young).toEqual({ reviews: 60, rate: 52 / 60 })
+    expect(split.matureThin).toBe(false)
+  })
+
+  it('flags a window with almost no mature reviews (the 795/796 case)', () => {
+    const split = retentionSplit({
+      reviewCards: { reviews: 796, passed: 795, rate: 795 / 796 },
+      mature: { reviews: 1, passed: 1, rate: 1 },
+    })
+    expect(split.matureThin).toBe(true)
+    expect(split.young).toEqual({ reviews: 795, rate: 794 / 795 })
+  })
+
+  it('is not flagged when there are no reviews at all', () => {
+    const none = { reviews: 0, passed: 0, rate: 0 }
+    expect(retentionSplit({ reviewCards: none, mature: none }).matureThin).toBe(false)
   })
 })

@@ -6,7 +6,7 @@ import type { AnkiData } from '../data/types'
 import { ankiDayKey, dayNumber, toDateKey } from './dates'
 import { formatInt, formatRate } from './format'
 import { measuredDefaults } from './measured'
-import { deckSummaries, lastNDays, MIN_RATE_SAMPLE, ratio, type DayTotal } from './stats'
+import { deckSummaries, lastNDays, MIN_RATE_SAMPLE, ratio, retentionSplit, type DayTotal } from './stats'
 
 /** Longest run of consecutive days with at least one review, across the whole history. */
 export function longestStreak(byDate: Map<string, DayTotal>): number {
@@ -168,7 +168,10 @@ export function homeInsight(data: AnkiData, byDate: Map<string, DayTotal>, today
     }
   }
 
-  const decks = deckSummaries(data, 30).filter((d) => d.retention.reviewCards.reviews >= MIN_RATE_SAMPLE * 3)
+  const decks = deckSummaries(data, 30).filter(
+    // A deck of mostly young cards recalls easily, so ranking it "strongest" would mislead
+    (d) => d.retention.reviewCards.reviews >= MIN_RATE_SAMPLE * 3 && !retentionSplit(d.retention).matureThin,
+  )
   if (decks.length >= 2) {
     const best = [...decks].sort((a, b) => b.retention.reviewCards.rate - a.retention.reviewCards.rate)[0]
     return {
