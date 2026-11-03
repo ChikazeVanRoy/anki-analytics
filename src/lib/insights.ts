@@ -24,7 +24,10 @@ export interface InsightInputs {
 const mins = (reviews: number, secs: number) => (reviews * secs) / 60
 const fmt = formatInt
 
-/** Largest new/day whose heaviest 30-day stretch fits the budget, interpolated between scenarios. */
+/**
+ * Largest new/day whose heaviest 30-day stretch fits the budget, interpolated between scenarios and
+ * rounded down to 5, but never below the largest simulated scenario that fits (e.g. your own 12/day).
+ */
 export function maxSustainableNewPerDay(
   sweep: { value: number; year: HorizonSummary }[],
   budgetMinutes: number,
@@ -41,7 +44,7 @@ export function maxSustainableNewPerDay(
       const la = load(a)
       const lb = load(b)
       const t = Number.isFinite(lb) && lb > la ? (budgetMinutes - la) / (lb - la) : 0
-      return { value: Math.floor((a.value + t * (b.value - a.value)) / 5) * 5, capped: false }
+      return { value: Math.max(a.value, Math.floor((a.value + t * (b.value - a.value)) / 5) * 5), capped: false }
     }
   }
   return { value: pts[pts.length - 1].value, capped: true }

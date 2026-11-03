@@ -37,6 +37,19 @@ const fsrs = {
 
 describe('cardsNow', () => {
   const now = cardsNow(fsrs, '2026-03-15')
+  it('uses the card’s own preset when its subdeck has one', () => {
+    const own = { ...preset('a', 0.97), presetId: 2, params: DEFAULT_PARAMS.map((w, i) => (i === 20 ? 0.5 : w)) }
+    const mixed = {
+      ...fsrs,
+      cardPresets: [own],
+      cards: [{ ...fsrs.cards[0], preset: 0 }, fsrs.cards[0]],
+    } as unknown as FsrsData
+    const [sub, main] = cardsNow(mixed, '2026-03-15')
+    expect(sub.desired).toBe(0.97)
+    expect(sub.r).toBeCloseTo(retrievability(10, 10, own.params), 10)
+    expect(main.desired).toBe(0.9)
+    expect(main.r).toBeCloseTo(0.9, 10)
+  })
   it('computes retrievability from whole days since the last review', () => {
     expect(now[0].elapsed).toBe(10)
     expect(now[0].r).toBeCloseTo(0.9, 10)
@@ -104,6 +117,12 @@ describe('insights', () => {
     expect(maxSustainableNewPerDay(sweep, 40, 60)).toEqual({ value: 15, capped: false }) // crosses 40 at 15
     expect(maxSustainableNewPerDay(sweep, 100, 60)).toEqual({ value: 30, capped: true })
     expect(maxSustainableNewPerDay(sweep, 5, 60)).toBeNull()
+  })
+
+  it('never answers below a simulated scenario that fits the budget', () => {
+    // Your own 12/day (added to the sweep) fits; 20 doesn't. Rounding 12.x down to 10 would contradict that.
+    const withCurrent = [...sweep.slice(0, 2), { value: 12, year: summary(33) }, ...sweep.slice(2)] // 33 min at 12/day
+    expect(maxSustainableNewPerDay(withCurrent, 34, 60)).toEqual({ value: 12, capped: false })
   })
 
   it('treats a review-limit backlog as unsustainable', () => {
