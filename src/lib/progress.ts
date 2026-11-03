@@ -3,8 +3,9 @@
 // shown as reached only when the review log or card counts show it.
 
 import type { AnkiData } from '../data/types'
-import { dayNumber } from './dates'
+import { ankiDayKey, dayNumber, toDateKey } from './dates'
 import { formatInt, formatRate } from './format'
+import { measuredDefaults } from './measured'
 import { deckSummaries, lastNDays, MIN_RATE_SAMPLE, ratio, type DayTotal } from './stats'
 
 /** Longest run of consecutive days with at least one review, across the whole history. */
@@ -107,6 +108,27 @@ export function greetingPart(hour: number): 'morning' | 'afternoon' | 'evening' 
   if (hour >= 5 && hour < 12) return 'morning'
   if (hour >= 12 && hour < 18) return 'afternoon'
   return 'evening'
+}
+
+export type DueToday =
+  | {
+      stale: false
+      cards: number // studied, unburied cards due today or overdue, from Anki's stored due dates
+      /** Estimate: cards × measured seconds per answer. Anki's daily review limit may show fewer. */
+      minutes: number
+    }
+  /** The copy is from an earlier Anki day, so its due dates can't say what's left today. */
+  | { stale: true }
+
+/** What's waiting today, from FSRS card data. Null without real FSRS data (mock data has none). */
+export function dueToday(data: AnkiData, today: Date): DueToday | null {
+  if (!data.fsrs?.enabled) return null
+  const todayKey = toDateKey(today)
+  const copied = Date.parse(data.generatedAt)
+  if (!Number.isFinite(copied) || ankiDayKey(copied, data.dayStartHour) < todayKey) return { stale: true }
+  const day = dayNumber(todayKey)
+  const cards = data.fsrs.cards.filter((c) => !c.buried && dayNumber(c.due) <= day).length
+  return { stale: false, cards, minutes: (cards * measuredDefaults(data, today).secondsPerReview) / 60 }
 }
 
 // ---------- One insight ----------

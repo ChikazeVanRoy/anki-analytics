@@ -213,7 +213,8 @@ describe('FSRS data', () => {
   })
 
   it('reads a buried learning card’s timestamp due date instead of treating it as a day number', () => {
-    expect(fsrs().cards.find((c) => c.stability === 1)).toMatchObject({ due: '2026-03-16', state: 'learning' })
+    expect(fsrs().cards.find((c) => c.stability === 1)).toMatchObject({ due: '2026-03-16', state: 'learning', buried: true })
+    expect(fsrs().cards.find((c) => c.stability === 12)).not.toHaveProperty('buried')
   })
 
   it('puts a card in a filtered deck in its home deck, due on its original date', () => {

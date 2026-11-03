@@ -213,6 +213,7 @@ export function readFsrsData(ctx: Context): FsrsData {
       interval: Math.max(0, Number(r.ivl)),
       state: type === 2 ? 'review' : type === 3 ? 'relearning' : 'learning',
       ...(presetIndex !== undefined && { preset: presetIndex }),
+      ...((queue === -2 || queue === -3) && { buried: true }),
     })
   }
 

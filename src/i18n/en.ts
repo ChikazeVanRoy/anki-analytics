@@ -53,6 +53,14 @@ export const en = {
       start: 'Ready when you are. A short session today starts a new streak.',
       empty: 'Your progress will appear here after your first review in Anki.',
     },
+    due: {
+      some: (n: number, minutes: number) =>
+        `${int(n)} ${plural(n, 'card is', 'cards are')} due today: about ${int(Math.max(1, minutes))} min at your usual pace.`,
+      none: 'Nothing is due right now. Enjoy the free time.',
+      stale: 'Refresh to see what’s due today: this copy is from an earlier day.',
+      tipLabel: 'About this estimate',
+      tip: 'Cards due today or overdue, from the due dates Anki stored when the collection was copied (buried cards left out). Minutes are an estimate from your measured time per answer; Anki’s daily review limit may show you fewer.',
+    },
     streak: { label: 'day streak', best: (n: number) => `Best: ${n} ${plural(n, 'day', 'days')}` },
     kpi: {
       today: 'Reviewed today',
@@ -88,6 +96,18 @@ export const en = {
       learning: 'Learning',
       known: 'Known well',
       knownTip: 'Cards with an interval of 21 days or more (Anki calls these “mature”).',
+    },
+    garden: {
+      eyebrow: 'Memory garden',
+      title: 'What’s growing in each deck?',
+      stage: { flower: 'Known well', sprout: 'Learning' },
+      seeds: (n: number) => `${int(n)} ${plural(n, 'seed', 'seeds')} waiting (cards not started)`,
+      empty: 'Nothing planted yet. Study a card to grow the first sprout.',
+      unit: (n: number) => (n === 1 ? '1 plant = 1 card' : `1 plant ≈ ${int(n)} cards`),
+      bloom: (known: number, total: number) => `${int(known)} of ${int(total)} in bloom`,
+      bedLabel: (deck: string, flower: number, sprout: number, seed: number, unit: number) =>
+        `${deck}: ${int(flower)} known well, ${int(sprout)} learning, ${int(seed)} not started. Each plant is ${unit === 1 ? 'one card' : `about ${int(unit)} cards`}.`,
+      note: 'Grown from Anki’s card counts: a card blooms once its interval reaches 21 days. Suspended cards are planted too, as Anki counts them.',
     },
     insight: { title: 'Insight', basis: 'Based on your review history', basisSample: 'Based on the generated sample data' },
     milestones: {

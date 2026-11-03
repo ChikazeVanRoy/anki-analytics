@@ -51,6 +51,8 @@ export interface FsrsCard {
   state: 'review' | 'learning' | 'relearning'
   /** Index into FsrsData.cardPresets: the preset of the card's home deck. Absent: use the group's preset. */
   preset?: number
+  /** Buried (by the user or sibling burying): Anki won't show it until the next day. Absent: not buried. */
+  buried?: boolean
 }
 
 /** Scheduler settings of the preset a deck group uses (the one most of its cards use). */

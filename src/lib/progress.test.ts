@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AnkiData, DailyDeckStat } from '../data/types'
 import {
   dayStatus,
+  dueToday,
   greetingPart,
   homeInsight,
   longestStreak,
@@ -155,5 +156,45 @@ describe('insight percentages', () => {
     const rc = (passed: number) => ({ reviewCardReviews: 1000, reviewCardPassed: passed })
     const d = data([stat('2026-11-01', 'a', 1000, rc(999)), stat('2026-11-01', 'b', 1000, rc(900))])
     expect(homeInsight(d, totalsByDate(d.daily), TODAY)!.text).toContain('99.9%')
+  })
+})
+
+describe('dueToday', () => {
+  const card = (due: string) => ({
+    deckId: 'a',
+    stability: 10,
+    difficulty: 5,
+    lastReview: '2026-10-20',
+    due,
+    interval: 10,
+    state: 'review' as const,
+  })
+  const withFsrs = (dues: string[], extra: Partial<AnkiData> = {}, buried: string[] = []): AnkiData => ({
+    ...data([]),
+    generatedAt: new Date(2026, 10, 3, 9).toISOString(), // copied this morning
+    fsrs: {
+      enabled: true,
+      behaviour: [{ deckId: 'a', secondsPerReview: 6, answers: 100 }],
+      cards: [...dues.map(card), ...buried.map((d) => ({ ...card(d), buried: true }))],
+    } as unknown as NonNullable<AnkiData['fsrs']>,
+    ...extra,
+  })
+
+  it('counts cards due today or overdue, not later ones, and estimates minutes at the measured pace', () => {
+    const due = dueToday(withFsrs(['2026-11-01', '2026-11-03', '2026-11-04', '2026-12-01']), TODAY)
+    expect(due).toEqual({ stale: false, cards: 2, minutes: (2 * 6) / 60 })
+  })
+  it('leaves out buried cards, which Anki won’t show today', () => {
+    expect(dueToday(withFsrs(['2026-11-02'], {}, ['2026-11-02', '2026-11-03']), TODAY)).toMatchObject({ cards: 1 })
+  })
+  it('gives no count when the copy is from an earlier Anki day', () => {
+    const yesterday = { generatedAt: new Date(2026, 10, 2, 20).toISOString() }
+    expect(dueToday(withFsrs(['2026-11-01'], yesterday), TODAY)).toEqual({ stale: true })
+    // Before the rollover hour it's still the previous Anki day: a copy from 2am counts as 2 Nov
+    const early = { generatedAt: new Date(2026, 10, 3, 2).toISOString(), dayStartHour: 4 }
+    expect(dueToday(withFsrs(['2026-11-01'], early), TODAY)).toEqual({ stale: true })
+  })
+  it('is null without FSRS data, so sample data never shows a due count', () => {
+    expect(dueToday(data([]), TODAY)).toBeNull()
   })
 })

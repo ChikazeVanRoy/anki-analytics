@@ -1,5 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { ActivityIcon, AdvancedIcon, ArrowRightIcon, BrainIcon, CheckIcon, Flame, LayersIcon, PlannerIcon, SparkleIcon, TrophyIcon } from '../components/icons'
+import { MemoryGarden } from '../components/MemoryGarden'
 import { StatCard } from '../components/StatCard'
 import { CountUp, InfoTip, ProgressBar, SourceBadge } from '../components/ui'
 import type { AnkiData } from '../data/types'
@@ -8,6 +9,7 @@ import { parseDateKey, toDateKey } from '../lib/dates'
 import { formatInt, formatPct, formatRate } from '../lib/format'
 import {
   dayStatus,
+  dueToday,
   greetingPart,
   homeInsight,
   longestStreak,
@@ -34,6 +36,7 @@ export function HomePage({ data }: { data: AnkiData }) {
   const insight = useMemo(() => homeInsight(data, byDate, today), [data, byDate, today])
   const decksWeek = useMemo(() => deckSummaries(data, 7), [data])
   const decksMonth = useMemo(() => deckSummaries(data, 30), [data])
+  const due = useMemo(() => dueToday(data, today), [data, today])
 
   const [hour] = useState(() => new Date().getHours())
   const hasAny = data.daily.some((s) => s.reviews > 0)
@@ -57,6 +60,7 @@ export function HomePage({ data }: { data: AnkiData }) {
                 ? m.status.start
                 : m.status.empty
         }
+        due={due && (due.stale ? m.due.stale : due.cards > 0 ? m.due.some(due.cards, due.minutes) : m.due.none)}
         streak={week7.streak}
         best={best}
         sample={sample}
@@ -105,6 +109,8 @@ export function HomePage({ data }: { data: AnkiData }) {
           style={{ animationDelay: '180ms' }}
         />
       </div>
+
+      {shownDecks.length > 0 && <MemoryGarden decks={shownDecks} sample={sample} />}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <RecentActivity rows={recent} sample={sample} className="lg:col-span-2" />
@@ -155,7 +161,21 @@ export function HomePage({ data }: { data: AnkiData }) {
   )
 }
 
-function Hero({ greeting, status, streak, best, sample }: { greeting: string; status: string; streak: number; best: number; sample: boolean }) {
+function Hero({
+  greeting,
+  status,
+  due,
+  streak,
+  best,
+  sample,
+}: {
+  greeting: string
+  status: string
+  due: string | null
+  streak: number
+  best: number
+  sample: boolean
+}) {
   return (
     <section
       className="animate-rise relative overflow-hidden rounded-[2rem] bg-brand-soft p-6 sm:p-8"
@@ -171,6 +191,12 @@ function Hero({ greeting, status, streak, best, sample }: { greeting: string; st
             {sample && <SourceBadge kind="sample" />}
           </div>
           <p className="mt-2 text-base font-semibold text-ink-2 sm:text-lg">{status}</p>
+          {due && (
+            <p className="mt-3 inline-flex items-center gap-1.5 rounded-2xl bg-surface/70 px-3 py-1.5 text-sm font-bold text-ink">
+              {due}
+              <InfoTip label={m.due.tipLabel}>{m.due.tip}</InfoTip>
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-3 self-start rounded-3xl bg-surface px-5 py-4 shadow-card sm:self-auto">
           <Flame lit={streak > 0} />
