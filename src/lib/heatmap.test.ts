@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildWeeks, level, thresholds } from './heatmap'
+import { buildWeeks, level, replayStarts, revealedAt, runningTotals, thresholds } from './heatmap'
 
 const reviews = new Map([['2026-03-15', { reviews: 7 }]])
 const today = new Date(2026, 2, 15, 12) // Sunday
@@ -34,5 +34,33 @@ describe('colour levels', () => {
     const t = thresholds([0, 10, 20, 30, 40])
     expect(t).toEqual([10, 20, 30])
     expect([0, 5, 15, 25, 99].map((n) => level(n, t))).toEqual([0, 1, 2, 3, 4])
+  })
+})
+
+describe('runningTotals', () => {
+  it('adds up reviews day by day, ending at the period total', () => {
+    const cells = [3, 0, 5, 2].map((reviews, i) => ({ date: `2026-03-0${i + 1}`, reviews }))
+    expect(runningTotals(cells)).toEqual([3, 3, 8, 10])
+    expect(runningTotals([])).toEqual([])
+  })
+})
+
+describe('replay pacing', () => {
+  const cells = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 6].map((reviews, i) => ({ date: `d${i}`, reviews }))
+
+  it('gives active days a full beat and empty days a tenth of one', () => {
+    const starts = replayStarts(cells)
+    // 10 empty days (1 beat in all) + 2 active days = 3 beats: the first active day starts a third of the way in
+    expect(starts[0]).toBe(0)
+    expect(starts[10]).toBeCloseTo(1 / 3)
+    expect(starts[11]).toBeCloseTo(2 / 3)
+  })
+
+  it('reveals days as the replay progresses, and all of them at the end', () => {
+    const starts = replayStarts(cells)
+    expect(revealedAt(starts, 0)).toBe(1)
+    expect(revealedAt(starts, 0.5)).toBe(11)
+    expect(revealedAt(starts, 1)).toBe(12)
+    expect(revealedAt(replayStarts([]), 0.5)).toBe(0)
   })
 })

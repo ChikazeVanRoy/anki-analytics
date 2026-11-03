@@ -61,3 +61,32 @@ export function level(reviews: number, t: [number, number, number]): number {
   if (reviews <= t[2]) return 3
   return 4
 }
+
+/** Running review total after each cell (oldest first), for the replay's ticking counter. */
+export function runningTotals(cells: HeatCell[]): number[] {
+  let n = 0
+  return cells.map((c) => (n += c.reviews))
+}
+
+/**
+ * Replay pacing: when (0-1 of the replay) each day appears. Days with reviews get a full beat, empty days
+ * a tenth of one, so a sparse year doesn't spend the replay filling blank squares.
+ */
+export function replayStarts(cells: HeatCell[], emptyWeight = 0.1): number[] {
+  const weights = cells.map((c) => (c.reviews > 0 ? 1 : emptyWeight))
+  const sum = weights.reduce((a, b) => a + b, 0) || 1
+  let t = 0
+  return weights.map((w) => {
+    const start = t / sum
+    t += w
+    return start
+  })
+}
+
+/** How many days are revealed at replay progress `p` (0-1). */
+export function revealedAt(starts: number[], p: number): number {
+  if (p >= 1) return starts.length
+  let n = 0
+  while (n < starts.length && starts[n] <= p) n++
+  return n
+}

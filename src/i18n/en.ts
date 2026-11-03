@@ -134,6 +134,9 @@ export const en = {
   activity: {
     title: 'Activity',
     subtitle: 'What you’ve reviewed, and how it’s going.',
+    replay: 'Replay',
+    stopReplay: 'Stop',
+    replayTotal: (date: string) => `reviews by ${date}`,
   },
   planner: {
     title: 'Planner',

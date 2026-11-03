@@ -1,6 +1,7 @@
 // Small shared UI pieces: tooltips, badges, controls, metric tiles, disclosure, empty/loading states.
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { messages } from '../i18n'
+import { prefersReducedMotion } from '../lib/motion'
 import { ChevronIcon, InfoIcon } from './icons'
 
 /** "i" icon with an explanation on hover, tap or keyboard focus. */
@@ -215,9 +216,6 @@ export function EmptyState({
     </div>
   )
 }
-
-const prefersReducedMotion = () =>
-  typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 
 /** Number that counts up from 0 on first show. Screen readers get the final value only. */
 export function CountUp({ value, format, duration = 700 }: { value: number; format: (n: number) => string; duration?: number }) {
