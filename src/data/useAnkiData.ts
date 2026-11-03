@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
+import { messages } from '../i18n'
 import { mockData } from './mockData'
 import type { AnkiData } from './types'
 
 type State =
   | { status: 'loading' }
   | { status: 'ready'; data: AnkiData; fallbackReason?: string; fallbackKind?: FailureKind }
-
-const API_DOWN = 'Local API is not running (npm run dev).'
-const API_TIMEOUT = 'The local API did not answer in time.'
 
 /** Why real data could not be loaded, so the banner can say what to do about it. */
 export type FailureKind = 'api-down' | 'timeout' | 'collection' | 'server'
@@ -23,20 +21,32 @@ export class ApiError extends Error {
 const LOAD_TIMEOUT_MS = 15_000
 const REFRESH_TIMEOUT_MS = 90_000
 
-/** fetch + JSON, turning API errors and proxy failures (API not running) into readable messages. */
+/** fetch + JSON, turning API errors and proxy failures (API not running) into typed, readable errors. */
 async function request(url: string, timeoutMs: number, init?: RequestInit): Promise<AnkiData> {
-  let res: Response
+  const m = messages.data
+  // AbortController + setTimeout rather than AbortSignal.timeout, which older browsers lack
+  const controller = new AbortController()
+  let timedOut = false
+  const timer = setTimeout(() => {
+    timedOut = true
+    controller.abort()
+  }, timeoutMs)
   try {
-    res = await fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) })
-  } catch (err) {
-    throw (err as Error).name === 'TimeoutError' ? new ApiError('timeout', API_TIMEOUT) : new ApiError('api-down', API_DOWN)
+    let res: Response
+    try {
+      res = await fetch(url, { ...init, signal: controller.signal })
+    } catch {
+      throw new ApiError(timedOut ? 'timeout' : 'api-down', timedOut ? m.apiTimeout : m.apiDown)
+    }
+    const body = await res.json().catch(() => null)
+    // No JSON body means the dev proxy had nothing to forward to. 503 (no copy yet) and 409 (Anki is open) are
+    // fixed by closing Anki and refreshing; any other error comes from the server and is in its terminal.
+    if (!body) throw new ApiError('api-down', m.apiDown)
+    if (!res.ok) throw new ApiError(res.status === 503 || res.status === 409 ? 'collection' : 'server', body.error ?? m.serverError)
+    return body as AnkiData
+  } finally {
+    clearTimeout(timer)
   }
-  const body = await res.json().catch(() => null)
-  // No JSON body means the dev proxy had nothing to forward to. 503 (no copy yet) and 409 (Anki is open) are
-  // fixed by closing Anki and refreshing; any other error comes from the server and is in its terminal.
-  if (!body) throw new ApiError('api-down', API_DOWN)
-  if (!res.ok) throw new ApiError(res.status === 503 || res.status === 409 ? 'collection' : 'server', body.error ?? API_DOWN)
-  return body as AnkiData
 }
 
 /**
@@ -52,10 +62,11 @@ export function useAnkiData() {
     let cancelled = false
     request('/api/stats', LOAD_TIMEOUT_MS)
       .then((data) => !cancelled && setState({ status: 'ready', data }))
-      .catch(
-        (err: ApiError) =>
-          !cancelled && setState({ status: 'ready', data: mockData, fallbackReason: err.message, fallbackKind: err.kind }),
-      )
+      .catch((err: unknown) => {
+        if (cancelled) return
+        const failure = err instanceof ApiError ? err : new ApiError('server', messages.data.serverError)
+        setState({ status: 'ready', data: mockData, fallbackReason: failure.message, fallbackKind: failure.kind })
+      })
     // Cleanup: ignore the response if the component unmounts first
     return () => {
       cancelled = true

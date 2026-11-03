@@ -103,7 +103,7 @@ export function HomePage({ data }: { data: AnkiData }) {
                 <span className="mt-0.5 block">
                   {split.matureThin
                     ? m.kpi.rememberedYoungNote(split.mature.reviews)
-                    : m.kpi.rememberedSplit(formatRate(split.young.rate), formatRate(split.mature.rate))}
+                    : m.kpi.rememberedSplit(split.young.reviews > 0 ? formatRate(split.young.rate) : '—', formatRate(split.mature.rate))}
                 </span>
               </>
             )

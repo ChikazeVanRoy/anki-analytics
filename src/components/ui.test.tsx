@@ -38,4 +38,9 @@ describe('InfoTip', () => {
     fireEvent.mouseEnter(button)
     expect(isShown()).toBe(true)
   })
+
+  it('links the tooltip to its button for screen readers', () => {
+    render(<InfoTip>Explanation</InfoTip>)
+    expect(screen.getByRole('button').getAttribute('aria-describedby')).toBe(tip().id)
+  })
 })

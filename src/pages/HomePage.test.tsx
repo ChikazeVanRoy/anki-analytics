@@ -55,3 +55,10 @@ describe('Home deck cards', () => {
     expect(screen.getAllByText(messages.home.decks.rememberedYoung).length).toBeGreaterThan(0)
   })
 })
+
+describe('Home "Remembered" card with only mature reviews', () => {
+  it('shows a dash, not 0%, for the young rate', () => {
+    render(<HomePage data={withRetention([40, 38], [40, 38])} />)
+    expect(screen.getByText(/young — · mature 95(\.\d)?%/)).toBeTruthy()
+  })
+})

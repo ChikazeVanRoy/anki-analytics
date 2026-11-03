@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { mockData } from './data/mockData'
@@ -11,6 +11,7 @@ function respondWith(impl: () => Promise<Response>) {
 
 afterEach(() => {
   cleanup()
+  vi.useRealTimers()
   vi.unstubAllGlobals()
 })
 
@@ -28,12 +29,6 @@ describe('App data states', () => {
     expect(screen.getByText(/npm run dev, then reload/)).toBeTruthy()
   })
 
-  it('falls back with a timeout reason when the API hangs', async () => {
-    respondWith(() => Promise.reject(new DOMException('timed out', 'TimeoutError')))
-    render(<App />)
-    expect(await screen.findByText(/did not answer in time/)).toBeTruthy()
-  })
-
   it('tells you to quit Anki when the API answers with an error', async () => {
     respondWith(async () => new Response(JSON.stringify({ error: 'No collection copy yet.' }), { status: 503 }))
     render(<App />)
@@ -41,21 +36,25 @@ describe('App data states', () => {
     expect(screen.getByText(/No collection copy yet\./)).toBeTruthy()
   })
 
-  it('sends a real abort signal and reports a timeout when it fires', async () => {
-    // Make AbortSignal.timeout fire straight away, and have fetch reject the way a browser does on abort
-    vi.spyOn(AbortSignal, 'timeout').mockImplementation(() => {
-      const c = new AbortController()
-      setTimeout(() => c.abort(new DOMException('timed out', 'TimeoutError')), 0)
-      return c.signal
-    })
+  it('aborts the request and reports a timeout when the API never answers', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
     vi.stubGlobal(
       'fetch',
-      vi.fn((_url: string, init: RequestInit) => new Promise((_, reject) => init.signal!.addEventListener('abort', () => reject(init.signal!.reason)))),
+      vi.fn((_url: string, init: RequestInit) => new Promise((_, reject) => init.signal!.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError'))))),
     )
     render(<App />)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(15_000)
+    })
     expect(await screen.findByText(/did not answer in time/)).toBeTruthy()
     expect(screen.getByText(/check that npm run dev is still running/)).toBeTruthy()
-    vi.restoreAllMocks()
+  })
+
+  it('does not blame the API being down for a server error without a message', async () => {
+    respondWith(async () => new Response(JSON.stringify({}), { status: 500 }))
+    render(<App />)
+    expect(await screen.findByText(/The local API reported an error/)).toBeTruthy()
+    expect(screen.queryByText(/is not running/)).toBeNull()
   })
 
   it('points to the terminal, not Anki, when the server itself fails', async () => {
@@ -82,9 +81,7 @@ describe('App data states', () => {
     const live = JSON.stringify({ ...mockData, source: 'anki' })
 
     it('posts to the refresh endpoint with the guard header and shows the new data', async () => {
-      const fetchMock = vi.fn(async (url: string) =>
-        url === '/api/stats' ? new Response(live, { status: 200 }) : new Response(live, { status: 200 }),
-      )
+      const fetchMock = vi.fn(async () => new Response(live, { status: 200 }))
       vi.stubGlobal('fetch', fetchMock)
       render(<App />)
       fireEvent.click(await screen.findByRole('button', { name: new RegExp(messages.data.refresh) }))
