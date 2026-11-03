@@ -17,6 +17,12 @@ export interface DailyDeckStat {
   reviews: number
   again: number // reviews answered "Again"
   studySeconds: number
+  /** Reviews of graduated cards (Anki revlog type "review"), and how many were not "Again". Basis for retention. */
+  reviewCardReviews: number
+  reviewCardPassed: number
+  /** Subset of the above where the card's previous interval was 21+ days (mature). */
+  matureReviews: number
+  maturePassed: number
 }
 
 export interface AnkiData {

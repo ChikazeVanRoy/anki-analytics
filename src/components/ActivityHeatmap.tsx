@@ -1,89 +1,59 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
-import type { DayTotal } from '../lib/stats'
-import { toDateKey } from '../lib/stats'
 import { formatInt, formatLongDate } from '../lib/format'
+import { buildWeeks, level, thresholds, type HeatCell, type HeatmapView } from '../lib/heatmap'
+import type { DayTotal } from '../lib/stats'
 import { heatmapLevels } from '../lib/theme'
 import { Panel } from './Panel'
 
 const CELL = 12
 const GAP = 3
 const STEP = CELL + GAP
-const WEEKS = 53
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-interface Cell {
-  date: string
-  reviews: number
+interface ActivityHeatmapProps {
+  byDate: Map<string, DayTotal>
+  today: Date
+  /** Years with reviews, newest first. */
+  years: number[]
 }
 
-/** Columns of weeks (Mon->Sun) ending with the current week. Future days are null. */
-function buildWeeks(byDate: Map<string, DayTotal>, today = new Date()): (Cell | null)[][] {
-  const end = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-  const mondayOffset = (end.getDay() + 6) % 7 // 0 = Monday
-  const start = new Date(end)
-  start.setDate(end.getDate() - mondayOffset - (WEEKS - 1) * 7)
-
-  const weeks: (Cell | null)[][] = []
-  const d = new Date(start)
-  for (let w = 0; w < WEEKS; w++) {
-    const week: (Cell | null)[] = []
-    for (let i = 0; i < 7; i++) {
-      const key = toDateKey(d)
-      week.push(d > end ? null : { date: key, reviews: byDate.get(key)?.reviews ?? 0 })
-      d.setDate(d.getDate() + 1)
-    }
-    weeks.push(week)
-  }
-  return weeks
-}
-
-/** Quartile thresholds over active days, so the scale adapts to your own volume. */
-function thresholds(values: number[]): number[] {
-  const sorted = values.filter((v) => v > 0).sort((a, b) => a - b)
-  if (sorted.length === 0) return [1, 1, 1]
-  const q = (p: number) => sorted[Math.floor(p * (sorted.length - 1))]
-  return [q(0.25), q(0.5), q(0.75)]
-}
-
-function level(reviews: number, t: number[]): number {
-  if (reviews === 0) return 0
-  if (reviews <= t[0]) return 1
-  if (reviews <= t[1]) return 2
-  if (reviews <= t[2]) return 3
-  return 4
-}
-
-export function ActivityHeatmap({ byDate, today }: { byDate: Map<string, DayTotal>; today: Date }) {
-  const weeks = useMemo(() => buildWeeks(byDate, today), [byDate, today])
-  const cells = weeks.flat().filter((c): c is Cell => c !== null)
+export function ActivityHeatmap({ byDate, today, years }: ActivityHeatmapProps) {
+  const [view, setView] = useState<HeatmapView>('last12')
+  const weeks = useMemo(() => buildWeeks(byDate, view, today), [byDate, view, today])
+  const cells = weeks.flat().filter((c): c is HeatCell => c !== null)
   const t = thresholds(cells.map((c) => c.reviews))
   const total = cells.reduce((n, c) => n + c.reviews, 0)
   const activeDays = cells.filter((c) => c.reviews > 0).length
 
-  const [hover, setHover] = useState<{ cell: Cell; x: number; y: number } | null>(null)
+  const [hover, setHover] = useState<{ cell: HeatCell; x: number; y: number } | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  // On narrow screens the grid scrolls horizontally; start at the most recent week.
+  // On narrow screens the grid scrolls horizontally; show the most recent weeks first.
   useLayoutEffect(() => {
     const el = scrollRef.current
     if (el) el.scrollLeft = el.scrollWidth
-  }, [])
+  }, [view])
 
-  const monthLabels = weeks.flatMap((week, i) => {
+  // Label the first column of each month (by the month of the column's first visible day)
+  const monthLabels: { i: number; label: string }[] = []
+  let lastMonth = -1
+  weeks.forEach((week, i) => {
     const first = week.find((c) => c !== null)
-    if (!first) return []
-    const day = Number(first.date.slice(8))
-    // Label a column when a new month starts within its first week
-    if (i === 0 || day <= 7) return [{ i, label: MONTHS[Number(first.date.slice(5, 7)) - 1] }]
-    return []
+    const month = first ? Number(first.date.slice(5, 7)) - 1 : -1
+    if (first && month !== lastMonth) {
+      monthLabels.push({ i, label: MONTHS[month] })
+      lastMonth = month
+    }
   })
 
-  const width = WEEKS * STEP - GAP
+  const width = weeks.length * STEP - GAP
+  const period = view === 'last12' ? 'over the last year' : `in ${view}`
+  const views: HeatmapView[] = ['last12', ...years]
 
   return (
     <Panel
       title="Study activity"
-      subtitle={`${formatInt(total)} reviews over the last year · ${activeDays} active days`}
+      subtitle={`${formatInt(total)} reviews ${period} · ${activeDays} active days`}
       actions={
         <div className="flex items-center gap-1.5 text-xs text-muted" aria-hidden>
           Less
@@ -94,6 +64,23 @@ export function ActivityHeatmap({ byDate, today }: { byDate: Map<string, DayTota
         </div>
       }
     >
+      <div role="radiogroup" aria-label="Heatmap period" className="-mt-1 mb-4 flex flex-wrap gap-1.5">
+        {views.map((v) => (
+          <button
+            key={v}
+            type="button"
+            role="radio"
+            aria-checked={v === view}
+            onClick={() => setView(v)}
+            className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+              v === view ? 'bg-surface-2 text-ink' : 'text-muted hover:text-ink-2'
+            }`}
+          >
+            {v === 'last12' ? 'Last 12 months' : v}
+          </button>
+        ))}
+      </div>
+
       <div ref={scrollRef} className="relative overflow-x-auto pb-1">
         <div className="relative flex gap-2" style={{ width: width + 32 }}>
           <div className="flex flex-col pt-5 text-[10px] text-muted" style={{ gap: GAP, width: 24 }} aria-hidden>
@@ -111,7 +98,7 @@ export function ActivityHeatmap({ byDate, today }: { byDate: Map<string, DayTota
                 </span>
               ))}
             </div>
-            <div className="flex" style={{ gap: GAP }} role="grid" aria-label="Daily reviews over the last year">
+            <div className="flex" style={{ gap: GAP }} role="grid" aria-label={`Daily reviews ${period}`}>
               {weeks.map((week, w) => (
                 <div key={w} className="flex flex-col" style={{ gap: GAP }} role="row">
                   {week.map((cell, d) =>

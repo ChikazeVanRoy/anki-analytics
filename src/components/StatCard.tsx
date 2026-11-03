@@ -9,11 +9,12 @@ interface StatCardProps {
   value: string
   hint?: string
   delta?: Delta
+  className?: string
 }
 
-export function StatCard({ label, value, hint, delta }: StatCardProps) {
+export function StatCard({ label, value, hint, delta, className = '' }: StatCardProps) {
   return (
-    <div className="rounded-2xl border border-line bg-surface p-5">
+    <div className={`rounded-2xl border border-line bg-surface p-5 ${className}`}>
       <p className="text-sm text-muted">{label}</p>
       <p className="mt-2 text-3xl font-semibold tracking-tight text-ink">{value}</p>
       <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">

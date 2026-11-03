@@ -1,6 +1,7 @@
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import type { Deck } from '../data/types'
-import { formatInt, formatLongDate, formatShortDate } from '../lib/format'
+import { formatBucketTick, formatBucketTitle, formatInt } from '../lib/format'
+import type { Bucket } from '../lib/stats'
 import { chart, deckColor } from '../lib/theme'
 import { ChartTooltip } from './ChartTooltip'
 import { LegendItem, Panel } from './Panel'
@@ -8,16 +9,21 @@ import { LegendItem, Panel } from './Panel'
 interface DailyReviewsChartProps {
   rows: Record<string, number | string>[]
   decks: Deck[]
-  range: number
+  bucket: Bucket
+  /** e.g. "last 30 days" */
+  period: string
 }
 
-export function DailyReviewsChart({ rows, decks, range }: DailyReviewsChartProps) {
+const TITLES: Record<Bucket, string> = { day: 'Daily reviews', week: 'Weekly reviews', month: 'Monthly reviews' }
+
+export function DailyReviewsChart({ rows, decks, bucket, period }: DailyReviewsChartProps) {
   const lastDeck = decks[decks.length - 1]?.id
+  const dense = rows.length > 30 // thin bars: drop the gaps and outlines
 
   return (
     <Panel
-      title="Daily reviews"
-      subtitle={`Reviews per day by deck, last ${range} days`}
+      title={TITLES[bucket]}
+      subtitle={`Reviews per ${bucket} by deck, ${period}`}
       actions={
         <div className="flex flex-wrap gap-3">
           {decks.map((d) => (
@@ -28,11 +34,11 @@ export function DailyReviewsChart({ rows, decks, range }: DailyReviewsChartProps
     >
       <div className="h-72">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={rows} margin={{ top: 4, right: 4, bottom: 0, left: -12 }} barCategoryGap={range > 30 ? 1 : '20%'}>
+          <BarChart data={rows} margin={{ top: 4, right: 4, bottom: 0, left: -12 }} barCategoryGap={dense ? 1 : '20%'}>
             <CartesianGrid vertical={false} stroke={chart.grid} />
             <XAxis
               dataKey="date"
-              tickFormatter={formatShortDate}
+              tickFormatter={(k: string) => formatBucketTick(k, bucket)}
               tick={{ fill: chart.muted, fontSize: 12 }}
               axisLine={{ stroke: chart.axis }}
               tickLine={false}
@@ -44,7 +50,7 @@ export function DailyReviewsChart({ rows, decks, range }: DailyReviewsChartProps
               content={({ active, payload, label }) => (
                 <ChartTooltip
                   active={active}
-                  title={typeof label === 'string' ? formatLongDate(label) : ''}
+                  title={typeof label === 'string' ? formatBucketTitle(label, bucket) : ''}
                   rows={(payload ?? []).map((p) => ({
                     color: deckColor(String(p.dataKey)),
                     label: decks.find((d) => d.id === p.dataKey)?.name ?? String(p.dataKey),
@@ -64,7 +70,7 @@ export function DailyReviewsChart({ rows, decks, range }: DailyReviewsChartProps
                 stackId="reviews"
                 fill={deckColor(d.id)}
                 stroke={chart.surface}
-                strokeWidth={range > 30 ? 0 : 1}
+                strokeWidth={dense ? 0 : 1}
                 radius={d.id === lastDeck ? [3, 3, 0, 0] : 0}
                 isAnimationActive={false}
               />

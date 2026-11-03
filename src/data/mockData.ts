@@ -2,7 +2,7 @@
 // A seeded random generator keeps the numbers stable between reloads,
 // and dates are relative to today so the dashboard always looks current.
 
-import { toDateKey } from '../lib/stats'
+import { toDateKey } from '../lib/dates'
 import type { AnkiData, DailyDeckStat, Deck } from './types'
 
 function seededRandom(seed: number) {
@@ -28,7 +28,7 @@ const profiles: Record<string, { base: [number, number]; again: [number, number]
   other: { base: [12, 10], again: [0.1, 0.1], secPerReview: 6, skip: 0.45 },
 }
 
-function generate(days = 365): AnkiData {
+function generate(days = 730): AnkiData {
   const rand = seededRandom(2026)
   const today = new Date()
   const daily: DailyDeckStat[] = []
@@ -47,12 +47,18 @@ function generate(days = 365): AnkiData {
       const reviews = Math.round(base * (weekend ? 0.75 : 1) * (0.6 + rand() * 0.8) * partialToday)
       if (reviews === 0) continue
       const rate = p.again[0] + (p.again[1] - p.again[0]) * progress
+      const reviewCardReviews = Math.round(reviews * 0.6)
+      const matureReviews = Math.round(reviewCardReviews * 0.5 * progress)
       daily.push({
         date: toDateKey(date),
         deckId: deck.id,
         reviews,
         again: Math.round(reviews * rate * (0.7 + rand() * 0.6)),
         studySeconds: Math.round(reviews * p.secPerReview * (0.8 + rand() * 0.4)),
+        reviewCardReviews,
+        reviewCardPassed: Math.round(reviewCardReviews * (0.86 + rand() * 0.08)),
+        matureReviews,
+        maturePassed: Math.round(matureReviews * (0.88 + rand() * 0.08)),
       })
     }
   }

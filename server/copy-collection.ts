@@ -1,49 +1,13 @@
-// Safely copies the Anki collection into ./data (git-ignored).
-// The original is only ever read, never modified.
-// Usage: npm run copy-collection            (auto-detects a single profile)
-//        ANKI_PROFILE=Name npm run copy-collection
+// CLI: npm run copy-collection            (auto-detects a single profile)
+//      ANKI_PROFILE=Name npm run copy-collection
 
-import { execSync } from 'node:child_process'
-import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs'
-import { homedir } from 'node:os'
-import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { copyCollection, CopyError } from './collection.ts'
 
-const ANKI_DIR = join(homedir(), 'Library', 'Application Support', 'Anki2')
-const DEST_DIR = fileURLToPath(new URL('../data/', import.meta.url))
-
-function fail(message: string): never {
-  console.error(`✗ ${message}`)
+try {
+  const { profile, bytes } = copyCollection()
+  console.log(`✓ Copied profile "${profile}" (${(bytes / 1e6).toFixed(1)} MB) -> data/collection.anki2`)
+} catch (err) {
+  if (!(err instanceof CopyError)) throw err
+  console.error(`✗ ${err.message}`)
   process.exit(1)
 }
-
-function matches(pgrepArgs: string) {
-  try {
-    execSync(`pgrep ${pgrepArgs}`, { stdio: 'ignore' })
-    return true
-  } catch {
-    return false // pgrep exits non-zero when nothing matches
-  }
-}
-
-// Exact process name, or anything launched from Anki.app. A loose "anki" match would also
-// hit unrelated processes such as macOS's "voicebankingd".
-const ankiIsRunning = () => matches('-x -i anki') || matches('-f "Anki\\.app/Contents/"')
-
-if (ankiIsRunning()) fail('Anki is running. Quit Anki completely, then try again.')
-
-const profiles = readdirSync(ANKI_DIR).filter((name) => existsSync(join(ANKI_DIR, name, 'collection.anki2')))
-const profile = process.env.ANKI_PROFILE ?? (profiles.length === 1 ? profiles[0] : undefined)
-if (!profile) fail(`Found profiles: ${profiles.join(', ') || 'none'}. Set ANKI_PROFILE=<name>.`)
-
-const source = join(ANKI_DIR, profile, 'collection.anki2')
-if (!existsSync(source)) fail(`No collection at ${source}`)
-// A leftover write-ahead log means Anki didn't close cleanly; the copy could be incomplete.
-if (existsSync(`${source}-wal`)) fail('Found collection.anki2-wal. Open and quit Anki once so it closes cleanly.')
-
-mkdirSync(DEST_DIR, { recursive: true })
-const dest = join(DEST_DIR, 'collection.anki2')
-// Remove SQLite side-files left by reading the previous copy, so they can't be replayed onto the new one
-for (const suffix of ['-wal', '-shm']) rmSync(`${dest}${suffix}`, { force: true })
-copyFileSync(source, dest)
-console.log(`✓ Copied profile "${profile}" (${(statSync(dest).size / 1e6).toFixed(1)} MB) -> data/collection.anki2`)

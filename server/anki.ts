@@ -68,7 +68,7 @@ export function readAnkiData(path: string): AnkiData {
     // type 0-3 are real reviews (learn/review/relearn/filtered); 4+ are manual reschedules.
     const reviews = db
       .prepare(
-        `SELECT r.id AS ts, r.ease, r.time, c.did
+        `SELECT r.id AS ts, r.ease, r.time, r.type, r.lastIvl, c.did
          FROM revlog r LEFT JOIN cards c ON c.id = r.cid
          WHERE r.type BETWEEN 0 AND 3 AND r.ease BETWEEN 1 AND 4`,
       )
@@ -83,10 +83,31 @@ export function readAnkiData(path: string): AnkiData {
       const date = toDateKey(new Date(Number(r.ts) - offsetMs))
       const deckId = deckGroup.get(Number(r.did)) ?? OTHER.id
       const key = `${date}|${deckId}`
-      const stat = byKey.get(key) ?? { date, deckId, reviews: 0, again: 0, studySeconds: 0 }
+      const stat = byKey.get(key) ?? {
+        date,
+        deckId,
+        reviews: 0,
+        again: 0,
+        studySeconds: 0,
+        reviewCardReviews: 0,
+        reviewCardPassed: 0,
+        matureReviews: 0,
+        maturePassed: 0,
+      }
+      const passed = Number(r.ease) > 1
       stat.reviews += 1
-      if (Number(r.ease) === 1) stat.again += 1
+      if (!passed) stat.again += 1
       stat.studySeconds += Number(r.time) / 1000
+      // Retention only counts graduated cards (type 1 = review); learning steps are excluded.
+      // lastIvl is the interval before this review; negative values are learning steps in seconds.
+      if (Number(r.type) === 1) {
+        stat.reviewCardReviews += 1
+        if (passed) stat.reviewCardPassed += 1
+        if (Number(r.lastIvl) >= MATURE_DAYS) {
+          stat.matureReviews += 1
+          if (passed) stat.maturePassed += 1
+        }
+      }
       byKey.set(key, stat)
     }
 

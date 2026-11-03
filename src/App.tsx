@@ -8,38 +8,65 @@ import type { AnkiData } from './data/types'
 import { useAnkiData } from './data/useAnkiData'
 import { formatInt, formatPct } from './lib/format'
 import {
+  activeYears,
+  againRateSeries,
   ankiToday,
-  dailyByDeck,
+  bucketFor,
   deckSummaries,
-  rollingAgainRate,
+  RANGE_OPTIONS,
+  rangeDays,
+  reviewsByPeriod,
   summarize,
   totalsByDate,
-  type RangeDays,
+  type RangeKey,
 } from './lib/stats'
 
 export default function App() {
-  const state = useAnkiData()
+  const { state, refresh, refreshing, refreshError } = useAnkiData()
   if (state.status === 'loading') {
     return <div className="grid min-h-screen place-items-center text-sm text-muted">Loading your Anki stats…</div>
   }
-  return <Dashboard data={state.data} fallbackReason={state.fallbackReason} />
+  return (
+    <Dashboard
+      data={state.data}
+      fallbackReason={state.fallbackReason}
+      onRefresh={refresh}
+      refreshing={refreshing}
+      refreshError={refreshError}
+    />
+  )
 }
 
-function Dashboard({ data, fallbackReason }: { data: AnkiData; fallbackReason?: string }) {
-  const [range, setRange] = useState<RangeDays>(30)
+interface DashboardProps {
+  data: AnkiData
+  fallbackReason?: string
+  onRefresh: () => void
+  refreshing: boolean
+  refreshError: string | null
+}
+
+function Dashboard({ data, fallbackReason, onRefresh, refreshing, refreshError }: DashboardProps) {
+  const [range, setRange] = useState<RangeKey>('30d')
+  const days = rangeDays(data, range)
+  const bucket = bucketFor(days)
+  const period = RANGE_OPTIONS.find((o) => o.key === range)!.description
 
   // useMemo: only recompute derived stats when the range (or data) changes
   const today = useMemo(() => ankiToday(data), [data])
   const byDate = useMemo(() => totalsByDate(data.daily), [data])
-  const summary = useMemo(() => summarize(data, range), [data, range])
-  const dailyRows = useMemo(() => dailyByDeck(data, range), [data, range])
-  const decks = useMemo(() => deckSummaries(data, range), [data, range])
-  const againRows = useMemo(() => rollingAgainRate(data, range), [data, range])
+  const years = useMemo(() => activeYears(data), [data])
+  const summary = useMemo(() => summarize(data, days), [data, days])
+  const periodRows = useMemo(() => reviewsByPeriod(data, days), [data, days])
+  const decks = useMemo(() => deckSummaries(data, days), [data, days])
+  const againRows = useMemo(() => againRateSeries(data, days), [data, days])
 
-  // Only compare with the previous period if there were reviews in it
+  // Only compare with the previous period if there was one with reviews in it
+  const canCompare = range !== 'all' && summary.hasPrevious
   const avgChange = summary.avgPerDay / summary.prevAvgPerDay - 1
   const againChange = summary.againRate - summary.prevAgainRate // percentage points
-  const compareHint = summary.hasPrevious ? `vs previous ${range}d` : `no reviews in previous ${range}d`
+  const compareHint =
+    range === 'all' ? 'all time' : canCompare ? `vs previous ${days}d` : `no reviews in previous ${days}d`
+  const { reviewCards, mature } = summary.retention
 
   return (
     <div className="min-h-screen">
@@ -53,9 +80,7 @@ function Dashboard({ data, fallbackReason }: { data: AnkiData; fallbackReason?: 
                   className="inline-flex items-center gap-1.5 rounded-full border border-warning/40 bg-warning/10 px-2.5 py-0.5 text-xs font-medium text-warning"
                   title={`Generated sample data, not your real Anki statistics. ${fallbackReason ?? ''}`}
                 >
-                  <svg viewBox="0 0 16 16" className="size-3.5" fill="currentColor" aria-hidden>
-                    <path d="M8 1.5 15 14H1L8 1.5Zm-.75 4.5v4h1.5V6h-1.5Zm0 5v1.5h1.5V11h-1.5Z" />
-                  </svg>
+                  <WarningIcon />
                   Mock data
                 </span>
               )}
@@ -66,18 +91,46 @@ function Dashboard({ data, fallbackReason }: { data: AnkiData; fallbackReason?: 
                 : `Local Anki data · copied ${new Date(data.generatedAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}`}
             </p>
           </div>
-          <RangeFilter value={range} onChange={setRange} />
+          <div className="flex flex-wrap items-center gap-2">
+            <RangeFilter value={range} onChange={setRange} />
+            <button
+              type="button"
+              onClick={onRefresh}
+              disabled={refreshing}
+              title="Copy the latest collection from Anki (Anki must be closed)"
+              className="inline-flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2 text-sm font-medium text-ink-2 transition-colors hover:text-ink disabled:opacity-60"
+            >
+              <RefreshIcon spinning={refreshing} />
+              {refreshing ? 'Refreshing…' : 'Refresh'}
+            </button>
+          </div>
         </header>
 
+        {refreshError && (
+          <div
+            role="alert"
+            className="mb-6 flex items-center gap-2 rounded-xl border border-critical/40 bg-critical/10 px-4 py-3 text-sm text-ink"
+          >
+            <span className="text-critical">
+              <WarningIcon />
+            </span>
+            Couldn't refresh: {refreshError}
+          </div>
+        )}
+
         <main className="space-y-6">
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <StatCard label="Total cards" value={formatInt(summary.totalCards)} hint={`across ${data.decks.filter((d) => d.totalCards > 0).length} decks`} />
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+            <StatCard
+              label="Total cards"
+              value={formatInt(summary.totalCards)}
+              hint={`across ${data.decks.filter((d) => d.totalCards > 0).length} decks`}
+            />
             <StatCard label="Reviews today" value={formatInt(summary.reviewsToday)} hint={`${summary.streak}-day streak`} />
             <StatCard
               label="Avg reviews / day"
               value={formatInt(summary.avgPerDay)}
               delta={
-                summary.hasPrevious
+                canCompare
                   ? { text: `${avgChange >= 0 ? '▲' : '▼'} ${formatPct(Math.abs(avgChange), 0)}`, good: avgChange >= 0 }
                   : undefined
               }
@@ -87,25 +140,57 @@ function Dashboard({ data, fallbackReason }: { data: AnkiData; fallbackReason?: 
               label="Again rate"
               value={formatPct(summary.againRate)}
               delta={
-                summary.hasPrevious
+                canCompare
                   ? { text: `${againChange <= 0 ? '▼' : '▲'} ${(Math.abs(againChange) * 100).toFixed(1)} pts`, good: againChange <= 0 }
                   : undefined
               }
               hint={compareHint}
             />
+            <StatCard
+              className="col-span-2 lg:col-span-1"
+              label="Retention"
+              value={reviewCards.reviews > 0 ? formatPct(reviewCards.rate) : '—'}
+              hint={`${formatInt(reviewCards.reviews)} review-card reviews · mature ${
+                mature.reviews > 0 ? formatPct(mature.rate) : '—'
+              }`}
+            />
           </div>
 
-          <ActivityHeatmap byDate={byDate} today={today} />
-          <DailyReviewsChart rows={dailyRows} decks={data.decks} range={range} />
-          <DeckComparison summaries={decks} againRows={againRows} decks={data.decks} range={range} />
+          <ActivityHeatmap byDate={byDate} today={today} years={years} />
+          <DailyReviewsChart rows={periodRows} decks={data.decks} bucket={bucket} period={period} />
+          <DeckComparison summaries={decks} againRows={againRows} decks={data.decks} bucket={bucket} period={period} />
         </main>
 
         <footer className="mt-10 text-center text-xs text-muted">
           {data.source === 'mock'
-            ? 'Showing generated sample data. Real Anki statistics will be read locally from a copy of your collection.'
-            : 'Data read locally from a copy of your Anki collection.'}
+            ? 'Showing generated sample data. Real Anki statistics are read locally from a copy of your collection.'
+            : 'Data read locally from a copy of your Anki collection. Retention = review-card answers other than Again.'}
         </footer>
       </div>
     </div>
+  )
+}
+
+function WarningIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="size-3.5" fill="currentColor" aria-hidden>
+      <path d="M8 1.5 15 14H1L8 1.5Zm-.75 4.5v4h1.5V6h-1.5Zm0 5v1.5h1.5V11h-1.5Z" />
+    </svg>
+  )
+}
+
+function RefreshIcon({ spinning }: { spinning: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      className={`size-4 ${spinning ? 'animate-spin' : ''}`}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      aria-hidden
+    >
+      <path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2.5v2.6h-2.6" />
+    </svg>
   )
 }
