@@ -198,7 +198,13 @@ Notes from the code:
 
 | File | Responsibility |
 |---|---|
-| `main.tsx`, `App.tsx` | Entry point; page layout, time range, measured defaults, which sections are shown |
+| `main.tsx`, `App.tsx` | Entry point; picks the section from the URL hash, lazy-loads chart-heavy sections |
+| `app/AppShell.tsx` | Header, desktop and mobile navigation, data-source chip and sample banner, refresh, loading screen |
+| `app/useTheme.ts`, `app/useRoute.ts`, `app/ErrorBoundary.tsx` | Light/dark/system theme, hash routing, per-section error state |
+| `pages/*.tsx` | Home, Activity, Planner and Advanced pages; `FsrsGate.tsx` is the empty state without FSRS data |
+| `i18n/en.ts`, `i18n/index.ts` | Interface text (typed) and locale |
+| `lib/progress.ts` | Home: longest streak, week comparison, milestones, status, one insight |
+| `lib/route.ts` | Section names and URL hashes |
 | `data/useAnkiData.ts` | Fetches `/api/stats`, falls back to mock data, runs `POST /api/refresh` |
 | `data/useSimulation.ts` | Starts, debounces and cancels Web Worker runs |
 | `data/mockData.ts` | Seeded sample data (no FSRS data) |
@@ -210,16 +216,16 @@ Notes from the code:
 | `lib/insights.ts` | The four plain-language insights, from simulator output |
 | `lib/measured.ts` | Simulator defaults measured from recent reviews |
 | `lib/fsrsStatus.ts` | Why FSRS sections are hidden (mock, error, missing, FSRS off) |
-| `lib/format.ts`, `lib/theme.ts` | Number/date formatting; chart and deck colours |
-| `components/StatCard.tsx`, `RangeFilter.tsx`, `ActivityHeatmap.tsx`, `DailyReviewsChart.tsx`, `DeckComparison.tsx` | Original dashboard sections |
+| `lib/format.ts`, `lib/theme.ts` | Number/date formatting; chart and deck colours (as CSS variables from `index.css`) |
+| `components/StatCard.tsx`, `RangeFilter.tsx`, `ActivityHeatmap.tsx`, `DailyReviewsChart.tsx`, `DeckComparison.tsx` | Key numbers and Activity charts |
 | `components/FsrsAnalytics.tsx` | FSRS memory section (measured) |
 | `components/WorkloadForecast.tsx` | Forecast controls, charts and insights (projection) |
-| `components/Panel.tsx`, `ChartTooltip.tsx`, `ui.tsx` | Shared layout, tooltip, slider, badges, hatch pattern |
+| `components/Panel.tsx`, `ChartTooltip.tsx`, `ui.tsx`, `icons.tsx` | Shared cards, tooltip, controls, badges, disclosure, empty states, count-up, hatch pattern, inline SVG icons |
 
 ### Tests (Vitest)
 
 `server/anki.test.ts` (reader, against a synthetic SQLite fixture), `server/app.test.ts` (HTTP),
-`src/lib/*.test.ts` (FSRS, simulator, stats, heatmap, insights, measured defaults, FSRS status).
+`src/lib/*.test.ts` (FSRS, simulator, stats, heatmap, insights, measured defaults, FSRS status, Home progress, routes, formatting).
 `src/lib/fsrs.test.ts` also checks the FSRS engine against reference states exported from Anki's own
 engine for synthetic histories (`src/lib/fixtures/anki-fsrs-reference.json`).
 No React component or end-to-end tests exist yet.

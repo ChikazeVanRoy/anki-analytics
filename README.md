@@ -19,15 +19,23 @@ npm run build             # type-check + production build
 ```
 
 For fresh stats, quit Anki and press **Refresh** in the dashboard (or re-run `copy-collection`).
-If the API isn't running, the dashboard shows clearly labelled mock data and hides the FSRS sections.
+If the API isn't running, the dashboard shows clearly labelled sample data and the Planner and Advanced
+sections explain why they need real FSRS data.
 
 ## What it shows
 
-| Section | Source |
-|---|---|
-| Stat cards, heatmap, review charts, deck comparison | **Measured** from your review log |
-| FSRS memory: stability, difficulty, recall now, risk, retention vs target, calibration | **Measured** card states (as Anki stored them) + the FSRS-6 forgetting curve; past predictions replayed from the review log |
-| Review workload forecast and insights | **Projection**: Monte Carlo simulation with FSRS-6 scheduling on your real cards |
+Four sections (`#/`, `#/activity`, `#/planner`, `#/advanced`), simple first and technical on request:
+
+| Section | What it answers | Source |
+|---|---|---|
+| **Home** | How am I doing today? Streak, key numbers, last two weeks, one insight, deck progress, milestones | **Measured** from your review log and card counts |
+| **Activity** | When and how much did I study, and am I forgetting less? Heatmap, review charts, deck comparison | **Measured** from your review log |
+| **Planner** | How much work is coming, and how many new cards can I sustain? | **Projection**: Monte Carlo simulation with FSRS-6 scheduling on your real cards |
+| **Advanced** | How strong are my memories, and does FSRS predict me well? Stability, difficulty, recall, risk, calibration | **Measured** card states (as Anki stored them) + the FSRS-6 forgetting curve; past predictions replayed from the review log |
+
+Measured, projected and sample data look different (solid badge, dashed badge and edges, amber banner).
+Milestones only count what the data shows (lifetime reviews, longest streak, cards known well) and nothing
+rewards a single heavy day. Light and dark themes follow the system, with a toggle in the header.
 
 The replay reproduces every memory state that Anki 26.9.3's own engine computes for this collection (all
 2,221 reviews checked), and Anki's stored state for 728 of 740 cards (the other 12 were most likely written
@@ -45,7 +53,11 @@ Forecast assumptions and limits are listed in the app under "How the forecast wo
 - `src/data/`: `types.ts` (data contract shared with the API), `useAnkiData.ts`, `useSimulation.ts`, `mockData.ts`
 - `src/lib/`: pure, tested logic: `fsrs.ts` (FSRS-6, shared with the server), `simulator.ts` (+ Web Worker),
   `fsrsStats.ts`, `insights.ts`, `stats.ts`, `heatmap.ts`, `dates.ts`
-- `src/components/`: one file per dashboard section
+- `src/app/`: shell (header, navigation, banners), theme and route hooks, error boundary
+- `src/pages/`: one file per section (Home, Activity, Planner, Advanced)
+- `src/components/`: charts and shared UI (`ui.tsx`, `Panel.tsx`, `icons.tsx`)
+- `src/i18n/`: interface text (`en.ts`) and locale; add a language by writing another `Messages` object
+- `src/index.css`: design tokens (colours as `light-dark()` pairs, type, motion)
 - `*.test.ts`: tests next to the code they cover; server tests use a tiny fake collection, never your data
 
 ## Privacy

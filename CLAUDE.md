@@ -40,7 +40,12 @@ npm run build     # production build
 - Anki days start at the collection's rollover hour: use `ankiDayKey` / `ankiToday`, never raw UTC dates.
 - The data contract is `src/data/types.ts`; the API and mock data must both satisfy it.
 - Charts: deck colours are fixed per deck (`src/lib/theme.ts`); new palettes must pass the colour
-  validator; estimated series are hatched and dashed, measured series solid.
+  validator in both themes; estimated series are hatched and dashed, measured series solid.
+- Colours are tokens in `src/index.css` (one `light-dark()` pair each). Use the Tailwind utilities or write
+  `var(--color-…)` names in full; Tailwind drops variables whose names are built with template strings.
+  Small text keeps 4.5:1 contrast in both themes.
+- Interface text lives in `src/i18n/en.ts`; number and date formatting use `LOCALE` from `src/i18n`.
+- Each section is a page in `src/pages/`; label sources with `SourceBadge` (measured, projection, sample).
 
 ## Workflow for changes
 
