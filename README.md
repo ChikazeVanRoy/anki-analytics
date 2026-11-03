@@ -29,9 +29,11 @@ If the API isn't running, the dashboard shows clearly labelled mock data and hid
 | FSRS memory: stability, difficulty, recall now, risk, retention vs target, calibration | **Measured** card states (as Anki stored them) + the FSRS-6 forgetting curve; past predictions replayed from the review log |
 | Review workload forecast and insights | **Projection**: Monte Carlo simulation with FSRS-6 scheduling on your real cards |
 
-The replay reproduces Anki's stored FSRS difficulty for every studied card and stability for ~99%
-(the rest differ by an edge case in same-day Hard steps). Forecast assumptions and limits are listed in
-the app under "How the forecast works".
+The replay reproduces every memory state that Anki 26.9.3's own engine computes for this collection (all
+2,221 reviews checked), and Anki's stored state for 728 of 740 cards (the other 12 were most likely written
+by an older Anki version or another device). The gap between predicted and actual recall comes from
+FSRS's default parameters, not from the calculations; see [docs/fsrs-validation.md](docs/fsrs-validation.md).
+Forecast assumptions and limits are listed in the app under "How the forecast works".
 
 ## Structure
 

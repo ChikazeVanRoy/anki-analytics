@@ -220,7 +220,15 @@ Notes from the code:
 
 `server/anki.test.ts` (reader, against a synthetic SQLite fixture), `server/app.test.ts` (HTTP),
 `src/lib/*.test.ts` (FSRS, simulator, stats, heatmap, insights, measured defaults, FSRS status).
+`src/lib/fsrs.test.ts` also checks the FSRS engine against reference states exported from Anki's own
+engine for synthetic histories (`src/lib/fixtures/anki-fsrs-reference.json`).
 No React component or end-to-end tests exist yet.
+
+### Validation scripts (`scripts/fsrs-validation/`, run by hand)
+
+`anki_export.py` runs Anki's bundled engine on a temporary copy of the collection; `compare.ts` compares
+it with this app's replay, calibration and simulator; `anki_reference.py` regenerates the test fixture.
+Results are in `docs/fsrs-validation.md`.
 
 ## 5. Implemented today vs not implemented
 
@@ -248,9 +256,11 @@ No React component or end-to-end tests exist yet.
   for other people's data it raises privacy and payload-size questions.
 - **The forecast is a model.** It assumes FSRS-6 default parameters (your presets have none optimised), and
   FSRS's predictions are badly calibrated for this collection (about 88% predicted vs about 100% actual
-  recall). It does not model lapses during learning steps, Anki's load balancing or easy days, and review
-  limits are applied per deck group, not through Anki's deck hierarchy. It has not been compared with Anki's
-  built-in FSRS simulator.
+  recall). That gap comes from the default parameters, not from the calculations: the replay matches Anki's
+  own engine exactly, and Anki's evaluator reports the same mis-calibration (`docs/fsrs-validation.md`).
+  It does not model lapses during learning steps, Anki's load balancing or easy days, and review limits are
+  applied per deck group, not through Anki's deck hierarchy. Compared with Anki's built-in simulator, review
+  counts agree within about 15% for existing cards and differ by up to about 35% over a year with new cards.
 - **Dependence on Anki's internal format.** The reader relies on undocumented details (protobuf field
   numbers, the `cards.data` JSON, due-number conventions). They were checked against this collection and
   Anki 26.9.3, and the reader degrades gracefully, but a future Anki version could change them.

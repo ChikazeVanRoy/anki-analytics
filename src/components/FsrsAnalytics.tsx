@@ -368,7 +368,7 @@ export function FsrsAnalytics({ fsrs, decks: allDecks, todayKey }: Props) {
           </li>
           <li>
             {defaultParams
-              ? 'Your presets have no optimised FSRS parameters, so Anki (and this page) uses the FSRS-6 defaults.'
+              ? 'Your presets have no optimised FSRS parameters, so Anki (and this page) uses the FSRS-6 defaults. Anki schedules each review for when predicted recall reaches your desired retention, so the predicted figure sits near that target whatever your real memory is; a large gap to the actual figure means the defaults don’t fit you. Optimising the parameters in Anki (Deck options → FSRS → Optimize) personalises them.'
               : 'Each deck uses its preset’s optimised FSRS parameters.'}
           </li>
           <li>
@@ -376,7 +376,7 @@ export function FsrsAnalytics({ fsrs, decks: allDecks, todayKey }: Props) {
             reproduces Anki’s stored difficulty for {fsrs.validation.difficultyMatched}/{fsrs.validation.cards} cards and
             stability (within 1%) for {fsrs.validation.stabilityMatched}/{fsrs.validation.cards}.
             {unmatched > 0 &&
-              ` The other ${unmatched} differ slightly for a reason not yet identified, which is why current-state metrics use Anki’s stored values rather than the replay.`}
+              ` The other ${unmatched} differ slightly from what Anki stored. In this project’s validation against Anki’s own engine, Anki recomputes the replay’s values for such cards, so their stored state most likely came from an older Anki version or another device. Current-state metrics use Anki’s stored values.`}
           </li>
           <li>
             {firstMonth ? `Replayed history starts in ${firstMonth}.` : 'There is no replayed review history yet.'}
