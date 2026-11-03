@@ -102,7 +102,7 @@ function SummaryTable({ rows, decks }: { rows: MemorySummary[]; decks: Deck[] })
   const deckColor = useDeckColor()
   const name = (id: string) => (id === 'all' ? 'All decks' : (decks.find((d) => d.id === id)?.name ?? id))
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Deck summary table, scrolls sideways">
       <table className="w-full min-w-[640px] text-sm">
         <thead>
           <tr className="border-b border-line text-left text-xs text-muted">
@@ -215,13 +215,13 @@ export function FsrsAnalytics({ fsrs, decks: allDecks, todayKey }: Props) {
         title="How well do I remember my cards right now?"
         eyebrow="Memory today"
         subtitle={`Current state of ${formatInt(all.cards)} studied cards · FSRS-6 with ${paramsLabel} parameters${fsrs.ankiVersion ? ` · Anki ${fsrs.ankiVersion}` : ''}`}
-        actions={<SourceBadge kind="measured" />}
+        actions={<SourceBadge kind="mixed" />}
       >
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Metric
             label="Chance you’d recall a card today"
             value={formatPct(all.avgRetrievability)}
-            sub={`average recall probability across ${formatInt(all.cards)} cards`}
+            sub={`FSRS estimate, average across ${formatInt(all.cards)} cards`}
             tip="Mean current retrievability: the FSRS forgetting curve evaluated at today, using each card’s stability and days since its last review."
           />
           <Metric
@@ -234,7 +234,7 @@ export function FsrsAnalytics({ fsrs, decks: allDecks, todayKey }: Props) {
             label="Cards at risk of being forgotten"
             value={formatInt(all.atRisk)}
             tone={all.atRisk > 0 ? 'warning' : undefined}
-            sub={`${formatInt(all.belowTarget)} below target · ${formatInt(all.overdue)} overdue`}
+            sub={`of ${formatInt(all.belowTarget)} below target · ${formatInt(all.overdue)} overdue`}
             tip={`Recall probability more than ${RISK_MARGIN * 100} points below the desired retention. Reviewing overdue cards soon lowers this.`}
           />
           <Metric
@@ -303,7 +303,7 @@ export function FsrsAnalytics({ fsrs, decks: allDecks, todayKey }: Props) {
         title="Is FSRS predicting my memory well?"
         eyebrow="Retention and calibration"
         subtitle="What you actually remembered, compared with what FSRS expected and your target."
-        actions={<SourceBadge kind="measured" />}
+        actions={<SourceBadge kind="mixed" />}
       >
         {/* min-w-0: a grid item won't shrink below its content, so the wide table would stretch the page on a phone */}
         <div className="grid gap-4 lg:grid-cols-2">
@@ -315,7 +315,7 @@ export function FsrsAnalytics({ fsrs, decks: allDecks, todayKey }: Props) {
                 definition). Only reviews of graduated cards count, as in Anki’s True Retention table.
               </InfoTip>
             </h3>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Recall check table, scrolls sideways">
               <table className="mt-3 w-full min-w-[420px] text-sm tabular-nums">
                 <thead>
                   <tr className="border-b border-line text-left text-xs text-muted">

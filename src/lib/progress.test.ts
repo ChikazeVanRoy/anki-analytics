@@ -24,6 +24,7 @@ function stat(date: string, deckId: string, reviews: number, extra: Partial<Dail
     studySeconds: reviews * 10,
     reviewCardReviews: 0,
     reviewCardPassed: 0,
+    reviewCardHard: 0,
     matureReviews: 0,
     maturePassed: 0,
     ...extra,
@@ -141,7 +142,7 @@ describe('homeInsight', () => {
     expect(i.text).toMatch(/^A lighter week/)
   })
   it('names the strongest deck when both have enough reviews', () => {
-    const rc = (passed: number) => ({ reviewCardReviews: 40, reviewCardPassed: passed, matureReviews: 35, maturePassed: passed - 2 })
+    const rc = (passed: number) => ({ reviewCardReviews: 40, reviewCardPassed: passed, reviewCardHard: 0, matureReviews: 35, maturePassed: passed - 2 })
     const d = data([stat('2026-11-01', 'a', 40, rc(30)), stat('2026-11-01', 'b', 40, rc(38))])
     expect(homeInsight(d, totalsByDate(d.daily), TODAY)!.text).toMatch(/^Your strongest deck this month is Beta.*95%/)
   })
@@ -153,12 +154,12 @@ describe('homeInsight', () => {
 
 describe('insight percentages', () => {
   it('does not rank a deck of mostly young cards as strongest', () => {
-    const rc = (passed: number) => ({ reviewCardReviews: 40, reviewCardPassed: passed, matureReviews: 1, maturePassed: 1 })
+    const rc = (passed: number) => ({ reviewCardReviews: 40, reviewCardPassed: passed, reviewCardHard: 0, matureReviews: 1, maturePassed: 1 })
     const d = data([stat('2026-11-01', 'a', 40, rc(30)), stat('2026-11-01', 'b', 40, rc(38))])
     expect(homeInsight(d, totalsByDate(d.daily), TODAY)!.text).not.toMatch(/strongest deck/)
   })
   it('never rounds a rate below 100% up to 100%', () => {
-    const rc = (passed: number) => ({ reviewCardReviews: 1000, reviewCardPassed: passed, matureReviews: 500, maturePassed: 500 })
+    const rc = (passed: number) => ({ reviewCardReviews: 1000, reviewCardPassed: passed, reviewCardHard: 0, matureReviews: 500, maturePassed: 500 })
     const d = data([stat('2026-11-01', 'a', 1000, rc(999)), stat('2026-11-01', 'b', 1000, rc(900))])
     expect(homeInsight(d, totalsByDate(d.daily), TODAY)!.text).toContain('99.9%')
   })

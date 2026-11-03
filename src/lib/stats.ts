@@ -91,23 +91,25 @@ export function currentStreak(byDate: Map<string, DayTotal>, today = new Date())
 }
 
 export interface Retention {
-  reviewCards: { reviews: number; passed: number; rate: number }
+  reviewCards: { reviews: number; passed: number; hard: number; rate: number }
   mature: { reviews: number; passed: number; rate: number }
 }
 
 function retentionOf(stats: DailyDeckStat[]): Retention {
   let rc = 0
   let rcPassed = 0
+  let rcHard = 0
   let m = 0
   let mPassed = 0
   for (const s of stats) {
     rc += s.reviewCardReviews
     rcPassed += s.reviewCardPassed
+    rcHard += s.reviewCardHard
     m += s.matureReviews
     mPassed += s.maturePassed
   }
   return {
-    reviewCards: { reviews: rc, passed: rcPassed, rate: ratio(rcPassed, rc) },
+    reviewCards: { reviews: rc, passed: rcPassed, hard: rcHard, rate: ratio(rcPassed, rc) },
     mature: { reviews: m, passed: mPassed, rate: ratio(mPassed, m) },
   }
 }

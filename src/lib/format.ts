@@ -13,9 +13,15 @@ export const formatPct = (n: number, digits = 1) => `${(n * 100).toFixed(digits)
  */
 export function formatRate(n: number) {
   const whole = Math.round(n * 100)
-  if ((whole === 100 && n < 1) || (whole === 0 && n > 0)) return formatPct(n, 1)
+  // Clamped, because one decimal can round up to 100.0% (or down to 0.0%) too
+  if (whole === 100 && n < 1) return `${Math.min(99.9, n * 100).toFixed(1)}%`
+  if (whole === 0 && n > 0) return `${Math.max(0.1, n * 100).toFixed(1)}%`
   return `${whole}%`
 }
+
+/** When the collection was copied, e.g. "3 Nov 2026, 22:28". */
+export const formatCopiedAt = (iso: string) =>
+  new Date(iso).toLocaleString(LOCALE, { dateStyle: 'medium', timeStyle: 'short' })
 
 export const formatShortDate = (key: string) =>
   parseDateKey(key).toLocaleDateString(LOCALE, { day: 'numeric', month: 'short' })

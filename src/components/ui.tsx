@@ -1,14 +1,23 @@
 // Small shared UI pieces: tooltips, badges, controls, metric tiles, disclosure, empty/loading states.
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { messages } from '../i18n'
 import { prefersReducedMotion } from '../lib/motion'
+import { tipPosition } from '../lib/tooltip'
 import { ChevronIcon, InfoIcon } from './icons'
 
-/** "i" icon with an explanation on hover, tap or keyboard focus. Escape hides it (WCAG 1.4.13). */
+/**
+ * "i" icon with an explanation on hover, tap or keyboard focus. Escape hides it (WCAG 1.4.13).
+ * The tip lives in a portal with fixed coordinates, so a card's `overflow-hidden` or transform can't clip it,
+ * and it is kept inside the viewport at any width.
+ */
 export function InfoTip({ children, label = 'More info' }: { children: ReactNode; label?: string }) {
   const [hovered, setHovered] = useState(false)
   const [focused, setFocused] = useState(false)
   const [dismissed, setDismissed] = useState(false)
+  const [position, setPosition] = useState<{ left: number; top: number } | null>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const tipRef = useRef<HTMLSpanElement>(null)
   const tipId = useId()
   const shown = (hovered || focused) && !dismissed
 
@@ -19,6 +28,23 @@ export function InfoTip({ children, label = 'More info' }: { children: ReactNode
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setDismissed(true)
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
+  }, [shown])
+
+  // Layout effect: placed before the browser paints, so the tip never flashes in the wrong spot
+  useLayoutEffect(() => {
+    if (!shown) return
+    const place = () => {
+      if (!buttonRef.current || !tipRef.current) return
+      const root = document.documentElement
+      setPosition(tipPosition(buttonRef.current.getBoundingClientRect(), tipRef.current.getBoundingClientRect(), root.clientWidth))
+    }
+    place()
+    window.addEventListener('resize', place)
+    window.addEventListener('scroll', place, true)
+    return () => {
+      window.removeEventListener('resize', place)
+      window.removeEventListener('scroll', place, true)
+    }
   }, [shown])
 
   return (
@@ -36,6 +62,7 @@ export function InfoTip({ children, label = 'More info' }: { children: ReactNode
       }}
     >
       <button
+        ref={buttonRef}
         type="button"
         aria-label={label}
         aria-describedby={tipId}
@@ -44,21 +71,36 @@ export function InfoTip({ children, label = 'More info' }: { children: ReactNode
       >
         <InfoIcon size={15} />
       </button>
-      <span
-        role="tooltip"
-        id={tipId}
-        // `hidden` (display: none) rather than invisible: a hidden tooltip near the screen edge must not widen the page
-        className={`pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 w-64 max-w-[min(16rem,80vw)] -translate-x-1/2 rounded-2xl border border-line bg-surface px-3.5 py-2.5 text-left text-xs leading-relaxed font-medium tracking-normal text-ink-2 normal-case shadow-pop ${shown ? 'block' : 'hidden'}`}
-      >
-        {children}
-      </span>
+      {createPortal(
+        <span
+          ref={tipRef}
+          role="tooltip"
+          id={tipId}
+          style={position ?? undefined}
+          className={`pointer-events-none fixed z-50 w-64 max-w-[calc(100vw-16px)] rounded-2xl border border-line bg-surface px-3.5 py-2.5 text-left text-xs leading-relaxed font-medium tracking-normal text-ink-2 normal-case shadow-pop ${shown ? 'block' : 'hidden'}`}
+        >
+          {children}
+        </span>,
+        document.body,
+      )}
     </span>
   )
 }
 
 /** Marks a section as measured history, a model projection, or sample data. Shape differs, not just colour. */
-export function SourceBadge({ kind }: { kind: 'measured' | 'projection' | 'sample' }) {
+export function SourceBadge({ kind }: { kind: 'measured' | 'projection' | 'sample' | 'mixed' }) {
   const m = messages.badges
+  if (kind === 'mixed') {
+    return (
+      <span
+        title={m.mixedTip}
+        className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-line bg-surface-2 px-2.5 py-1 text-[11px] font-bold text-ink-2"
+      >
+        <span className="size-2 rounded-full bg-ink-2" aria-hidden />
+        <span className="size-2 rounded-full border-[1.5px] border-ink-2" aria-hidden /> {m.mixed}
+      </span>
+    )
+  }
   if (kind === 'measured') {
     return (
       <span

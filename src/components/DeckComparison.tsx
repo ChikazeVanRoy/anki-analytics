@@ -2,8 +2,8 @@ import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YA
 import { useDeckColor } from '../data/deckColors'
 import type { Deck } from '../data/types'
 import { messages } from '../i18n'
-import type { Bucket, DeckSummary } from '../lib/stats'
-import { formatBucketTick, formatBucketTitle, formatInt, formatMinutes, formatPct } from '../lib/format'
+import { MIN_MATURE_SAMPLE, type Bucket, type DeckSummary } from '../lib/stats'
+import { formatBucketTick, formatBucketTitle, formatInt, formatMinutes, formatPct, formatRate } from '../lib/format'
 import { chart } from '../lib/theme'
 import { ChartTooltip } from './ChartTooltip'
 import { LegendItem, Panel } from './Panel'
@@ -33,10 +33,10 @@ function DeckCard({ summary }: { summary: DeckSummary }) {
       <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
         <Metric label="Reviews" value={formatInt(summary.reviews)} />
         <Metric label="Per day" value={formatInt(summary.avgPerDay)} />
-        <Metric label="Forgot (Again)" value={formatPct(summary.againRate)} />
+        <Metric label="Forgot (all answers)" value={formatPct(summary.againRate)} />
         <Metric label="Study time" value={formatMinutes(summary.minutes)} />
         <RetentionMetric label="Remembered" {...summary.retention.reviewCards} />
-        <RetentionMetric label="Remembered, known-well cards" {...summary.retention.mature} />
+        <RetentionMetric label="Remembered, known-well cards" minReviews={MIN_MATURE_SAMPLE} {...summary.retention.mature} />
       </dl>
 
       <div className="mt-4">
@@ -66,8 +66,10 @@ function Metric({ label, value, note }: { label: string; value: string; note?: s
 }
 
 /** Pass rate with its sample size, since small samples (or none) are common for mature cards. */
-function RetentionMetric({ label, reviews, rate }: { label: string; reviews: number; rate: number }) {
-  return <Metric label={label} value={reviews > 0 ? formatPct(rate) : '—'} note={reviews > 0 ? `of ${formatInt(reviews)}` : "no reviews yet"} />
+function RetentionMetric({ label, reviews, rate, minReviews = 1 }: { label: string; reviews: number; rate: number; minReviews?: number }) {
+  if (reviews === 0) return <Metric label={label} value="—" note="no reviews yet" />
+  if (reviews < minReviews) return <Metric label={label} value="—" note={`only ${formatInt(reviews)}, too few to rate`} />
+  return <Metric label={label} value={formatRate(rate)} note={`of ${formatInt(reviews)}`} />
 }
 
 interface DeckComparisonProps {
@@ -82,7 +84,7 @@ interface DeckComparisonProps {
 export function DeckComparison({ summaries, againRows, decks, bucket, period }: DeckComparisonProps) {
   const deckColor = useDeckColor()
   return (
-    <Panel title="How do my decks compare?" eyebrow="Decks" subtitle={`Each deck, ${period}. “Remembered” counts reviews of learned cards not answered Again.`}>
+    <Panel title="How do my decks compare?" eyebrow="Decks" subtitle={`Each deck, ${period}. “Remembered” counts scheduled reviews not answered Again; Hard counts as remembered.`}>
       <div className={`grid gap-4 ${summaries.length === 2 ? 'md:grid-cols-2' : 'md:grid-cols-3'}`}>
         {summaries.map((s) => (
           <DeckCard key={s.deck.id} summary={s} />

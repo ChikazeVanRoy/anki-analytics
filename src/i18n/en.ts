@@ -53,11 +53,14 @@ export const en = {
     projection: 'Projection',
     projectionTip: 'Simulated from your cards. An estimate, not a promise.',
     sample: 'Sample',
+    mixed: 'Measured + model',
+    mixedTip: 'Mixes what you actually answered with FSRS’s estimates. The labels say which is which.',
   },
   home: {
     greeting: { morning: 'Good morning', afternoon: 'Good afternoon', evening: 'Good evening' },
     status: {
       done: (n: number) => `You’ve reviewed ${int(n)} ${plural(n, 'card', 'cards')} today. Nice work!`,
+      doneMoreDue: (n: number) => `You’ve reviewed ${int(n)} ${plural(n, 'card', 'cards')} today, with more waiting when you’re ready.`,
       keep: (streak: number) => `Your ${streak}-day streak is waiting. A short session today keeps it going.`,
       start: 'Ready when you are. A short session today starts a new streak.',
       empty: 'Your progress will appear here after your first review in Anki.',
@@ -74,18 +77,20 @@ export const en = {
     kpi: {
       today: 'Reviewed today',
       todaySub: (minutes: number) => (minutes > 0 ? `about ${int(minutes)} min` : 'nothing yet today'),
-      week: 'This week',
+      week: 'Last 7 days',
       weekSub: 'reviews in the last 7 days',
-      weekVs: (pct: string, up: boolean) => `${up ? '▲' : '▼'} ${pct} vs the week before`,
-      weekNoPrev: 'no reviews the week before',
+      weekVs: (pct: string, up: boolean) => `${up ? '▲' : '▼'} ${pct} vs the 7 days before`,
+      weekSame: 'same as the 7 days before',
+      weekNoPrev: 'no reviews the 7 days before',
       remembered: 'Remembered',
-      rememberedSub: (n: number) => `of ${int(n)} reviews of learned cards, last 30 days`,
-      rememberedYoungNote: (matureReviews: number) =>
-        `Almost all young cards (${int(matureReviews)} mature), which are easier to recall`,
-      rememberedSplit: (young: string, mature: string) => `young ${young} · mature ${mature}`,
-      rememberedNone: 'no reviews of learned cards in the last 30 days',
+      rememberedSub: (n: number) => `of ${int(n)} scheduled reviews, last 30 days`,
+      rememberedAnswers: (again: number, hard: number) => `${int(again)} Again · ${int(hard)} Hard (counted as remembered)`,
+      rememberedYoungNote: (knownReviews: number) =>
+        knownReviews === 0 ? 'None from cards known well yet' : `Only ${int(knownReviews)} from cards known well`,
+      rememberedSplit: (learning: string, known: string) => `learning ${learning} · known well ${known}`,
+      rememberedNone: 'no scheduled reviews in the last 30 days',
       rememberedTip:
-        'Share of reviews of graduated cards (not new or learning steps) that you didn’t answer “Again”. Anki calls this true retention. Young cards (interval under 21 days) are easier to recall than mature ones, so a high figure early on is normal; compare with your deck’s target on Advanced.',
+        'Share of scheduled reviews (not new cards or learning steps) that you didn’t answer “Again”. Anki calls this true retention. Hard counts as remembered, so pressing Hard when you’ve forgotten lifts this figure. Advanced compares it with what FSRS expected.',
       active: 'Active days',
       activeSub: 'in the last 30 days',
     },
@@ -105,7 +110,7 @@ export const en = {
       started: (pct: string) => `${pct} started`,
       week: 'Reviews, 7 days',
       remembered: 'Remembered, 30 days',
-      rememberedYoung: 'mostly young cards',
+      rememberedYoung: 'few cards known well yet',
       notStarted: 'Not started',
       learning: 'Learning',
       known: 'Known well',
@@ -148,6 +153,17 @@ export const en = {
   activity: {
     title: 'Activity',
     subtitle: 'What you’ve reviewed, and how it’s going.',
+    forgot: 'Forgot (all answers)',
+    forgotTip:
+      'Share of all answers that were “Again”, including new cards and learning steps. It isn’t the opposite of Remembered, which only looks at scheduled reviews. Some forgetting is normal and healthy.',
+    remembered: 'Remembered (scheduled reviews)',
+    rememberedTip:
+      'Scheduled reviews (not new cards or learning steps) not answered Again: Anki’s true retention. Hard counts as remembered. “Known well” means the card’s previous interval was 21 days or more.',
+    rememberedSub: (reviews: number, again: number, hard: number) =>
+      `of ${int(reviews)} reviews · ${int(again)} Again · ${int(hard)} Hard (counted as remembered)`,
+    rememberedKnown: (rate: string) => `cards known well ${rate}`,
+    rememberedThin: 'too few reviews of cards known well to rate them',
+    noChange: 'no change',
     replay: 'Replay',
     stopReplay: 'Stop',
     replayTotal: (date: string) => `reviews by ${date}`,
@@ -155,6 +171,7 @@ export const en = {
   planner: {
     title: 'Planner',
     subtitle: 'Simulations of your real cards, so you can plan a workload you’ll enjoy keeping.',
+    subtitleSample: 'Simulates your real cards once your Anki data is connected.',
   },
   advanced: {
     title: 'Advanced',

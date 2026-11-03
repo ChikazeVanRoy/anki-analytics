@@ -9,7 +9,7 @@ import { HomePage } from './HomePage'
 
 afterEach(cleanup)
 
-function withRetention(rc: [number, number], mature: [number, number]): AnkiData {
+function withRetention(rc: [number, number], mature: [number, number], hard = 0): AnkiData {
   const base = { ...mockData, daily: [] as AnkiData['daily'] }
   const today = ankiToday(base)
   return {
@@ -23,6 +23,7 @@ function withRetention(rc: [number, number], mature: [number, number]): AnkiData
         studySeconds: 60,
         reviewCardReviews: rc[0],
         reviewCardPassed: rc[1],
+        reviewCardHard: hard,
         matureReviews: mature[0],
         maturePassed: mature[1],
       },
@@ -31,21 +32,42 @@ function withRetention(rc: [number, number], mature: [number, number]): AnkiData
 }
 
 describe('Home "Remembered" card', () => {
-  it('shows 99.9% for 795 of 796 and says it is almost all young cards', () => {
-    render(<HomePage data={withRetention([796, 795], [1, 1])} />)
+  it('shows 99.9% for 795 of 796, with the Again and Hard counts behind it', () => {
+    render(<HomePage data={withRetention([796, 795], [1, 1], 132)} />)
     expect(screen.getAllByText('99.9%').length).toBeGreaterThan(0)
-    expect(screen.getByText(/of 796 reviews of learned cards/)).toBeTruthy()
-    expect(screen.getByText(/Almost all young cards \(1 mature\)/)).toBeTruthy()
+    expect(screen.getByText(/of 796 scheduled reviews/)).toBeTruthy()
+    expect(screen.getByText('1 Again · 132 Hard (counted as remembered)')).toBeTruthy()
+    expect(screen.getByText('Only 1 from cards known well')).toBeTruthy()
+  })
+
+  it('doesn’t blame young cards for a high figure, and says Hard counts as remembered', () => {
+    expect(messages.home.kpi.rememberedTip).toMatch(/Hard counts as remembered/)
+    expect(messages.home.kpi.rememberedTip).not.toMatch(/normal/)
+  })
+
+  it('says so plainly when no reviews were of cards known well', () => {
+    render(<HomePage data={withRetention([40, 40], [0, 0])} />)
+    expect(screen.getByText('None from cards known well yet')).toBeTruthy()
   })
 
   it('shows the young / mature split when there are enough mature reviews', () => {
     render(<HomePage data={withRetention([200, 180], [100, 95])} />)
-    expect(screen.getByText(/young 85(\.\d)?% · mature 95(\.\d)?%/)).toBeTruthy()
+    expect(screen.getByText(/learning 85(\.\d)?% · known well 95(\.\d)?%/)).toBeTruthy()
   })
 
-  it('shows a dash and an explanation with no reviews of learned cards', () => {
+  it('shows a dash and an explanation with no scheduled reviews', () => {
     render(<HomePage data={withRetention([0, 0], [0, 0])} />)
     expect(screen.getByText(messages.home.kpi.rememberedNone)).toBeTruthy()
+  })
+})
+
+describe('Home hero', () => {
+  it('shows when the data was copied, but not for sample data', () => {
+    render(<HomePage data={{ ...withRetention([1, 1], [0, 0]), source: 'anki' }} />)
+    expect(screen.getByText(/Copied from Anki/)).toBeTruthy()
+    cleanup()
+    render(<HomePage data={{ ...withRetention([1, 1], [0, 0]), source: 'mock' }} />)
+    expect(screen.queryByText(/Copied from Anki/)).toBeNull()
   })
 })
 
@@ -59,6 +81,6 @@ describe('Home deck cards', () => {
 describe('Home "Remembered" card with only mature reviews', () => {
   it('shows a dash, not 0%, for the young rate', () => {
     render(<HomePage data={withRetention([40, 38], [40, 38])} />)
-    expect(screen.getByText(/young — · mature 95(\.\d)?%/)).toBeTruthy()
+    expect(screen.getByText(/learning — · known well 95(\.\d)?%/)).toBeTruthy()
   })
 })

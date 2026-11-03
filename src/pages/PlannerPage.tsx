@@ -13,7 +13,11 @@ export function PlannerPage({ data, today }: { data: AnkiData; today: Date }) {
   const measured = useMemo(() => measuredDefaults(data, today), [data, today])
   return (
     <div className="space-y-6">
-      <PageHeader title={messages.planner.title} subtitle={messages.planner.subtitle} badge={<SourceBadge kind="projection" />} />
+      <PageHeader
+        title={messages.planner.title}
+        subtitle={data.source === 'mock' ? messages.planner.subtitleSample : messages.planner.subtitle}
+        badge={data.source === 'mock' ? <SourceBadge kind="sample" /> : data.fsrs?.enabled ? <SourceBadge kind="projection" /> : undefined}
+      />
       {data.fsrs?.enabled ? (
         <WorkloadForecast
           fsrs={data.fsrs}

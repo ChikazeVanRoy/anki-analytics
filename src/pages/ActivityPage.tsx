@@ -7,7 +7,7 @@ import { StatCard } from '../components/StatCard'
 import { SourceBadge } from '../components/ui'
 import type { AnkiData } from '../data/types'
 import { messages } from '../i18n'
-import { formatInt, formatMinutes, formatPct } from '../lib/format'
+import { formatInt, formatMinutes, formatPct, formatRate } from '../lib/format'
 import {
   activeYears,
   againRateSeries,
@@ -16,12 +16,15 @@ import {
   deckSummaries,
   RANGE_OPTIONS,
   rangeDays,
+  retentionSplit,
   reviewsByPeriod,
   summarize,
   totalsByDate,
   type RangeKey,
 } from '../lib/stats'
 import { PageHeader } from './PageHeader'
+
+const m = messages.activity
 
 interface Props {
   data: AnkiData
@@ -49,6 +52,9 @@ export function ActivityPage({ data, range, onRangeChange }: Props) {
   const compareHint =
     range === 'all' ? 'all time' : canCompare ? `vs previous ${days} days` : `no reviews in the previous ${days} days`
   const { reviewCards, mature } = summary.retention
+  const { matureThin } = retentionSplit(summary.retention)
+  const avgSame = Math.abs(avgChange) < 0.005
+  const againSame = Math.abs(againChange) < 0.0005
   const minutes = decks.reduce((n, d) => n + d.minutes, 0)
 
   return (
@@ -66,28 +72,38 @@ export function ActivityPage({ data, range, onRangeChange }: Props) {
           value={formatInt(summary.avgPerDay)}
           delta={
             canCompare
-              ? { text: `${avgChange >= 0 ? '▲' : '▼'} ${formatPct(Math.abs(avgChange), 0)}`, good: avgChange >= 0 }
+              ? { text: avgSame ? m.noChange : `${avgChange >= 0 ? '▲' : '▼'} ${formatPct(Math.abs(avgChange), 0)}`, good: avgChange >= 0 }
               : undefined
           }
           hint={compareHint}
         />
         <StatCard
-          label="Forgot"
-          tip="Share of all answers that were “Again”, including new and learning cards. Lower is better, but some forgetting is normal and healthy."
+          label={m.forgot}
+          tip={m.forgotTip}
           value={formatPct(summary.againRate)}
           delta={
             canCompare
-              ? { text: `${againChange <= 0 ? '▼' : '▲'} ${(Math.abs(againChange) * 100).toFixed(1)} pts`, good: againChange <= 0 }
+              ? {
+                  text: againSame ? m.noChange : `${againChange <= 0 ? '▼' : '▲'} ${(Math.abs(againChange) * 100).toFixed(1)} pts`,
+                  good: againChange <= 0,
+                }
               : undefined
           }
           hint={compareHint}
           style={{ animationDelay: '60ms' }}
         />
         <StatCard
-          label="Remembered"
-          tip="Reviews of graduated cards not answered Again (Anki’s true retention). “Known well” = cards whose previous interval was 21 days or more."
-          value={reviewCards.reviews > 0 ? formatPct(reviewCards.rate) : '—'}
-          hint={`of ${formatInt(reviewCards.reviews)} reviews${mature.reviews > 0 ? ` · cards known well ${formatPct(mature.rate)}` : ''}`}
+          label={m.remembered}
+          tip={m.rememberedTip}
+          value={reviewCards.reviews > 0 ? formatRate(reviewCards.rate) : '—'}
+          hint={
+            <>
+              {m.rememberedSub(reviewCards.reviews, reviewCards.reviews - reviewCards.passed, reviewCards.hard)}
+              {reviewCards.reviews > 0 && (
+                <span className="mt-0.5 block">{matureThin ? m.rememberedThin : m.rememberedKnown(formatRate(mature.rate))}</span>
+              )}
+            </>
+          }
           style={{ animationDelay: '120ms' }}
         />
         <StatCard

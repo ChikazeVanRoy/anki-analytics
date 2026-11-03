@@ -175,7 +175,7 @@ export function homeInsight(data: AnkiData, byDate: Map<string, DayTotal>, today
   if (decks.length >= 2) {
     const best = [...decks].sort((a, b) => b.retention.reviewCards.rate - a.retention.reviewCards.rate)[0]
     return {
-      text: `Your strongest deck this month is ${best.deck.name}: you remembered ${pct(best.retention.reviewCards.rate)} of ${fmt(best.retention.reviewCards.reviews)} reviews of learned cards.`,
+      text: `Your strongest deck this month is ${best.deck.name}: you remembered ${pct(best.retention.reviewCards.rate)} of ${fmt(best.retention.reviewCards.reviews)} scheduled reviews.`,
       tone: 'good',
       link: 'activity',
     }

@@ -57,6 +57,7 @@ function generate(days = 730): AnkiData {
         studySeconds: Math.round(reviews * p.secPerReview * (0.8 + rand() * 0.4)),
         reviewCardReviews,
         reviewCardPassed: Math.round(reviewCardReviews * (0.86 + rand() * 0.08)),
+        reviewCardHard: Math.round(reviewCardReviews * 0.15),
         matureReviews,
         maturePassed: Math.round(matureReviews * (0.88 + rand() * 0.08)),
       })

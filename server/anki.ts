@@ -104,6 +104,7 @@ export function readAnkiData(path: string, now = Date.now(), { deckConfig = {}, 
         studySeconds: 0,
         reviewCardReviews: 0,
         reviewCardPassed: 0,
+        reviewCardHard: 0,
         matureReviews: 0,
         maturePassed: 0,
       }
@@ -116,6 +117,7 @@ export function readAnkiData(path: string, now = Date.now(), { deckConfig = {}, 
       if (Number(r.type) === 1) {
         stat.reviewCardReviews += 1
         if (passed) stat.reviewCardPassed += 1
+        if (Number(r.ease) === 2) stat.reviewCardHard += 1
         if (Number(r.lastIvl) >= MATURE_DAYS) {
           stat.matureReviews += 1
           if (passed) stat.maturePassed += 1

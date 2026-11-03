@@ -125,7 +125,7 @@ beforeAll(() => {
   rev.run(at(2026, 3, 11, 3), 13, 1, 2000, 0, -60, 0) // learning, Again, 3am -> counts as 10 Mar
   rev.run(at(2026, 2, 20, 12), 15, 0, 0, 4, 0, 0) // "Forget" reset: history before it is ignored
   rev.run(at(2026, 3, 1, 12), 15, 4, 1000, 0, 0, 0)
-  rev.run(at(2026, 3, 11, 12), 21, 4, 5000, 1, 3, 2500) // German: young review (history incomplete)
+  rev.run(at(2026, 3, 11, 12), 21, 2, 5000, 1, 3, 2500) // German: young review, Hard (history incomplete)
   rev.run(at(2026, 3, 11, 13), 21, 0, 0, 4, 0, 2500) // manual reschedule -> ignored
   rev.run(at(2026, 3, 11, 14), 41, 3, 5000, 1, 50, 2500) // Archive -> excluded
   rev.run(at(2026, 3, 11, 15), 99, 3, 5000, 1, 50, 2500) // deleted card -> skipped
@@ -203,10 +203,11 @@ describe('readAnkiData', () => {
     expect(daily.find((s) => s.date === '2026-03-10')).toMatchObject({
       reviewCardReviews: 2,
       reviewCardPassed: 1,
+      reviewCardHard: 0,
       matureReviews: 2,
       maturePassed: 1,
     })
-    expect(daily.find((s) => s.date === '2026-03-11')).toMatchObject({ reviewCardReviews: 1, reviewCardPassed: 1, matureReviews: 0 })
+    expect(daily.find((s) => s.date === '2026-03-11')).toMatchObject({ reviewCardReviews: 1, reviewCardPassed: 1, reviewCardHard: 1, matureReviews: 0 })
   })
 })
 

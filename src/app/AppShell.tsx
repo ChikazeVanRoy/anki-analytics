@@ -2,7 +2,8 @@ import type { ReactNode } from 'react'
 import type { FailureKind } from '../data/useAnkiData'
 import { ActivityIcon, AdvancedIcon, CloseIcon, HomeIcon, Logo, MoonIcon, PlannerIcon, RefreshIcon, SunIcon, SystemIcon, WarningIcon } from '../components/icons'
 import type { AnkiData } from '../data/types'
-import { LOCALE, messages as m } from '../i18n'
+import { messages as m } from '../i18n'
+import { formatCopiedAt } from '../lib/format'
 import { ROUTES, routeHref, type Route } from '../lib/route'
 import type { ThemeChoice } from './useTheme'
 
@@ -30,7 +31,7 @@ interface ShellProps {
 export function AppShell(props: ShellProps) {
   const { route, data, fallbackReason, fallbackKind, onRefresh, refreshing, refreshError, onDismissError, theme, onCycleTheme, children } = props
   const sample = data.source === 'mock'
-  const copied = new Date(data.generatedAt).toLocaleString(LOCALE, { dateStyle: 'medium', timeStyle: 'short' })
+  const copied = formatCopiedAt(data.generatedAt)
 
   return (
     <div className="min-h-screen pb-24 md:pb-0">

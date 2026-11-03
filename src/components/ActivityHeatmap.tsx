@@ -150,7 +150,7 @@ export function ActivityHeatmap({ byDate, today, years }: ActivityHeatmapProps) 
         )}
       </div>
 
-      <div ref={scrollRef} className="relative overflow-x-auto pb-1">
+      <div ref={scrollRef} className="relative overflow-x-auto pb-1" tabIndex={0} role="region" aria-label="Study calendar, scrolls sideways">
         <div className="relative flex gap-2" style={{ width: width + 32 }}>
           <div className="flex flex-col pt-5 text-[10px] text-muted" style={{ gap: GAP, width: 24 }} aria-hidden>
             {['Mon', '', 'Wed', '', 'Fri', '', ''].map((d, i) => (

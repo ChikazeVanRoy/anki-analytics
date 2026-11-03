@@ -11,4 +11,8 @@ describe('formatRate', () => {
     expect(formatRate(0.9987)).toBe('99.9%')
     expect(formatRate(0.003)).toBe('0.3%')
   })
+  it('never reads as perfect or as zero, even when one decimal would round there', () => {
+    expect(formatRate(0.9996)).toBe('99.9%')
+    expect(formatRate(0.0004)).toBe('0.1%')
+  })
 })

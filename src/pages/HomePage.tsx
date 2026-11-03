@@ -7,7 +7,7 @@ import { useDeckColor } from '../data/deckColors'
 import type { AnkiData } from '../data/types'
 import { LOCALE, messages } from '../i18n'
 import { parseDateKey, toDateKey } from '../lib/dates'
-import { formatInt, formatPct, formatRate } from '../lib/format'
+import { formatCopiedAt, formatInt, formatPct, formatRate } from '../lib/format'
 import {
   dayStatus,
   dueToday,
@@ -54,7 +54,9 @@ export function HomePage({ data }: { data: AnkiData }) {
         greeting={m.greeting[greetingPart(hour)]}
         status={
           status === 'done'
-            ? m.status.done(week7.reviewsToday)
+            ? due && !due.stale && due.cards > 0
+              ? m.status.doneMoreDue(week7.reviewsToday)
+              : m.status.done(week7.reviewsToday)
             : status === 'keep'
               ? m.status.keep(week7.streak)
               : status === 'start'
@@ -65,6 +67,7 @@ export function HomePage({ data }: { data: AnkiData }) {
         streak={week7.streak}
         best={best}
         sample={sample}
+        copied={sample ? null : messages.data.copiedAt(formatCopiedAt(data.generatedAt))}
       />
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
@@ -82,7 +85,13 @@ export function HomePage({ data }: { data: AnkiData }) {
           value={<CountUp value={week.thisWeek} format={formatInt} />}
           delta={
             week.change !== null
-              ? { text: m.kpi.weekVs(formatPct(Math.abs(week.change), 0), week.change >= 0), good: week.change >= 0 }
+              ? {
+                  text:
+                    Math.abs(week.change) < 0.005
+                      ? m.kpi.weekSame
+                      : m.kpi.weekVs(formatPct(Math.abs(week.change), 0), week.change >= 0),
+                  good: week.change >= 0,
+                }
               : undefined
           }
           hint={week.change === null ? m.kpi.weekNoPrev : undefined}
@@ -100,6 +109,7 @@ export function HomePage({ data }: { data: AnkiData }) {
             ) : (
               <>
                 {m.kpi.rememberedSub(reviewCards.reviews)}
+                <span className="mt-0.5 block">{m.kpi.rememberedAnswers(reviewCards.reviews - reviewCards.passed, reviewCards.hard)}</span>
                 <span className="mt-0.5 block">
                   {split.matureThin
                     ? m.kpi.rememberedYoungNote(split.mature.reviews)
@@ -182,6 +192,7 @@ function Hero({
   streak,
   best,
   sample,
+  copied,
 }: {
   greeting: string
   status: string
@@ -189,6 +200,7 @@ function Hero({
   streak: number
   best: number
   sample: boolean
+  copied: string | null
 }) {
   return (
     <section
@@ -211,6 +223,7 @@ function Hero({
               <InfoTip label={m.due.tipLabel}>{m.due.tip}</InfoTip>
             </p>
           )}
+          {copied && <p className="mt-2 text-xs text-ink-2">{copied}</p>}
         </div>
         <div className="flex shrink-0 items-center gap-2 self-start rounded-2xl bg-surface px-3.5 py-2.5 shadow-card sm:self-auto">
           <Flame lit={streak > 0} size={30} />
@@ -262,8 +275,12 @@ function RecentActivity({ rows, sample, className = '' }: { rows: { date: string
           const isToday = i === rows.length - 1
           const label = m.recent.bar(fmtDay(r.date), r.reviews)
           return (
-            <li key={r.date} className="group relative flex h-full flex-1 flex-col items-center justify-end" tabIndex={0} aria-label={label}>
-              <span className="pointer-events-none absolute -top-2 z-10 hidden -translate-y-full rounded-xl border border-line bg-surface px-2.5 py-1 text-xs font-bold whitespace-nowrap text-ink shadow-pop group-focus:block group-hover:block">
+            <li key={r.date} className="group relative flex h-full flex-1 flex-col items-center justify-end">
+              <span className="sr-only">{label}</span>
+              <span
+                aria-hidden
+                className="pointer-events-none absolute -top-2 z-10 hidden -translate-y-full rounded-xl border border-line bg-surface px-2.5 py-1 text-xs font-bold whitespace-nowrap text-ink shadow-pop group-hover:block"
+              >
                 {label}
               </span>
               <div

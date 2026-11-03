@@ -11,6 +11,7 @@ const day = (date: string, reviews: number, studySeconds: number) => ({
   studySeconds,
   reviewCardReviews: 0,
   reviewCardPassed: 0,
+  reviewCardHard: 0,
   matureReviews: 0,
   maturePassed: 0,
 })
