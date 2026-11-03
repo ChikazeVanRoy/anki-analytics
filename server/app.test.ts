@@ -11,6 +11,7 @@ import type { AnkiData } from '../src/data/types.ts'
 import { readConfigJson } from './ankiConfig.ts'
 import { createApiServer, isAllowedHost } from './app.ts'
 import { CopyError } from './collection.ts'
+import { DeckConfigError } from './deckGroups.ts'
 
 const dir = mkdtempSync(join(tmpdir(), 'anki-analytics-api-'))
 const existing = join(dir, 'collection.anki2')
@@ -113,6 +114,22 @@ describe('local API errors', () => {
       },
     })
     expect(await call(port, '/api/stats')).toEqual({ status: 500, body: { error: 'Failed to read the collection copy' } })
+    server.close()
+    quiet.mockRestore()
+  })
+
+  it('says what’s wrong with a broken deck config file, since that’s for the user to fix', async () => {
+    const quiet = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { server, port } = await start({
+      collectionPath: existing,
+      read: () => {
+        throw new DeckConfigError('anki-analytics.config.json: "exclude" must be a list of deck names')
+      },
+    })
+    expect(await call(port, '/api/stats')).toEqual({
+      status: 500,
+      body: { error: 'anki-analytics.config.json: "exclude" must be a list of deck names' },
+    })
     server.close()
     quiet.mockRestore()
   })

@@ -6,6 +6,7 @@ import { existsSync } from 'node:fs'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import type { AnkiData } from '../src/data/types.ts'
 import { readAnkiData } from './anki.ts'
+import { DeckConfigError, loadDeckColors, loadDeckConfig, saveDeckColors } from './deckGroups.ts'
 import { COLLECTION_COPY, copyCollection, CopyError } from './collection.ts'
 
 const ALLOWED_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]'])
@@ -33,7 +34,14 @@ export interface ApiDeps {
 
 const defaults: ApiDeps = {
   collectionPath: COLLECTION_COPY,
-  read: readAnkiData,
+  // The deck config is read on every request, so edits apply on the next refresh without a restart.
+  // Colour slots are remembered so a deck keeps its colour when other decks come and go.
+  read: (path) => {
+    const previousColors = loadDeckColors()
+    const data = readAnkiData(path, Date.now(), { deckConfig: loadDeckConfig(), previousColors })
+    saveDeckColors(data.decks, previousColors)
+    return data
+  },
   copy: copyCollection,
   log: console.log,
 }
@@ -83,7 +91,8 @@ export function createApiServer(overrides: Partial<ApiDeps> = {}): Server {
       handle(req, res)
     } catch (err) {
       console.error(err)
-      send(res, 500, { error: 'Failed to read the collection copy' })
+      // A broken config file is the user's to fix, so say exactly what's wrong with it
+      send(res, 500, { error: err instanceof DeckConfigError ? err.message : 'Failed to read the collection copy' })
     }
   })
 }

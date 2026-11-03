@@ -36,3 +36,6 @@ dist-ssr
 *-wal
 *-shm
 .env*
+
+# Personal deck grouping (names of your decks) - copy anki-analytics.config.example.json to start
+/anki-analytics.config.json

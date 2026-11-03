@@ -22,6 +22,33 @@ For fresh stats, quit Anki and press **Refresh** in the dashboard (or re-run `co
 If the API isn't running, the dashboard shows clearly labelled sample data and the Planner and Advanced
 sections explain why they need real FSRS data.
 
+## Your decks
+
+With no setup, each top-level Anki deck is its own deck in the dashboard (subdecks count towards their
+parent). The three with the most studied cards are shown on their own, each with a colour, and the rest are
+combined as "Other decks", so a large imported deck you haven't started doesn't take a place. A deck keeps
+its colour between visits, even when other decks come and go (remembered in `data/deck-colors.json`).
+
+To merge, rename, leave out or pin decks, copy `anki-analytics.config.example.json` to
+`anki-analytics.config.json` (git-ignored, since it names your decks) and edit it:
+
+```json
+{
+  "groups": [{ "name": "Mandarin", "decks": ["Chinese*", "Mandarin*"], "color": 1 }],
+  "exclude": ["Old decks"],
+  "maxDecks": 3
+}
+```
+
+- `groups`: up to three dashboard decks, each made of the top-level Anki decks whose names match
+  (case-insensitive; `*` matches anything). `color` (1-3) is optional.
+- `exclude`: top-level decks left out of every statistic.
+- `maxDecks`: how many decks to show on their own (0-3), including the configured groups, which always show.
+
+Changes apply the next time the dashboard loads or refreshes. If the file can't be used (invalid JSON, an
+unknown key such as `"colour"`, a value out of range), the dashboard shows sample data and says what to fix.
+A group whose patterns match no deck is left out, and the API terminal warns about it.
+
 ## What it shows
 
 Four sections (`#/`, `#/activity`, `#/planner`, `#/advanced`), simple first and technical on request:
@@ -47,7 +74,8 @@ Forecast assumptions and limits are listed in the app under "How the forecast wo
 
 - `server/`: local API
   - `app.ts`: request handling (`GET /api/stats`, `POST /api/refresh`, Host-header check); `index.ts` starts it
-  - `anki.ts`: daily totals and card counts; deck grouping and exclusions are configured at the top
+  - `anki.ts`: daily totals and card counts
+  - `deckGroups.ts`: which dashboard deck each Anki deck belongs to, and the optional config file
   - `fsrsData.ts`: FSRS states, presets (decoded with `protobuf.ts`), review-log replay, measured behaviour
   - `collection.ts`: the safe copy (refuses while Anki is open); `copy-collection.ts` is its CLI
 - `src/data/`: `types.ts` (data contract shared with the API), `useAnkiData.ts`, `useSimulation.ts`, `mockData.ts`
@@ -63,7 +91,8 @@ Forecast assumptions and limits are listed in the app under "How the forecast wo
 ## Privacy
 
 Everything stays local; the API only answers requests addressed to this machine.
-Personal Anki data (`/data/`, `*.anki2`, `*.colpkg`, …) is git-ignored and must never be committed.
+Personal Anki data (`/data/`, `*.anki2`, `*.colpkg`, …) and your deck config (`anki-analytics.config.json`)
+are git-ignored and must never be committed.
 
 ## Development workflow
 

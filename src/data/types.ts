@@ -4,6 +4,8 @@
 export interface Deck {
   id: string
   name: string
+  /** Colour slot (1-3), fixed per deck by the server. Absent: "Other decks", drawn in a neutral colour. */
+  color?: number
   totalCards: number
   newCards: number
   youngCards: number // interval < 21 days

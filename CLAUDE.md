@@ -12,7 +12,8 @@ structure and what each section measures or projects.
 
 - **Never write to Anki's own files** (`~/Library/Application Support/Anki2`). Only read them, and only via
   `server/collection.ts`, which refuses while Anki is running. Open SQLite only with `{ readOnly: true }`.
-- **Never commit personal data**: `/data/`, `*.anki2`, `*.colpkg`, `*.apkg`, databases, `.env*`. Check
+- **Never commit personal data**: `/data/`, `*.anki2`, `*.colpkg`, `*.apkg`, databases, `.env*`,
+  `anki-analytics.config.json` (it names the user's decks). Check
   `git diff --cached --name-only` before every commit. Tests use synthetic fixtures only.
 - **Never fabricate statistics.** Mock data must stay labelled as mock; FSRS sections are hidden without
   real data. Label projections as projections and state assumptions in the UI.
@@ -39,6 +40,8 @@ npm run build     # production build
   (server imports use explicit `.ts` extensions; browser code doesn't).
 - Anki days start at the collection's rollover hour: use `ankiDayKey` / `ankiToday`, never raw UTC dates.
 - The data contract is `src/data/types.ts`; the API and mock data must both satisfy it.
+- Decks are generic: never hard-code deck names. Grouping lives in `server/deckGroups.ts` (plus the user's
+  optional config file); the server gives each deck a colour slot (`Deck.color`).
 - Charts: deck colours are fixed per deck (`src/lib/theme.ts`); new palettes must pass the colour
   validator in both themes; estimated series are hatched and dashed, measured series solid.
 - Colours are tokens in `src/index.css` (one `light-dark()` pair each). Use the Tailwind utilities or write

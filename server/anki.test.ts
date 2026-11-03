@@ -11,6 +11,7 @@ import { ankiDayKey, dayNumber, keyFromDayNumber } from '../src/lib/dates.ts'
 import reference from '../src/lib/fixtures/anki-fsrs-reference.json' with { type: 'json' }
 import { DEFAULT_PARAMS, replay, retrievability, toFsrs6Params } from '../src/lib/fsrs.ts'
 import { readAnkiData } from './anki.ts'
+import type { DeckConfig } from './deckGroups.ts'
 import { readPreset } from './fsrsData.ts'
 import { parseProto } from './protobuf.ts'
 
@@ -133,20 +134,30 @@ beforeAll(() => {
 
 afterAll(() => rmSync(dir, { recursive: true, force: true }))
 
+// The deck grouping these fixtures were written for (each test collection names its decks this way)
+const DECKS: DeckConfig = {
+  groups: [
+    { name: 'Mandarin', decks: ['Chinese*', 'Mandarin*'] },
+    { name: 'Portuguese', decks: ['Portuguese*'] },
+  ],
+  exclude: ['Redundant'],
+  maxDecks: 2,
+}
+
 describe('readAnkiData', () => {
   it('never modifies the collection file', () => {
     const hash = () => createHash('sha256').update(readFileSync(path)).digest('hex')
     const before = hash()
-    readAnkiData(path, NOW)
+    readAnkiData(path, NOW, { deckConfig: DECKS })
     expect(hash()).toBe(before)
   })
 
   it('reads the rollover hour', () => {
-    expect(readAnkiData(path, NOW).dayStartHour).toBe(4)
+    expect(readAnkiData(path, NOW, { deckConfig: DECKS }).dayStartHour).toBe(4)
   })
 
   it('groups decks by top-level name and leaves out Redundant', () => {
-    const decks = readAnkiData(path, NOW).decks
+    const decks = readAnkiData(path, NOW, { deckConfig: DECKS }).decks
     expect(decks.map((d) => d.id)).toEqual(['mandarin', 'portuguese', 'other'])
     // incl. the subdeck and the card currently in a filtered deck (counted in its home deck)
     expect(decks[0]).toMatchObject({ totalCards: 8, newCards: 2, youngCards: 5, matureCards: 1 })
@@ -154,8 +165,30 @@ describe('readAnkiData', () => {
     expect(decks[2]).toMatchObject({ name: 'Other decks', totalCards: 3 })
   })
 
+  it('without a config, shows the most-studied top-level decks and keeps every section consistent', () => {
+    const data = readAnkiData(path, NOW)
+    const ids = data.decks.map((d) => d.id)
+    expect(data.decks.map((d) => [d.name, d.color, d.totalCards])).toEqual([
+      ['Chinese🇨🇳', 1, 8],
+      ['Portuguese🇧🇷', 2, 1],
+      ['Japanese', 3, 3], // its own deck now, instead of "Other decks"
+      ['Other decks', undefined, 1], // Redundant isn't excluded without a config
+    ])
+    // Every review, card state and preset belongs to a deck the dashboard shows
+    const shown = (deckIds: string[]) => deckIds.every((id) => ids.includes(id))
+    expect(shown(data.daily.map((s) => s.deckId))).toBe(true)
+    expect(shown(data.fsrs!.cards.map((c) => c.deckId))).toBe(true)
+    expect(shown(data.fsrs!.presets.map((p) => p.deckId))).toBe(true)
+    // Nothing is lost: the same cards and reviews as with the config, minus the excluded deck
+    const total = (d: typeof data) => d.decks.reduce((n, x) => n + x.totalCards, 0)
+    const reviews = (d: typeof data) => d.daily.reduce((n, x) => n + x.reviews, 0)
+    const configured = readAnkiData(path, NOW, { deckConfig: DECKS })
+    expect(total(data)).toBe(total(configured) + 1) // + Redundant's card
+    expect(reviews(data)).toBe(reviews(configured) + 1) // + Redundant's review
+  })
+
   it('counts real reviews per Anki day, honouring the rollover hour', () => {
-    const march = readAnkiData(path, NOW).daily.filter((s) => s.date >= '2026-03-10')
+    const march = readAnkiData(path, NOW, { deckConfig: DECKS }).daily.filter((s) => s.date >= '2026-03-10')
     expect(march).toEqual([
       expect.objectContaining({ date: '2026-03-10', deckId: 'mandarin', reviews: 3, again: 2, studySeconds: 14 }),
       expect.objectContaining({ date: '2026-03-11', deckId: 'portuguese', reviews: 1, again: 0 }),
@@ -164,7 +197,7 @@ describe('readAnkiData', () => {
   })
 
   it('counts retention from review cards only, split by maturity', () => {
-    const daily = readAnkiData(path, NOW).daily
+    const daily = readAnkiData(path, NOW, { deckConfig: DECKS }).daily
     expect(daily.find((s) => s.date === '2026-03-10')).toMatchObject({
       reviewCardReviews: 2,
       reviewCardPassed: 1,
@@ -176,7 +209,7 @@ describe('readAnkiData', () => {
 })
 
 describe('FSRS data', () => {
-  const fsrs = () => readAnkiData(path, NOW).fsrs!
+  const fsrs = () => readAnkiData(path, NOW, { deckConfig: DECKS }).fsrs!
 
   it('reads whether FSRS is enabled', () => {
     expect(fsrs().enabled).toBe(true)
@@ -267,7 +300,7 @@ describe('FSRS data', () => {
     db.prepare('INSERT INTO revlog VALUES (?, 1, 3, 5000, 1, 3)').run(at(2026, 3, 10, 12))
     db.close()
     const quiet = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const res = readAnkiData(broken, NOW)
+    const res = readAnkiData(broken, NOW, { deckConfig: DECKS })
     quiet.mockRestore()
     expect(res.daily).toHaveLength(1)
     expect(res.fsrs).toBeUndefined()
@@ -365,7 +398,7 @@ describe('FSRS data with mixed presets and incomplete histories', () => {
     for (const [d, rating] of [[2, 3], [8, 3], [20, 1]]) rev.run(ms(d) + 5000, 5, rating, 1)
     db.close()
   })
-  const fsrs = () => readAnkiData(mixed, NOW).fsrs!
+  const fsrs = () => readAnkiData(mixed, NOW, { deckConfig: DECKS }).fsrs!
 
   it('replays each card with its own home deck’s preset, as Anki does', () => {
     // If card 3 were replayed with the group’s (majority) preset, its stored state wouldn’t match

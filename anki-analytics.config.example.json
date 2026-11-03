@@ -1,0 +1,8 @@
+{
+  "groups": [
+    { "name": "Mandarin", "decks": ["Chinese*", "Mandarin*"] },
+    { "name": "Portuguese", "decks": ["Portuguese*"], "color": 2 }
+  ],
+  "exclude": ["Old decks"],
+  "maxDecks": 3
+}

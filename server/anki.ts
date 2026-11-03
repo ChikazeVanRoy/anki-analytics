@@ -6,36 +6,21 @@ import { DatabaseSync } from 'node:sqlite'
 import type { AnkiData, DailyDeckStat, Deck } from '../src/data/types.ts'
 import { toDateKey } from '../src/lib/dates.ts'
 import { readConfigJson } from './ankiConfig.ts'
+import { OTHER, planDeckGroups, type DeckConfig } from './deckGroups.ts'
 import { readFsrsData } from './fsrsData.ts'
-
-// Top-level Anki decks are grouped into the dashboard's decks by name.
-// Anything that doesn't match goes into "Other decks".
-const GROUPS = [
-  { id: 'mandarin', name: 'Mandarin', match: /^(chinese|mandarin)/i },
-  { id: 'portuguese', name: 'Portuguese', match: /^portuguese/i },
-]
-const OTHER = { id: 'other', name: 'Other decks' }
-
-// Top-level decks left out of the dashboard entirely (cards and reviews).
-const EXCLUDED_DECKS = [/^redundant$/i]
-
-function groupFor(topLevelName: string | undefined) {
-  return GROUPS.find((g) => topLevelName && g.match.test(topLevelName)) ?? OTHER
-}
 
 const MATURE_DAYS = 21 // Anki's definition: interval of 21+ days
 
-export function readAnkiData(path: string, now = Date.now()): AnkiData {
+export interface ReadOptions {
+  /** How Anki decks are grouped (see deckGroups.ts); without it the most-studied top-level decks show. */
+  deckConfig?: DeckConfig
+  /** Colour slots remembered from earlier visits, by dashboard deck id. */
+  previousColors?: Map<string, number>
+}
+
+export function readAnkiData(path: string, now = Date.now(), { deckConfig = {}, previousColors }: ReadOptions = {}): AnkiData {
   const db = new DatabaseSync(path, { readOnly: true })
   try {
-    // Anki stores deck hierarchy as "Parent\x1fChild"; we only need the top level.
-    const deckGroup = new Map<number, string>()
-    const excludedDecks = new Set<number>()
-    for (const row of db.prepare('SELECT id, name FROM decks').all()) {
-      const topLevel = String(row.name).split('\x1f')[0]
-      deckGroup.set(Number(row.id), groupFor(topLevel).id)
-      if (EXCLUDED_DECKS.some((re) => re.test(topLevel))) excludedDecks.add(Number(row.id))
-    }
 
     // Hour at which Anki starts a new day; 4 is Anki's default
     const rollover = readConfigJson(db, 'rollover')
@@ -43,10 +28,6 @@ export function readAnkiData(path: string, now = Date.now()): AnkiData {
 
     // --- Card counts per deck group ---
     // cards.type: 0 = new, 1 = learning, 2 = review, 3 = relearning
-    const decks = new Map<string, Deck>()
-    for (const g of [...GROUPS, OTHER]) {
-      decks.set(g.id, { id: g.id, name: g.name, totalCards: 0, newCards: 0, youngCards: 0, matureCards: 0 })
-    }
     const cardRows = db
       .prepare(
         // A card in a filtered deck keeps its home deck in odid; count it there
@@ -58,6 +39,30 @@ export function readAnkiData(path: string, now = Date.now()): AnkiData {
          FROM cards GROUP BY 1`,
       )
       .all()
+
+    // Group the Anki decks (hierarchy is stored as "Parent\x1fChild"), most-studied first unless configured
+    const plan = planDeckGroups(
+      db.prepare('SELECT id, name FROM decks').all().map((r) => ({ id: Number(r.id), name: String(r.name) })),
+      new Map(cardRows.map((r) => [Number(r.did), Number(r.young) + Number(r.mature)])),
+      deckConfig,
+      previousColors,
+    )
+    if (plan.unmatched.length) {
+      console.warn(`anki-analytics.config.json: no deck matches group ${plan.unmatched.map((n) => `"${n}"`).join(', ')}`)
+    }
+    const { deckGroup, excluded: excludedDecks } = plan
+    const decks = new Map<string, Deck>()
+    for (const g of plan.groups) {
+      decks.set(g.id, {
+        id: g.id,
+        name: g.name,
+        ...(g.color !== undefined && { color: g.color }),
+        totalCards: 0,
+        newCards: 0,
+        youngCards: 0,
+        matureCards: 0,
+      })
+    }
     for (const r of cardRows) {
       if (excludedDecks.has(Number(r.did))) continue
       const deck = decks.get(deckGroup.get(Number(r.did)) ?? OTHER.id)!
@@ -129,7 +134,7 @@ export function readAnkiData(path: string, now = Date.now()): AnkiData {
         deckGroup,
         excludedDecks,
         dayStartHour,
-        groupIds: [...GROUPS.map((g) => g.id), OTHER.id],
+        groupIds: plan.groups.map((g) => g.id),
         now,
       })
     } catch (err) {
