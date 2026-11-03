@@ -20,7 +20,7 @@ import {
   type MilestoneTrack,
 } from '../lib/progress'
 import { routeHref, type Route } from '../lib/route'
-import { ankiToday, deckSummaries, summarize, totalsByDate, type DeckSummary } from '../lib/stats'
+import { ankiToday, deckSummaries, retentionSplit, summarize, totalsByDate, type DeckSummary } from '../lib/stats'
 
 const m = messages.home
 
@@ -43,6 +43,7 @@ export function HomePage({ data }: { data: AnkiData }) {
   const status = dayStatus(hasAny, week7.reviewsToday, week7.streak)
   const todayMinutes = (byDate.get(toDateKey(today))?.seconds ?? 0) / 60
   const { reviewCards } = month.retention
+  const split = retentionSplit(month.retention)
   const fsrsOn = !!data.fsrs?.enabled
   const sample = data.source === 'mock'
   const shownDecks = data.decks.filter((d) => d.totalCards + d.suspendedCards > 0)
@@ -93,7 +94,20 @@ export function HomePage({ data }: { data: AnkiData }) {
           icon={<BrainIcon size={18} className="text-sun-ink" />}
           tint="var(--color-sun-soft)"
           value={reviewCards.reviews > 0 ? <CountUp value={reviewCards.rate} format={formatRate} /> : '—'}
-          hint={reviewCards.reviews > 0 ? m.kpi.rememberedSub(reviewCards.reviews) : m.kpi.rememberedNone}
+          hint={
+            reviewCards.reviews === 0 ? (
+              m.kpi.rememberedNone
+            ) : (
+              <>
+                {m.kpi.rememberedSub(reviewCards.reviews)}
+                <span className="mt-0.5 block">
+                  {split.matureThin
+                    ? m.kpi.rememberedYoungNote(split.mature.reviews)
+                    : m.kpi.rememberedSplit(formatRate(split.young.rate), formatRate(split.mature.rate))}
+                </span>
+              </>
+            )
+          }
           style={{ animationDelay: '120ms' }}
         />
         <StatCard

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { API_DOWN, API_TIMEOUT } from '../data/useAnkiData'
 import { ActivityIcon, AdvancedIcon, CloseIcon, HomeIcon, Logo, MoonIcon, PlannerIcon, RefreshIcon, SunIcon, SystemIcon, WarningIcon } from '../components/icons'
 import type { AnkiData } from '../data/types'
 import { LOCALE, messages as m } from '../i18n'
@@ -112,6 +113,7 @@ export function AppShell(props: ShellProps) {
             <div className="text-sm leading-relaxed">
               <p className="font-extrabold text-ink">{m.data.sampleTitle}</p>
               <p className="text-ink-2">{m.data.sampleBody}</p>
+              <p className="font-bold text-ink-2">{m.data.sampleNext(fallbackReason === API_DOWN || fallbackReason === API_TIMEOUT)}</p>
               {fallbackReason && <p className="mt-1 text-xs text-muted">{m.data.sampleReason(fallbackReason)}</p>}
             </div>
           </div>

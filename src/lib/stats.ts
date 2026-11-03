@@ -112,6 +112,24 @@ function retentionOf(stats: DailyDeckStat[]): Retention {
   }
 }
 
+/**
+ * Splits graduated-card retention into young (previous interval under 21 days) and mature cards.
+ * `matureThin` is true when too few mature reviews exist for the overall rate to say anything about
+ * long-term memory: it is then almost entirely young cards, which are easier to recall.
+ */
+export function retentionSplit(r: Retention) {
+  const youngReviews = r.reviewCards.reviews - r.mature.reviews
+  const youngPassed = Math.round(r.reviewCards.rate * r.reviewCards.reviews) - Math.round(r.mature.rate * r.mature.reviews)
+  return {
+    young: { reviews: youngReviews, rate: ratio(youngPassed, youngReviews) },
+    mature: r.mature,
+    matureThin: r.reviewCards.reviews > 0 && r.mature.reviews < MIN_MATURE_SAMPLE,
+  }
+}
+
+/** Below this many mature reviews in a window, the overall Remembered rate is really a young-card rate. */
+export const MIN_MATURE_SAMPLE = 30
+
 export function summarize(data: AnkiData, days: number) {
   const today = ankiToday(data)
   const byDate = totalsByDate(data.daily)

@@ -308,7 +308,7 @@ export function FsrsAnalytics({ fsrs, decks: allDecks, todayKey }: Props) {
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="rounded-2xl bg-surface-2 p-4">
             <h3 className="font-extrabold text-ink">
-              Remembered: actual vs predicted vs target
+              Recall check: actual vs predicted vs target
               <InfoTip label="About this table">
                 Young = the card’s previous interval was under 21 days; mature (known well) = 21 days or more (Anki’s
                 definition). Only reviews of graduated cards count, as in Anki’s True Retention table.

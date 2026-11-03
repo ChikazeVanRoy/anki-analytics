@@ -27,7 +27,11 @@ export const en = {
     copiedAt: (when: string) => `Copied from Anki ${when}`,
     sampleTitle: 'You’re looking at sample data',
     sampleBody:
-      'These numbers are generated so you can explore the app. They are not your statistics. To see your own, quit Anki, run npm run dev and press Refresh.',
+      'These numbers are generated so you can explore the app. They are not your statistics.',
+    sampleNext: (apiProblem: boolean) =>
+      apiProblem
+        ? 'Next step: start the app with npm run dev, then reload this page.'
+        : 'Next step: quit Anki, then press Refresh.',
     sampleReason: (reason: string) => `Why: ${reason}`,
     refresh: 'Refresh',
     refreshing: 'Refreshing…',
@@ -71,9 +75,12 @@ export const en = {
       weekNoPrev: 'no reviews the week before',
       remembered: 'Remembered',
       rememberedSub: (n: number) => `of ${int(n)} reviews of learned cards, last 30 days`,
+      rememberedYoungNote: (matureReviews: number) =>
+        `Almost all young cards (${int(matureReviews)} mature), so this runs high`,
+      rememberedSplit: (young: string, mature: string) => `young ${young} · mature ${mature}`,
       rememberedNone: 'no reviews of learned cards in the last 30 days',
       rememberedTip:
-        'Share of reviews of graduated cards that you didn’t answer “Again”. Anki calls this true retention.',
+        'Share of reviews of graduated cards (not new or learning steps) that you didn’t answer “Again”. Anki calls this true retention. Young cards (interval under 21 days) are easier to recall than mature ones, so a high figure early on is normal; compare with your deck’s target on Advanced.',
       active: 'Active days',
       activeSub: 'in the last 30 days',
     },

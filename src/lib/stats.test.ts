@@ -9,6 +9,7 @@ import {
   deckSummaries,
   lastNDays,
   rangeDays,
+  retentionSplit,
   reviewsByPeriod,
   summarize,
   toDateKey,
@@ -172,5 +173,28 @@ describe('deckSummaries', () => {
     expect(a.reviews).toBe(10)
     expect(a.againRate).toBeCloseTo(0.1)
     expect(b.againRate).toBeCloseTo(0.25)
+  })
+})
+
+describe('retentionSplit', () => {
+  it('derives young retention from the overall and mature counts', () => {
+    const r = {
+      reviewCards: { reviews: 100, rate: 0.9 },
+      mature: { reviews: 40, rate: 0.95 },
+    }
+    const split = retentionSplit(r)
+    expect(split.young.reviews).toBe(60)
+    expect(split.young.rate).toBeCloseTo(52 / 60) // 90 passed overall, 38 of them mature
+    expect(split.matureThin).toBe(false)
+  })
+
+  it('flags a window with almost no mature reviews (the 795/796 case)', () => {
+    const split = retentionSplit({ reviewCards: { reviews: 796, rate: 795 / 796 }, mature: { reviews: 1, rate: 1 } })
+    expect(split.matureThin).toBe(true)
+    expect(split.young.reviews).toBe(795)
+  })
+
+  it('is not flagged when there are no reviews at all', () => {
+    expect(retentionSplit({ reviewCards: { reviews: 0, rate: 0 }, mature: { reviews: 0, rate: 0 } }).matureThin).toBe(false)
   })
 })

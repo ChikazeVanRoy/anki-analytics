@@ -6,19 +6,26 @@ import { ChevronIcon, InfoIcon } from './icons'
 
 /** "i" icon with an explanation on hover, tap or keyboard focus. */
 export function InfoTip({ children, label = 'More info' }: { children: ReactNode; label?: string }) {
+  // Escape hides the tip (WCAG 1.4.13) until the pointer or focus leaves and comes back
+  const [dismissed, setDismissed] = useState(false)
   return (
-    <span className="group relative inline-flex align-middle">
+    <span
+      className="group relative inline-flex align-middle"
+      onKeyDown={(e) => e.key === 'Escape' && setDismissed(true)}
+      onMouseLeave={() => setDismissed(false)}
+      onBlur={() => setDismissed(false)}
+    >
       <button
         type="button"
         aria-label={label}
-        className="ml-1 inline-grid size-5 place-items-center rounded-full text-muted transition-colors hover:text-brand focus:text-brand focus:outline-none"
+        className="relative ml-1 inline-grid size-5 place-items-center rounded-full text-muted before:absolute before:-inset-2.5 before:content-[''] transition-colors hover:text-brand focus:text-brand focus:outline-none"
       >
         <InfoIcon size={15} />
       </button>
       <span
         role="tooltip"
         // `hidden` (display: none) rather than invisible: a hidden tooltip near the screen edge must not widen the page
-        className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 hidden w-64 max-w-[min(16rem,80vw)] -translate-x-1/2 rounded-2xl border border-line bg-surface px-3.5 py-2.5 text-left text-xs leading-relaxed font-medium tracking-normal text-ink-2 normal-case shadow-pop group-focus-within:block group-hover:block"
+        className={`pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 hidden w-64 max-w-[min(16rem,80vw)] -translate-x-1/2 rounded-2xl border border-line bg-surface px-3.5 py-2.5 text-left text-xs leading-relaxed font-medium tracking-normal text-ink-2 normal-case shadow-pop ${dismissed ? '' : 'group-focus-within:block group-hover:block'}`}
       >
         {children}
       </span>
