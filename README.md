@@ -14,6 +14,7 @@ npm install
 npm run copy-collection   # quit Anki first; copies collection.anki2 -> data/ (git-ignored)
 npm run dev               # API on 127.0.0.1:5174 + app on http://localhost:5173
 npm test                  # unit + integration tests (Vitest); npm run test:watch re-runs on save
+npm run test:e2e          # browser smoke tests (Playwright, installed Chrome, synthetic data only)
 npm run lint              # oxlint
 npm run build             # type-check + production build
 ```

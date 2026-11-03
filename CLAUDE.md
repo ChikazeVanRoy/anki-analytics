@@ -28,6 +28,7 @@ Node comes from nvm (`~/.nvm`). If `node` isn't on PATH in a fresh shell, prefix
 ```sh
 npm run dev       # API (127.0.0.1:5174, auto-restarts) + Vite (localhost:5173)
 npm test          # Vitest, all tests
+npm run test:e2e  # Playwright smoke tests (installed Chrome, synthetic data, phone + desktop)
 npx tsc -b        # type-check (app + server configs)
 npm run lint      # oxlint
 npm run build     # production build
@@ -56,7 +57,7 @@ npm run build     # production build
 2. **Plan** briefly; for anything touching Anki data or FSRS maths, say how it will be verified.
 3. **Implement** in small steps, adding or updating tests with the code.
 4. **Check** before every commit: `npm test`, `npx tsc -b`, `npm run lint`, `npm run build`. For UI
-   changes, run the app and look at it (desktop and ~390 px wide). Report failures; don't hide them.
+   changes, also run `npm run test:e2e`, run the app and look at it (desktop and ~390 px wide). Report failures; don't hide them.
 5. **Review** with `/code-review` on the branch, then the owner reviews the diff
    (`git diff main...HEAD`).
 6. **Commit** in logical commits; **merge** into `main` only after the owner approves. Push only when asked.

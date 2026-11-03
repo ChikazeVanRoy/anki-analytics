@@ -247,7 +247,7 @@ Results are in `docs/fsrs-validation.md`.
 | Computation | Whole collection re-read and replayed on every `GET /api/stats` (~0.5 s, blocks the server) | Caching, background jobs, horizontal scaling |
 | Security | Binds to 127.0.0.1, Host-header allowlist, refresh header, read-only SQLite | Authentication, authorisation, tenant isolation, rate limits, TLS, audit logging |
 | Deployment | `npm run dev` (Vite dev server + Node API) | Production hosting, a production server for the built app, monitoring, backups |
-| Quality | Unit and integration tests (Vitest) | CI, component tests, end-to-end tests |
+| Quality | Unit, integration and page tests (Vitest), browser smoke tests (Playwright) | CI |
 
 ## 6. Weaknesses and risks
 
@@ -269,5 +269,5 @@ Results are in `docs/fsrs-validation.md`.
   Anki 26.9.3, and the reader degrades gracefully, but a future Anki version could change them.
 - **Dev-server deployment.** The app runs on Vite's development server; there is no production server
   setup, and `npm run dev` relies on the shell's `&`, which doesn't work on Windows.
-- **Thin UI test coverage.** The logic is unit-tested, but React components and the Web Worker integration
-  are only checked manually.
+- **Browser tests are smoke tests.** Playwright covers rendering, layout and data states on synthetic data.
+  Chart contents and the real Web Worker's results are still checked by hand.
