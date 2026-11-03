@@ -18,6 +18,11 @@ npm run lint              # oxlint
 npm run build             # type-check + production build
 ```
 
+Or double-click **`Anki Analytics.command`** in Finder: it installs the dependencies on the first run, starts
+the app and opens it in your browser. Keep its Terminal window open while you use the dashboard; close it to
+stop. Drag the file to the right-hand side of the Dock for one-click launching. If macOS says it can't be
+opened (it does for files downloaded as a ZIP), right-click it and choose **Open** once.
+
 For fresh stats, quit Anki and press **Refresh** in the dashboard (or re-run `copy-collection`).
 If the API isn't running, the dashboard shows clearly labelled sample data and the Planner and Advanced
 sections explain why they need real FSRS data.
