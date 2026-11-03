@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { API_DOWN, API_TIMEOUT } from '../data/useAnkiData'
+import type { FailureKind } from '../data/useAnkiData'
 import { ActivityIcon, AdvancedIcon, CloseIcon, HomeIcon, Logo, MoonIcon, PlannerIcon, RefreshIcon, SunIcon, SystemIcon, WarningIcon } from '../components/icons'
 import type { AnkiData } from '../data/types'
 import { LOCALE, messages as m } from '../i18n'
@@ -17,6 +17,7 @@ interface ShellProps {
   route: Route
   data: AnkiData
   fallbackReason?: string
+  fallbackKind?: FailureKind
   onRefresh: () => void
   refreshing: boolean
   refreshError: string | null
@@ -27,7 +28,7 @@ interface ShellProps {
 }
 
 export function AppShell(props: ShellProps) {
-  const { route, data, fallbackReason, onRefresh, refreshing, refreshError, onDismissError, theme, onCycleTheme, children } = props
+  const { route, data, fallbackReason, fallbackKind, onRefresh, refreshing, refreshError, onDismissError, theme, onCycleTheme, children } = props
   const sample = data.source === 'mock'
   const copied = new Date(data.generatedAt).toLocaleString(LOCALE, { dateStyle: 'medium', timeStyle: 'short' })
 
@@ -113,7 +114,7 @@ export function AppShell(props: ShellProps) {
             <div className="text-sm leading-relaxed">
               <p className="font-extrabold text-ink">{m.data.sampleTitle}</p>
               <p className="text-ink-2">{m.data.sampleBody}</p>
-              <p className="font-bold text-ink-2">{m.data.sampleNext(fallbackReason === API_DOWN || fallbackReason === API_TIMEOUT)}</p>
+              <p className="font-bold text-ink-2">{m.data.sampleNext[fallbackKind ?? 'collection']}</p>
               {fallbackReason && <p className="mt-1 text-xs text-muted">{m.data.sampleReason(fallbackReason)}</p>}
             </div>
           </div>

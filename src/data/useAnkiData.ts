@@ -4,10 +4,21 @@ import type { AnkiData } from './types'
 
 type State =
   | { status: 'loading' }
-  | { status: 'ready'; data: AnkiData; fallbackReason?: string }
+  | { status: 'ready'; data: AnkiData; fallbackReason?: string; fallbackKind?: FailureKind }
 
-export const API_DOWN = 'Local API is not running (npm run dev).'
-export const API_TIMEOUT = 'The local API did not answer in time.'
+const API_DOWN = 'Local API is not running (npm run dev).'
+const API_TIMEOUT = 'The local API did not answer in time.'
+
+/** Why real data could not be loaded, so the banner can say what to do about it. */
+export type FailureKind = 'api-down' | 'timeout' | 'collection' | 'server'
+
+export class ApiError extends Error {
+  readonly kind: FailureKind
+  constructor(kind: FailureKind, message: string) {
+    super(message)
+    this.kind = kind
+  }
+}
 /** The first load must not hang forever; a refresh copies the collection, so it gets longer. */
 const LOAD_TIMEOUT_MS = 15_000
 const REFRESH_TIMEOUT_MS = 90_000
@@ -18,10 +29,13 @@ async function request(url: string, timeoutMs: number, init?: RequestInit): Prom
   try {
     res = await fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) })
   } catch (err) {
-    throw new Error((err as Error).name === 'TimeoutError' ? API_TIMEOUT : API_DOWN)
+    throw (err as Error).name === 'TimeoutError' ? new ApiError('timeout', API_TIMEOUT) : new ApiError('api-down', API_DOWN)
   }
   const body = await res.json().catch(() => null)
-  if (!res.ok || !body) throw new Error(body?.error ?? API_DOWN)
+  // No JSON body means the dev proxy had nothing to forward to. 503 (no copy yet) and 409 (Anki is open) are
+  // fixed by closing Anki and refreshing; any other error comes from the server and is in its terminal.
+  if (!body) throw new ApiError('api-down', API_DOWN)
+  if (!res.ok) throw new ApiError(res.status === 503 || res.status === 409 ? 'collection' : 'server', body.error ?? API_DOWN)
   return body as AnkiData
 }
 
@@ -38,7 +52,10 @@ export function useAnkiData() {
     let cancelled = false
     request('/api/stats', LOAD_TIMEOUT_MS)
       .then((data) => !cancelled && setState({ status: 'ready', data }))
-      .catch((err: Error) => !cancelled && setState({ status: 'ready', data: mockData, fallbackReason: err.message }))
+      .catch(
+        (err: ApiError) =>
+          !cancelled && setState({ status: 'ready', data: mockData, fallbackReason: err.message, fallbackKind: err.kind }),
+      )
     // Cleanup: ignore the response if the component unmounts first
     return () => {
       cancelled = true

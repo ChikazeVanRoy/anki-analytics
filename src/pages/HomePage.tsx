@@ -321,6 +321,7 @@ function DeckCard({ week, month }: { week: DeckSummary; month: DeckSummary }) {
     { label: m.decks.known, value: deck.matureCards, opacity: 1 },
   ]
   const rc = month.retention.reviewCards
+  const rcThin = retentionSplit(month.retention).matureThin
   return (
     <article className="rounded-3xl border border-line bg-surface p-5 shadow-card transition-transform hover:-translate-y-0.5">
       <div className="flex items-center gap-3">
@@ -359,6 +360,7 @@ function DeckCard({ week, month }: { week: DeckSummary; month: DeckSummary }) {
         <div className="rounded-2xl bg-surface-2 px-3 py-2.5">
           <dt className="text-xs font-bold text-muted">{m.decks.remembered}</dt>
           <dd className="text-xl font-extrabold text-ink tabular-nums">{rc.reviews > 0 ? formatRate(rc.rate) : '—'}</dd>
+          {rcThin && <dd className="text-xs text-muted">{m.decks.rememberedYoung}</dd>}
         </div>
       </dl>
     </article>

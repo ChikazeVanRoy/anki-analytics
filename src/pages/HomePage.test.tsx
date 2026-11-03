@@ -48,3 +48,10 @@ describe('Home "Remembered" card', () => {
     expect(screen.getByText(messages.home.kpi.rememberedNone)).toBeTruthy()
   })
 })
+
+describe('Home deck cards', () => {
+  it('say when a deck’s Remembered rate is mostly young cards', () => {
+    render(<HomePage data={withRetention([796, 795], [1, 1])} />)
+    expect(screen.getAllByText(messages.home.decks.rememberedYoung).length).toBeGreaterThan(0)
+  })
+})

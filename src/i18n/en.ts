@@ -28,10 +28,12 @@ export const en = {
     sampleTitle: 'You’re looking at sample data',
     sampleBody:
       'These numbers are generated so you can explore the app. They are not your statistics.',
-    sampleNext: (apiProblem: boolean) =>
-      apiProblem
-        ? 'Next step: start the app with npm run dev, then reload this page.'
-        : 'Next step: quit Anki, then press Refresh.',
+    sampleNext: {
+      'api-down': 'Next step: start the app with npm run dev, then reload this page.',
+      timeout: 'Next step: check that npm run dev is still running, then reload this page.',
+      collection: 'Next step: quit Anki, then press Refresh.',
+      server: 'Next step: look at the terminal running npm run dev for the error, then reload this page.',
+    },
     sampleReason: (reason: string) => `Why: ${reason}`,
     refresh: 'Refresh',
     refreshing: 'Refreshing…',
@@ -76,7 +78,7 @@ export const en = {
       remembered: 'Remembered',
       rememberedSub: (n: number) => `of ${int(n)} reviews of learned cards, last 30 days`,
       rememberedYoungNote: (matureReviews: number) =>
-        `Almost all young cards (${int(matureReviews)} mature), so this runs high`,
+        `Almost all young cards (${int(matureReviews)} mature), which are easier to recall`,
       rememberedSplit: (young: string, mature: string) => `young ${young} · mature ${mature}`,
       rememberedNone: 'no reviews of learned cards in the last 30 days',
       rememberedTip:
@@ -100,6 +102,7 @@ export const en = {
       started: (pct: string) => `${pct} started`,
       week: 'Reviews, 7 days',
       remembered: 'Remembered, 30 days',
+      rememberedYoung: 'mostly young cards',
       notStarted: 'Not started',
       learning: 'Learning',
       known: 'Known well',

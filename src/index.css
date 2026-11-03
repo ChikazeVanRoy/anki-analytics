@@ -169,10 +169,3 @@ input[type='range'] {
     scroll-behavior: auto !important;
   }
 }
-
-/* Grid items default to min-width: auto, so a wide table inside one would stretch the whole page on a phone */
-@layer base {
-  .grid > * {
-    min-width: 0;
-  }
-}
