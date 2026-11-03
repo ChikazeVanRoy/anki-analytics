@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Deck } from '../data/types'
 import { gardenBed as bedAt, plantUnit } from './garden'
 
-const deck = (newCards: number, youngCards: number, matureCards: number, id = 'mandarin'): Deck => ({
+const deck = (newCards: number, youngCards: number, matureCards: number, id = 'alpha'): Deck => ({
   id,
   name: id,
   totalCards: newCards + youngCards + matureCards,
@@ -23,7 +23,7 @@ describe('plantUnit', () => {
   })
   it('shares one unit across decks, so a small deck looks smaller than a big one', () => {
     const big = deck(0, 500, 500)
-    const small = deck(0, 25, 25, 'portuguese')
+    const small = deck(0, 25, 25, 'beta')
     const unit = plantUnit([big, small], 60)
     expect(unit).toBe(20)
     expect(bedAt(big, unit).plants).toHaveLength(50)
@@ -57,7 +57,7 @@ describe('gardenBed', () => {
   it('lays out the same deck the same way every time, and different decks differently', () => {
     expect(gardenBed(deck(30, 20, 10))).toEqual(gardenBed(deck(30, 20, 10)))
     const a = gardenBed(deck(30, 20, 10)).plants.map((p) => p.stage)
-    const b = gardenBed(deck(30, 20, 10, 'portuguese')).plants.map((p) => p.stage)
+    const b = gardenBed(deck(30, 20, 10, 'beta')).plants.map((p) => p.stage)
     expect(a).not.toEqual(b)
   })
 

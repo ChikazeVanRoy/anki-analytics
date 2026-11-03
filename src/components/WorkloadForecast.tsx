@@ -12,6 +12,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { useDeckColor } from '../data/deckColors'
 import type { Deck, FsrsData } from '../data/types'
 import { SCENARIO_NEW_PER_DAY, useSimulation } from '../data/useSimulation'
 import { dayNumber, keyFromDayNumber } from '../lib/dates'
@@ -20,7 +21,7 @@ import { buildInsights } from '../lib/insights'
 import type { MeasuredDefaults } from '../lib/measured'
 import { lapseEvidence } from '../lib/fsrsStats'
 import { buildSimDecks, HORIZONS, presetRetentionLabel, type SimDay, type SimSettings } from '../lib/simulator'
-import { chart, deckColor, forecast } from '../lib/theme'
+import { chart, forecast } from '../lib/theme'
 import { ChartTooltip } from './ChartTooltip'
 import { CheckIcon, RefreshIcon, SparkleIcon, WarningIcon } from './icons'
 import { Panel } from './Panel'
@@ -62,6 +63,7 @@ function timeline(days: SimDay[], horizon: number, todayKey: string) {
 }
 
 export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday, measured }: Props) {
+  const deckColor = useDeckColor()
   const decks = allDecks.filter((d) => fsrs.presets.some((p) => p.deckId === d.id))
   const deckNames = Object.fromEntries(decks.map((d) => [d.id, d.name]))
   const simDecks = useMemo(() => buildSimDecks(fsrs, todayKey), [fsrs, todayKey])

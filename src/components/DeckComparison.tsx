@@ -1,12 +1,14 @@
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { useDeckColor } from '../data/deckColors'
 import type { Deck } from '../data/types'
 import type { Bucket, DeckSummary } from '../lib/stats'
 import { formatBucketTick, formatBucketTitle, formatInt, formatMinutes, formatPct } from '../lib/format'
-import { chart, deckColor } from '../lib/theme'
+import { chart } from '../lib/theme'
 import { ChartTooltip } from './ChartTooltip'
 import { LegendItem, Panel } from './Panel'
 
 function DeckCard({ summary }: { summary: DeckSummary }) {
+  const deckColor = useDeckColor()
   const { deck } = summary
   const color = deckColor(deck.id)
   // New -> young -> mature as one hue at increasing strength (an ordered scale)
@@ -74,6 +76,7 @@ interface DeckComparisonProps {
 }
 
 export function DeckComparison({ summaries, againRows, decks, bucket, period }: DeckComparisonProps) {
+  const deckColor = useDeckColor()
   return (
     <Panel title="How do my decks compare?" eyebrow="Decks" subtitle={`Each deck, ${period}. “Remembered” counts reviews of learned cards not answered Again.`}>
       <div className={`grid gap-4 ${summaries.length === 2 ? 'md:grid-cols-2' : 'md:grid-cols-3'}`}>

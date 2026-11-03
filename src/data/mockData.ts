@@ -1,4 +1,4 @@
-// MOCK DATA - generated, not read from Anki.
+// MOCK DATA - generated, not read from Anki. Deck names are made up and don't reflect anyone's collection.
 // A seeded random generator keeps the numbers stable between reloads,
 // and dates are relative to today so the dashboard always looks current.
 
@@ -16,15 +16,15 @@ function seededRandom(seed: number) {
 }
 
 const decks: Deck[] = [
-  { id: 'mandarin', name: 'Mandarin', totalCards: 3240, newCards: 820, youngCards: 960, matureCards: 1460 },
-  { id: 'portuguese', name: 'Portuguese', totalCards: 2110, newCards: 410, youngCards: 640, matureCards: 1060 },
+  { id: 'language', name: 'Language', color: 1, totalCards: 3240, newCards: 820, youngCards: 960, matureCards: 1460 },
+  { id: 'science', name: 'Science', color: 2, totalCards: 2110, newCards: 410, youngCards: 640, matureCards: 1060 },
   { id: 'other', name: 'Other decks', totalCards: 640, newCards: 150, youngCards: 190, matureCards: 300 },
 ]
 
 // Per-deck behaviour: daily review volume and Again rate at the start/end of the year.
 const profiles: Record<string, { base: [number, number]; again: [number, number]; secPerReview: number; skip: number }> = {
-  mandarin: { base: [70, 95], again: [0.17, 0.12], secPerReview: 9, skip: 0.08 },
-  portuguese: { base: [20, 55], again: [0.12, 0.09], secPerReview: 7, skip: 0.14 },
+  language: { base: [70, 95], again: [0.17, 0.12], secPerReview: 9, skip: 0.08 },
+  science: { base: [20, 55], again: [0.12, 0.09], secPerReview: 7, skip: 0.14 },
   other: { base: [12, 10], again: [0.1, 0.1], secPerReview: 6, skip: 0.45 },
 }
 

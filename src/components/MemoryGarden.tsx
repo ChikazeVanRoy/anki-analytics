@@ -1,8 +1,8 @@
 import { useMemo } from 'react'
+import { useDeckColor } from '../data/deckColors'
 import type { Deck } from '../data/types'
 import { messages } from '../i18n'
 import { gardenBed, plantUnit, type GardenBed, type PlantStage } from '../lib/garden'
-import { deckColor } from '../lib/theme'
 import { SourceBadge } from './ui'
 
 const m = messages.home.garden
@@ -34,6 +34,7 @@ function PlantIcon({ stage, color }: { stage: PlantStage | 'seed'; color: string
 }
 
 function Bed({ deck, bed }: { deck: Deck; bed: GardenBed }) {
+  const deckColor = useDeckColor()
   const color = deckColor(deck.id)
   const label = m.bedLabel(deck.name, bed.counts.flower, bed.counts.sprout, bed.counts.seed, bed.unit)
   return (

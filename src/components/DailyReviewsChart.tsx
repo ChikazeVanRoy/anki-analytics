@@ -1,8 +1,9 @@
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { useDeckColor } from '../data/deckColors'
 import type { Deck } from '../data/types'
 import { formatBucketTick, formatBucketTitle, formatInt } from '../lib/format'
 import type { Bucket } from '../lib/stats'
-import { chart, deckColor } from '../lib/theme'
+import { chart } from '../lib/theme'
 import { ChartTooltip } from './ChartTooltip'
 import { LegendItem, Panel } from './Panel'
 
@@ -17,6 +18,7 @@ interface DailyReviewsChartProps {
 const TITLES: Record<Bucket, string> = { day: 'Daily reviews', week: 'Weekly reviews', month: 'Monthly reviews' }
 
 export function DailyReviewsChart({ rows, decks, bucket, period }: DailyReviewsChartProps) {
+  const deckColor = useDeckColor()
   const lastDeck = decks[decks.length - 1]?.id
   const dense = rows.length > 30 // thin bars: drop the gaps and outlines
 

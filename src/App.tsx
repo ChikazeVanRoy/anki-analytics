@@ -4,11 +4,13 @@ import { ErrorBoundary } from './app/ErrorBoundary'
 import { useRoute } from './app/useRoute'
 import { useNow } from './app/useNow'
 import { useTheme } from './app/useTheme'
+import { DeckColors } from './data/deckColors'
 import type { AnkiData } from './data/types'
 import { useAnkiData } from './data/useAnkiData'
 import { messages } from './i18n'
 import { ankiDayKey } from './lib/dates'
 import { ankiToday, type RangeKey } from './lib/stats'
+import { deckColorMap } from './lib/theme'
 import { HomePage } from './pages/HomePage'
 
 // Chart-heavy sections load on demand, so Home appears without downloading the charting library
@@ -23,6 +25,8 @@ export default function App() {
   // Lifted so the Activity range survives switching sections
   const [range, setRange] = useState<RangeKey>('30d')
   const now = useNow()
+  const decks = state.status === 'ready' ? state.data.decks : undefined
+  const deckColors = useMemo(() => deckColorMap(decks ?? []), [decks])
 
   useEffect(() => {
     document.title = route === 'home' ? messages.appName : `${messages.nav[route]} · ${messages.appName}`
@@ -42,18 +46,20 @@ export default function App() {
       theme={theme.choice}
       onCycleTheme={theme.cycle}
     >
-      <ErrorBoundary key={route}>
-        <Suspense fallback={<PageSkeleton />}>
-          {/* Keyed by the Anki day, so a page left open past the rollover hour recomputes "today" */}
-          <Page
-            key={ankiDayKey(now, state.data.dayStartHour)}
-            route={route}
-            data={state.data}
-            range={range}
-            onRangeChange={setRange}
-          />
-        </Suspense>
-      </ErrorBoundary>
+      <DeckColors.Provider value={deckColors}>
+        <ErrorBoundary key={route}>
+          <Suspense fallback={<PageSkeleton />}>
+            {/* Keyed by the Anki day, so a page left open past the rollover hour recomputes "today" */}
+            <Page
+              key={ankiDayKey(now, state.data.dayStartHour)}
+              route={route}
+              data={state.data}
+              range={range}
+              onRangeChange={setRange}
+            />
+          </Suspense>
+        </ErrorBoundary>
+      </DeckColors.Provider>
     </AppShell>
   )
 }

@@ -11,6 +11,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { useDeckColor } from '../data/deckColors'
 import type { Deck, FsrsData } from '../data/types'
 import { formatInt, formatPct } from '../lib/format'
 import { difficultyPercent } from '../lib/fsrs'
@@ -27,7 +28,7 @@ import {
   STABILITY_BINS,
   type MemorySummary,
 } from '../lib/fsrsStats'
-import { calibrationColors, chart, deckColor } from '../lib/theme'
+import { calibrationColors, chart } from '../lib/theme'
 import { ChartTooltip } from './ChartTooltip'
 import { LegendItem, Panel } from './Panel'
 import { Disclosure, InfoTip, Metric, Notice, SourceBadge } from './ui'
@@ -53,6 +54,7 @@ function DistributionChart({
   rows: Record<string, number | string>[]
   decks: Deck[]
 }) {
+  const deckColor = useDeckColor()
   return (
     <div className="rounded-2xl bg-surface-2 p-4">
       <p className="text-xs font-bold tracking-wide text-muted uppercase">{technical}</p>
@@ -97,6 +99,7 @@ function DistributionChart({
 }
 
 function SummaryTable({ rows, decks }: { rows: MemorySummary[]; decks: Deck[] }) {
+  const deckColor = useDeckColor()
   const name = (id: string) => (id === 'all' ? 'All decks' : (decks.find((d) => d.id === id)?.name ?? id))
   return (
     <div className="overflow-x-auto">
@@ -153,6 +156,7 @@ function SummaryTable({ rows, decks }: { rows: MemorySummary[]; decks: Deck[] })
 }
 
 export function FsrsAnalytics({ fsrs, decks: allDecks, todayKey }: Props) {
+  const deckColor = useDeckColor()
   const decks = allDecks.filter((d) => fsrs.presets.some((p) => p.deckId === d.id))
   const deckIds = decks.map((d) => d.id)
   const now = useMemo(() => cardsNow(fsrs, todayKey), [fsrs, todayKey])

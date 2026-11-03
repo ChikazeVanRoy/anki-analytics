@@ -54,10 +54,12 @@
   --color-critical: light-dark(#c23434, #f07272);
   --color-critical-soft: light-dark(#fde8e6, #3d1f1e);
 
-  /* Decks: colour follows the deck, never its rank (validated, all pairs, both modes) */
-  --color-deck-mandarin: light-dark(#2a78d6, #3987e5);
-  --color-deck-portuguese: light-dark(#eb6834, #d95926);
-  --color-deck-other: light-dark(#1baf7a, #199e70);
+  /* Decks: three colour slots the server assigns per deck (validated, all pairs, both modes), and a neutral
+     grey for "Other decks" that is kept apart from them (see src/lib/theme.ts) */
+  --color-deck-1: light-dark(#2a78d6, #3987e5);
+  --color-deck-2: light-dark(#eb6834, #d95926);
+  --color-deck-3: light-dark(#1baf7a, #199e70);
+  --color-deck-other: light-dark(#6b6259, #c3bcb2);
 
   /* Forecast composition (validated, both modes); estimated series are also hatched */
   --color-fc-known: light-dark(#6250d6, #9085e9);

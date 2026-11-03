@@ -3,6 +3,7 @@ import { ActivityIcon, AdvancedIcon, ArrowRightIcon, BrainIcon, CheckIcon, Flame
 import { MemoryGarden } from '../components/MemoryGarden'
 import { StatCard } from '../components/StatCard'
 import { CountUp, InfoTip, ProgressBar, SourceBadge } from '../components/ui'
+import { useDeckColor } from '../data/deckColors'
 import type { AnkiData } from '../data/types'
 import { LOCALE, messages } from '../i18n'
 import { parseDateKey, toDateKey } from '../lib/dates'
@@ -20,7 +21,6 @@ import {
 } from '../lib/progress'
 import { routeHref, type Route } from '../lib/route'
 import { ankiToday, deckSummaries, summarize, totalsByDate, type DeckSummary } from '../lib/stats'
-import { deckColor } from '../lib/theme'
 
 const m = messages.home
 
@@ -297,6 +297,7 @@ function InsightCard({ text, tone, sample }: { text: string; tone: 'good' | 'neu
 }
 
 function DeckCard({ week, month }: { week: DeckSummary; month: DeckSummary }) {
+  const deckColor = useDeckColor()
   const { deck } = week
   const color = deckColor(deck.id)
   const started = deck.totalCards ? (deck.youngCards + deck.matureCards) / deck.totalCards : 0
