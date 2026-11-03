@@ -2,11 +2,17 @@ import { useMemo, useState } from 'react'
 import { ActivityHeatmap } from './components/ActivityHeatmap'
 import { DailyReviewsChart } from './components/DailyReviewsChart'
 import { DeckComparison } from './components/DeckComparison'
+import { FsrsAnalytics } from './components/FsrsAnalytics'
+import { Panel } from './components/Panel'
 import { RangeFilter } from './components/RangeFilter'
 import { StatCard } from './components/StatCard'
+import { WorkloadForecast } from './components/WorkloadForecast'
 import type { AnkiData } from './data/types'
 import { useAnkiData } from './data/useAnkiData'
+import { toDateKey } from './lib/dates'
 import { formatInt, formatPct } from './lib/format'
+import { fsrsUnavailableReason } from './lib/fsrsStatus'
+import { measuredDefaults } from './lib/measured'
 import {
   activeYears,
   againRateSeries,
@@ -59,6 +65,8 @@ function Dashboard({ data, fallbackReason, onRefresh, refreshing, refreshError }
   const periodRows = useMemo(() => reviewsByPeriod(data, days), [data, days])
   const decks = useMemo(() => deckSummaries(data, days), [data, days])
   const againRows = useMemo(() => againRateSeries(data, days), [data, days])
+  const todayKey = toDateKey(today)
+  const measured = useMemo(() => measuredDefaults(data, today), [data, today])
 
   // Only compare with the previous period if there was one with reviews in it
   const canCompare = range !== 'all' && summary.hasPrevious
@@ -159,6 +167,21 @@ function Dashboard({ data, fallbackReason, onRefresh, refreshing, refreshError }
           <ActivityHeatmap byDate={byDate} today={today} years={years} />
           <DailyReviewsChart rows={periodRows} decks={data.decks} bucket={bucket} period={period} />
           <DeckComparison summaries={decks} againRows={againRows} decks={data.decks} bucket={bucket} period={period} />
+
+          {data.fsrs?.enabled ? (
+            <>
+              <FsrsAnalytics fsrs={data.fsrs} decks={data.decks} todayKey={todayKey} />
+              <WorkloadForecast
+                fsrs={data.fsrs}
+                decks={data.decks}
+                todayKey={todayKey}
+                startWeekday={(today.getDay() + 6) % 7}
+                measured={measured}
+              />
+            </>
+          ) : (
+            <FsrsUnavailable reason={fsrsUnavailableReason(data)} />
+          )}
         </main>
 
         <footer className="mt-10 text-center text-xs text-muted">
@@ -168,6 +191,14 @@ function Dashboard({ data, fallbackReason, onRefresh, refreshing, refreshError }
         </footer>
       </div>
     </div>
+  )
+}
+
+function FsrsUnavailable({ reason }: { reason: { title: string; detail: string } }) {
+  return (
+    <Panel title="FSRS memory and workload forecast" subtitle={reason.title}>
+      <p className="text-sm text-muted">{reason.detail}</p>
+    </Panel>
   )
 }
 
