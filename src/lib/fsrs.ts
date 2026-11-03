@@ -19,6 +19,27 @@ export const DEFAULT_PARAMS: readonly number[] = [
   0.6014, 1.8729, 0.5425, 0.0912, 0.0658, 0.1542,
 ]
 
+/**
+ * Turns a preset's stored parameters into FSRS-6's 21, as Anki's engine (fsrs-rs) does when it loads
+ * an older preset. Returns null for any other length.
+ * - FSRS-5 (19): no short-term power term (w19 = 0) and the fixed decay 0.5.
+ * - FSRS-4.5 (17): also no same-day terms (w17 = w18 = 0); its linear initial difficulty
+ *   w4 - w5·(G-3) and difficulty step are re-expressed for FSRS-5's exponential form.
+ * Checked against Anki 26.9.3's states for an FSRS-4.5 preset (fixtures/anki-fsrs-reference.json).
+ */
+export function toFsrs6Params(stored: readonly number[]): number[] | null {
+  if (stored.length === 21) return [...stored]
+  if (stored.length === 19) return [...stored, 0, 0.5]
+  if (stored.length === 17) {
+    const w = [...stored]
+    w[4] = w[5] * 2 + w[4]
+    w[5] = Math.log(w[5] * 3 + 1) / 3
+    w[6] = w[6] + 0.5
+    return [...w, 0, 0, 0, 0.5]
+  }
+  return null
+}
+
 const S_MIN = 0.001
 const S_MAX = 36500
 

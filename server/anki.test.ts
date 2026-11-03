@@ -8,8 +8,10 @@ import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { ankiDayKey, dayNumber, keyFromDayNumber } from '../src/lib/dates.ts'
-import { DEFAULT_PARAMS, replay, retrievability } from '../src/lib/fsrs.ts'
+import reference from '../src/lib/fixtures/anki-fsrs-reference.json' with { type: 'json' }
+import { DEFAULT_PARAMS, replay, retrievability, toFsrs6Params } from '../src/lib/fsrs.ts'
 import { readAnkiData } from './anki.ts'
+import { readPreset } from './fsrsData.ts'
 import { parseProto } from './protobuf.ts'
 
 const dir = mkdtempSync(join(tmpdir(), 'anki-analytics-test-'))
@@ -48,7 +50,7 @@ const preset = (dr: number, newPerDay: number, params?: number[]) =>
   Uint8Array.from([
     ...packedFloats(1, [1, 10]), // learning steps (minutes)
     ...packedFloats(2, [10]), // relearning steps
-    ...(params ? packedFloats(7, params) : []),
+    ...(params ? packedFloats(6, params) : []), // fsrs_params_6
     ...vField(9, newPerDay),
     ...vField(10, 400),
     ...vField(16, 36500),
@@ -286,5 +288,104 @@ describe('parseProto', () => {
     const f = parseProto(Uint8Array.from([...vField(9, 30), 0x2d, 0x00, 0x00])) // field 9 = 30, then a cut float
     expect(f.get(9)?.[0].varint).toBe(30)
     expect(f.has(5)).toBe(false)
+  })
+})
+
+// Preset blobs written by Anki 26.9.3 for synthetic presets (scripts/fsrs-validation/anki_reference.py)
+const ankiBlob = (name: keyof typeof reference.presetBlobs) => Uint8Array.from(Buffer.from(reference.presetBlobs[name], 'base64'))
+
+describe('readPreset on blobs written by Anki', () => {
+  it('reads a 0 daily limit as 0: protobuf leaves out fields that hold 0', () => {
+    expect(readPreset(ankiBlob('zero-limits'))).toMatchObject({ newPerDay: 0, reviewsPerDay: 0, paramsSource: 'default' })
+  })
+  it('falls back to Anki’s defaults only when nothing in the blob is readable', () => {
+    expect(readPreset(new Uint8Array())).toMatchObject({ newPerDay: 20, reviewsPerDay: 200, maxInterval: 36500, desiredRetention: 0.9 })
+  })
+  it('reads FSRS-6 parameters from fsrs_params_6', () => {
+    const p = readPreset(ankiBlob('fsrs6-custom'))
+    expect(p.paramsSource).toBe('optimised')
+    p.params.forEach((w, i) => expect(w).toBeCloseTo(reference.presets['fsrs6-custom'].params[i], 5))
+  })
+  it('upgrades FSRS-4.5 parameters (17) instead of replacing them with the defaults', () => {
+    const p = readPreset(ankiBlob('fsrs45'))
+    expect(p.paramsSource).toBe('optimised')
+    const expected = toFsrs6Params(reference.presets.fsrs45.params)!
+    expect(p.params).toHaveLength(21)
+    p.params.forEach((w, i) => expect(w).toBeCloseTo(expected[i], 4))
+  })
+})
+
+describe('FSRS data with mixed presets and incomplete histories', () => {
+  const mixed = join(dir, 'mixed.anki2')
+  const custom = readPreset(ankiBlob('fsrs6-custom')).params
+  const fsrs45 = readPreset(ankiBlob('fsrs45')).params
+  const ms = (d: number, h = 12) => at(2026, 2, d, h)
+  // Same answers in both Chinese decks; the subdeck's own preset gives a different memory state
+  const history = [
+    { ms: ms(1, 10), rating: 3 as const, type: 0 },
+    { ms: ms(1, 11), rating: 3 as const, type: 0 },
+    { ms: ms(3), rating: 3 as const, type: 1 },
+    { ms: ms(12), rating: 2 as const, type: 1 },
+  ]
+  const replayed = (w: readonly number[]) => replay(history.map((e) => ({ day: day(e.ms), rating: e.rating })), w).state!
+
+  beforeAll(() => {
+    const db = new DatabaseSync(mixed)
+    db.exec(`
+      CREATE TABLE col (crt INTEGER);
+      CREATE TABLE decks (id INTEGER PRIMARY KEY, name TEXT, kind BLOB);
+      CREATE TABLE deck_config (id INTEGER PRIMARY KEY, name TEXT, config BLOB);
+      CREATE TABLE config (key TEXT PRIMARY KEY, val BLOB);
+      CREATE TABLE cards (id INTEGER PRIMARY KEY, did INTEGER, odid INTEGER DEFAULT 0, type INTEGER, queue INTEGER, due INTEGER, odue INTEGER DEFAULT 0, ivl INTEGER, data TEXT);
+      CREATE TABLE revlog (id INTEGER PRIMARY KEY, cid INTEGER, ease INTEGER, time INTEGER, type INTEGER, lastIvl INTEGER, factor INTEGER);
+      INSERT INTO config VALUES ('rollover', CAST('${ROLLOVER}' AS BLOB)), ('fsrs', CAST('true' AS BLOB));
+    `)
+    db.prepare('INSERT INTO col VALUES (?)').run(crtSecs)
+    const conf = db.prepare('INSERT INTO deck_config VALUES (?, ?, ?)')
+    conf.run(10, 'Zero limits', ankiBlob('zero-limits'))
+    conf.run(20, 'Subdeck preset', ankiBlob('fsrs6-custom'))
+    conf.run(30, 'FSRS-4.5 preset', ankiBlob('fsrs45'))
+    const deck = db.prepare('INSERT INTO decks VALUES (?, ?, ?)')
+    deck.run(1, 'Chinese', kind(10))
+    deck.run(2, 'Chinese\x1fOwn preset', kind(20))
+    deck.run(3, 'Portuguese', kind(30))
+    const card = db.prepare('INSERT INTO cards (id, did, type, queue, due, ivl, data) VALUES (?, ?, 2, 2, ?, ?, ?)')
+    const data = (st: { stability: number; difficulty: number }) =>
+      JSON.stringify({ s: st.stability, d: st.difficulty, lrt: Math.floor(history[3].ms / 1000) })
+    const due = dayNumber('2026-03-20') - crtDay
+    card.run(1, 1, due, 20, data(replayed(DEFAULT_PARAMS)))
+    card.run(2, 1, due, 20, data(replayed(DEFAULT_PARAMS)))
+    card.run(3, 2, due, 20, data(replayed(custom))) // the subdeck's card, stored with its own preset's state
+    card.run(4, 3, due, 20, data(replayed(fsrs45)))
+    card.run(5, 3, due, 20, JSON.stringify({ s: 30, d: 5, lrt: Math.floor(ms(20) / 1000) }))
+    const rev = db.prepare('INSERT INTO revlog VALUES (?, ?, ?, 5000, ?, 5, 2500)')
+    for (const cid of [1, 2, 3, 4]) history.forEach((e, i) => rev.run(e.ms + cid * 1000 + i, cid, e.rating, e.type))
+    // Card 5: history starts with a review (e.g. imported); Anki seeds it from SM-2 values
+    for (const [d, rating] of [[2, 3], [8, 3], [20, 1]]) rev.run(ms(d) + 5000, 5, rating, 1)
+    db.close()
+  })
+  const fsrs = () => readAnkiData(mixed, NOW).fsrs!
+
+  it('replays each card with its own home deck’s preset, as Anki does', () => {
+    // If card 3 were replayed with the group’s (majority) preset, its stored state wouldn’t match
+    expect(fsrs().validation).toEqual({ cards: 4, stabilityMatched: 4, difficultyMatched: 4 })
+    expect(fsrs().presets.find((p) => p.deckId === 'mandarin')).toMatchObject({ presetName: 'Zero limits', reviewsPerDay: 0 })
+  })
+
+  it('tells the dashboard which preset each card uses (current recall and the forecast use it)', () => {
+    const f = fsrs()
+    const presetOf = (stability: number) => f.cardPresets![f.cards.find((c) => c.stability === stability)!.preset!]
+    expect(presetOf(replayed(custom).stability)).toMatchObject({ presetName: 'Subdeck preset', paramsSource: 'optimised' })
+    expect(presetOf(replayed(custom).stability).params).toEqual(custom)
+    expect(presetOf(replayed(DEFAULT_PARAMS).stability).presetName).toBe('Zero limits')
+    expect(f.presets.find((p) => p.deckId === 'mandarin')!.presetId).toBe(10)
+  })
+
+  it('leaves cards whose history doesn’t start with learning out of calibration', () => {
+    const f = fsrs()
+    expect(f.incompleteHistory).toBe(1)
+    // Card 4 (complete history): reviews on 3 and 12 Feb are calibrated. Card 5 (starts with a review): none.
+    const pt = f.calibration.filter((c) => c.deckId === 'portuguese').reduce((n, c) => n + c.reviews, 0)
+    expect(pt).toBe(2) // card 4's two reviews; none of card 5's three
   })
 })

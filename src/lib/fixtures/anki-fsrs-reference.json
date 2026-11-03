@@ -1,5 +1,5 @@
 {
- "source": "Anki 26.09.3 Rust backend (card_stats memory states), default FSRS-6 parameters, synthetic review histories; regenerate with scripts/fsrs-validation/anki_reference.py",
+ "source": "Anki 26.09.3 Rust backend (card_stats memory states), synthetic review histories; sequences use the default FSRS-6 parameters, presets use their own; regenerate with scripts/fsrs-validation/anki_reference.py",
  "sequences": {
   "again-then-same-day-hard-and-good": {
    "reviews": [
@@ -304,6 +304,211 @@
     {
      "stability": 41.634995,
      "difficulty": 7.650612
+    }
+   ]
+  }
+ },
+ "presetBlobs": {
+  "zero-limits": "CggAAIA/AAAgQRIEAAAgQSIcAACAPwAAgD8AAIA/AACAPwAAgD8AAIA/AACAP10AACBAZWZmpj9tmpmZP30AAIA/gAGUnQKIAQGQAQGYAQSoAQGwAQjAATytAmZmZj/FAmZmZj/gAgE=",
+  "fsrs6-custom": "CggAAIA/AAAgQRIEAAAgQSIcAACAPwAAgD8AAIA/AACAPwAAgD8AAIA/AACAPzJUmpmZPs3MjD8AAEBAAAAQQQAAwEAzMzM/AAAgQArXIzyamdk/mpkZPpqZWT8AAMA/KVyPPQAAgD7NzMw/AAAAPwAAAEAAAAA/zczMPSlcjz3NzEw+SBRQyAFdAAAgQGVmZqY/bZqZmT99AACAP4ABlJ0CiAEBkAEBmAEEqAEBsAEIwAE8rQJmZmY/xQJmZmY/4AIB",
+  "fsrs45": "CggAAIA/AAAgQRIEAAAgQRpER3L5Pgg9sz9eum1ALSFdQXctpUAWap0/j8JlP7bz/TwB3tI/FvsLPpvmhT9d3AZACmiiPfkxpj7RIss/HqdoPjEIOEAiHAAAgD8AAIA/AACAPwAAgD8AAIA/AACAPwAAgD9IFFDIAV0AACBAZWZmpj9tmpmZP30AAIA/gAGUnQKIAQGQAQGYAQSoAQGwAQjAATytAmZmZj/FAmZmZj/gAgE="
+ },
+ "presets": {
+  "fsrs6-custom": {
+   "params": [
+    0.3,
+    1.1,
+    3.0,
+    9.0,
+    6.0,
+    0.7,
+    2.5,
+    0.01,
+    1.7,
+    0.15,
+    0.85,
+    1.5,
+    0.07,
+    0.25,
+    1.6,
+    0.5,
+    2.0,
+    0.5,
+    0.1,
+    0.07,
+    0.2
+   ],
+   "reviews": [
+    {
+     "day": 0,
+     "rating": 3,
+     "type": 0
+    },
+    {
+     "day": 0,
+     "rating": 3,
+     "type": 0
+    },
+    {
+     "day": 2,
+     "rating": 3,
+     "type": 1
+    },
+    {
+     "day": 9,
+     "rating": 2,
+     "type": 1
+    },
+    {
+     "day": 24,
+     "rating": 1,
+     "type": 1
+    },
+    {
+     "day": 24,
+     "rating": 3,
+     "type": 2
+    },
+    {
+     "day": 25,
+     "rating": 3,
+     "type": 1
+    },
+    {
+     "day": 40,
+     "rating": 4,
+     "type": 1
+    }
+   ],
+   "anki": [
+    {
+     "stability": 3.0,
+     "difficulty": 2.9448
+    },
+    {
+     "stability": 3.0,
+     "difficulty": 2.90369
+    },
+    {
+     "stability": 10.237616,
+     "difficulty": 2.862992
+    },
+    {
+     "stability": 20.779486,
+     "difficulty": 4.785378
+    },
+    {
+     "stability": 1.76702,
+     "difficulty": 7.593904
+    },
+    {
+     "stability": 1.785045,
+     "difficulty": 7.506304
+    },
+    {
+     "stability": 3.521727,
+     "difficulty": 7.419579
+    },
+    {
+     "stability": 29.43062,
+     "difficulty": 6.624106
+    }
+   ]
+  },
+  "fsrs45": {
+   "params": [
+    0.4872,
+    1.4003,
+    3.7145,
+    13.8206,
+    5.1618,
+    1.2298,
+    0.8975,
+    0.031,
+    1.6474,
+    0.1367,
+    1.0461,
+    2.1072,
+    0.0793,
+    0.3246,
+    1.587,
+    0.2272,
+    2.8755
+   ],
+   "reviews": [
+    {
+     "day": 0,
+     "rating": 3,
+     "type": 0
+    },
+    {
+     "day": 0,
+     "rating": 3,
+     "type": 0
+    },
+    {
+     "day": 2,
+     "rating": 3,
+     "type": 1
+    },
+    {
+     "day": 9,
+     "rating": 2,
+     "type": 1
+    },
+    {
+     "day": 24,
+     "rating": 1,
+     "type": 1
+    },
+    {
+     "day": 24,
+     "rating": 3,
+     "type": 2
+    },
+    {
+     "day": 25,
+     "rating": 3,
+     "type": 1
+    },
+    {
+     "day": 40,
+     "rating": 4,
+     "type": 1
+    }
+   ],
+   "anki": [
+    {
+     "stability": 3.7145,
+     "difficulty": 5.819765
+    },
+    {
+     "stability": 3.7145,
+     "difficulty": 5.761244
+    },
+    {
+     "stability": 8.9731,
+     "difficulty": 5.704538
+    },
+    {
+     "stability": 12.62676,
+     "difficulty": 6.295902
+    },
+    {
+     "stability": 2.920262,
+     "difficulty": 7.337289
+    },
+    {
+     "stability": 2.920262,
+     "difficulty": 7.231725
+    },
+    {
+     "stability": 4.916342,
+     "difficulty": 7.129434
+    },
+    {
+     "stability": 69.092216,
+     "difficulty": 6.598396
     }
    ]
   }

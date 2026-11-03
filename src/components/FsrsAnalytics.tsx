@@ -164,8 +164,17 @@ export function FsrsAnalytics({ fsrs, decks: allDecks, todayKey }: Props) {
   const curve = calibrationCurve(fsrs.calibrationBins)
   const target = fsrs.presets[0]?.desiredRetention ?? 0.9
   const sameTarget = fsrs.presets.every((p) => Math.abs(p.desiredRetention - target) < 0.001)
-  const defaultParams = fsrs.presets.every((p) => p.paramsSource === 'default')
-  const paramsLabel = defaultParams ? 'default' : fsrs.presets.every((p) => p.paramsSource === 'optimised') ? 'optimised' : 'a mix of optimised and default'
+  // Every preset cards actually use (a deck group can mix presets across subdecks)
+  const usedPresets = fsrs.cardPresets?.length ? fsrs.cardPresets : fsrs.presets
+  const defaultParams = usedPresets.every((p) => p.paramsSource === 'default')
+  const paramsLabel = defaultParams ? 'default' : usedPresets.every((p) => p.paramsSource === 'optimised') ? 'optimised' : 'a mix of optimised and default'
+  // Cards whose home deck uses another preset than the one shown for their deck group
+  const otherPresetCards = fsrs.cards.filter((c) => {
+    const own = c.preset !== undefined ? fsrs.cardPresets?.[c.preset] : undefined
+    const group = fsrs.presets.find((p) => p.deckId === c.deckId)
+    return own && group?.presetId !== undefined && own.presetId !== group.presetId
+  }).length
+  const incomplete = fsrs.incompleteHistory ?? 0
   const firstMonth = trend[0]?.month
   const missing = Object.values(fsrs.missingState).reduce((a, n) => a + n, 0)
   const invalidDue = Object.values(fsrs.invalidDue).reduce((a, n) => a + n, 0)
@@ -416,8 +425,18 @@ export function FsrsAnalytics({ fsrs, decks: allDecks, todayKey }: Props) {
           <li>
             {defaultParams
               ? 'Your presets have no optimised FSRS parameters, so Anki (and this page) uses the FSRS-6 defaults. Anki schedules each review for when predicted recall reaches your desired retention, so the predicted figure sits near that target whatever your real memory is; a large gap to the actual figure means the defaults don’t fit you. Optimising the parameters in Anki (Deck options → FSRS → Optimize) personalises them.'
-              : 'Each deck uses its preset’s optimised FSRS parameters.'}
+              : defaultParams || usedPresets.every((p) => p.paramsSource === 'optimised')
+                ? 'Each deck uses its preset’s optimised FSRS parameters.'
+                : 'Some presets have optimised FSRS parameters and others use the FSRS-6 defaults; each card uses its own preset’s.'}
+            {!defaultParams && ' Parameters optimised under older FSRS versions are converted to FSRS-6 as Anki does.'}
           </li>
+          {otherPresetCards > 0 && (
+            <li>
+              {formatInt(otherPresetCards)} {otherPresetCards === 1 ? 'card is' : 'cards are'} in subdecks with their own preset.
+              Each card is replayed and scored with its own preset’s parameters and desired retention; the target shown per
+              deck is the preset most of its cards use.
+            </li>
+          )}
           <li>
             Past predictions are rebuilt by replaying your review log through FSRS-6, as Anki does. Check: the replay
             reproduces Anki’s stored difficulty for {fsrs.validation.difficultyMatched}/{fsrs.validation.cards} cards and
@@ -431,6 +450,13 @@ export function FsrsAnalytics({ fsrs, decks: allDecks, todayKey }: Props) {
               ` ${formatInt(fsrs.resetCards)} ${fsrs.resetCards === 1 ? 'card was' : 'cards were'} reset with “Forget”; Anki ignores reviews before a reset, so earlier history isn’t used.`}{' '}
             Past memory states are never inferred from today’s state.
           </li>
+          {incomplete > 0 && (
+            <li>
+              {formatInt(incomplete)} {incomplete === 1 ? 'card’s history doesn’t' : 'cards’ histories don’t'} start with a learning
+              answer (for example, imported or trimmed). Anki seeds such cards from their old SM-2 interval, so their past
+              predictions can’t be rebuilt and they are left out of calibration and the measured lapse rate.
+            </li>
+          )}
           <li>Suspended cards ({Object.values(fsrs.suspended).reduce((a, n) => a + n, 0)}) and new cards are excluded.</li>
         </ul>
       </Disclosure>

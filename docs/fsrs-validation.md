@@ -19,7 +19,7 @@ All numbers below are aggregates from the git-ignored copy `data/collection.anki
 |---|---|---|
 | Review history per card | `server/fsrsData.ts` `fsrsHistory` | Keeps revlog entries after the last "Forget" reset (type 4, ease 0, factor 0), with type 0–3 (learning, review, relearning, filtered) and ease 1–4; drops manual entries |
 | Replay | `src/lib/fsrs.ts` `replay` | Steps FSRS-6 through the history in whole Anki days (rollover hour from the collection config); `predicted[i]` = recall probability just before review *i*, or NaN for a same-day review or the first review |
-| Parameters | `server/fsrsData.ts` `readPreset` | Preset protobuf field 7 (FSRS-6, 21 values); falls back to 6/5/3; otherwise the FSRS-6 defaults. Uses the deck group's majority preset |
+| Parameters | `server/fsrsData.ts` `readPreset` | The newest non-empty of `fsrs_params_6`, `_5`, `_4` (protobuf fields 6, 5, 3), upgraded to FSRS-6 as Anki does (`toFsrs6Params`); otherwise the FSRS-6 defaults. Each card uses its own home deck's preset (updated 3 Nov 2026, see section 5) |
 | Calibration sample | `server/fsrsData.ts`, inside `readFsrsData` | Revlog type 1 (review card) and a predicted value (gap ≥ 1 day); **passed = ease > 1** (Hard, Good and Easy are passes, as in Anki) |
 | Display | `src/lib/fsrsStats.ts` `retentionComparison`, `calibrationCurve` → `FsrsAnalytics.tsx` | Sums passed and predicted values; actual = passed / reviews, predicted = mean predicted |
 
@@ -149,10 +149,28 @@ the app.
    internally inconsistent: under optimised parameters, intervals would be longer, not just safer. A better
    option would be to offer "optimised parameters" as a scenario once they exist in the preset, or to
    remove this mode. That needs your decision.
-4. **Use each card's own preset** in the replay instead of the deck group's majority preset. It makes no
-   difference today, because both presets use the defaults.
+4. ~~Use each card's own preset in the replay instead of the deck group's majority preset.~~ Done (section 5).
+   It makes no difference for this collection, because each deck group uses a single preset.
 
-## 5. Limitations
+## 5. Follow-up fixes (3 Nov 2026, branch `fix/fsrs-review-findings`)
+
+A code review found five issues that this collection doesn't trigger but other collections would. Each was
+checked against Anki 26.9.3, using synthetic presets and cards exported by `anki_reference.py` (committed as
+`src/lib/fixtures/anki-fsrs-reference.json`).
+
+| Issue | Anki's behaviour (checked) | Fix |
+|---|---|---|
+| A preset with 0 new or 0 review cards per day was read as 20 / 200 | Protobuf leaves out fields that hold 0: the blob for a 0/0 preset has no field 9 or 10 | A missing limit is 0; only a blob with no readable fields uses Anki's defaults |
+| Parameters optimised under FSRS-4.5 (17 values, field 3) were replaced by the defaults | Anki uses them, re-expressing FSRS-4.5's difficulty weights for FSRS-5 (w4 + 2·w5, ln(1 + 3·w5)/3, w6 + 0.5) | `toFsrs6Params`; matches Anki's states for all 8 reviews of the test card |
+| Field 7 was read as FSRS-6 parameters | Anki 26.9.3's descriptor has no field 7; FSRS-6 parameters are field 6 | Fields 6, 5, 3 |
+| Every card was replayed with its deck group's majority preset | A subdeck on its own preset gets that preset's parameters | Per-card presets in the replay, current recall and the simulator (daily limits, steps and new cards still follow the group's preset) |
+| Cards whose history doesn't start with learning were replayed from a first answer | Anki seeds them from the SM-2 interval (S = 10 for a 10-day interval in the test, not 2.3) | Left out of calibration and the measured lapse rate, and counted in the app; not inferred |
+
+For this collection all outputs are unchanged: presets, validation, calibration, calibration bins, measured
+behaviour, current memory metrics and four simulator runs are identical before and after (no incomplete
+histories; one preset per group), and `compare.ts` still reports 2,221/2,221 matching states.
+
+## 6. Limitations
 
 - One learner, a one-month history after the reset, 794 calibration reviews and one lapse. The optimised
   parameters are fitted to almost no lapses, so they are uncertain, even though the health check passed.
@@ -160,7 +178,7 @@ the app.
   versions (section 2.2).
 - The simulator comparison counts review events only, and Anki's internal button mix is unknown.
 
-## 6. Reproduce
+## 7. Reproduce
 
 ```sh
 # 1. A Python 3.13 matching Anki.app's bundled backend (see scripts/fsrs-validation/README.md)

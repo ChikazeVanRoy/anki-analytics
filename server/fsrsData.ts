@@ -4,6 +4,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import type { DatabaseSync } from 'node:sqlite'
 import type {
+  CardPreset,
   CalibrationBin,
   CalibrationPoint,
   DeckBehaviour,
@@ -12,7 +13,7 @@ import type {
   FsrsData,
 } from '../src/data/types.ts'
 import { ankiDayKey, dayNumber, keyFromDayNumber } from '../src/lib/dates.ts'
-import { DEFAULT_PARAMS, replay, type MemoryState, type Rating } from '../src/lib/fsrs.ts'
+import { DEFAULT_PARAMS, replay, toFsrs6Params, type MemoryState, type Rating } from '../src/lib/fsrs.ts'
 import { readConfigJson } from './ankiConfig.ts'
 import { firstBytes, firstFloat, firstVarint, floats, parseProto } from './protobuf.ts'
 
@@ -39,35 +40,36 @@ interface RevlogRow {
   factor: number
 }
 
-// DeckConfig.Config field numbers (anki/proto/anki/deck_config.proto), checked against real blobs.
+// DeckConfig.Config field numbers (anki/proto/anki/deck_config.proto), checked against Anki 26.9.3's
+// bundled descriptor and against blobs it writes (src/lib/fixtures/anki-fsrs-reference.json).
 const CONFIG = {
   learnSteps: 1,
   relearnSteps: 2,
-  fsrsParams: [7, 6, 5, 3], // FSRS-6, then older versions
+  fsrsParams: [6, 5, 3], // fsrs_params_6, _5, _4: Anki uses the newest one that isn't empty
   newPerDay: 9,
   reviewsPerDay: 10,
   maxInterval: 16,
   desiredRetention: 37,
 }
 
-function readPreset(blob: Uint8Array) {
+export function readPreset(blob: Uint8Array) {
   const f = parseProto(blob)
-  let params: number[] = []
-  for (const n of CONFIG.fsrsParams) {
-    const p = floats(f, n)
-    if (p.length === 21) params = p
-    else if (p.length === 19) params = [...p, 0, 0.5] // FSRS-5: no short-term power term, fixed decay 0.5
-    if (params.length) break
-  }
+  // The newest non-empty parameter set, upgraded to FSRS-6 as Anki's engine does (FSRS-4.5 has 17, FSRS-5 19)
+  const stored = CONFIG.fsrsParams.map((n) => floats(f, n)).find((p) => p.length > 0) ?? []
+  const params = toFsrs6Params(stored)
+  // Protobuf (proto3) leaves out fields that hold 0, so a missing daily limit means 0 ("no new cards").
+  // Only a blob with no readable fields at all falls back to Anki's defaults.
+  const limit = (n: number, fallback: number) => firstVarint(f, n) ?? (f.size ? 0 : fallback)
   return {
     learnSteps: floats(f, CONFIG.learnSteps),
     relearnSteps: floats(f, CONFIG.relearnSteps),
-    newPerDay: firstVarint(f, CONFIG.newPerDay) ?? 20,
-    reviewsPerDay: firstVarint(f, CONFIG.reviewsPerDay) ?? 200,
-    maxInterval: firstVarint(f, CONFIG.maxInterval) ?? 36500,
-    desiredRetention: firstFloat(f, CONFIG.desiredRetention) ?? 0.9,
-    params: params.length ? params : [...DEFAULT_PARAMS],
-    paramsSource: (params.length ? 'optimised' : 'default') as DeckPreset['paramsSource'],
+    newPerDay: limit(CONFIG.newPerDay, 20),
+    reviewsPerDay: limit(CONFIG.reviewsPerDay, 200),
+    // 0 isn't a valid maximum interval or desired retention, so absence means unreadable: use the defaults
+    maxInterval: firstVarint(f, CONFIG.maxInterval) || 36500,
+    desiredRetention: firstFloat(f, CONFIG.desiredRetention) || 0.9,
+    params: params ?? [...DEFAULT_PARAMS],
+    paramsSource: (params ? 'optimised' : 'default') as DeckPreset['paramsSource'],
   }
 }
 
@@ -119,10 +121,29 @@ export function readFsrsData(ctx: Context): FsrsData {
   const crtSecs = Number(db.prepare('SELECT crt FROM col').get()!.crt)
   const crtDay = dayNumber(ankiDayKey(crtSecs * 1000 + dayStartHour * 3_600_000, dayStartHour))
 
-  // --- Presets: the preset used by the most cards in each deck group ---
+  // --- Presets: each group shows the preset most of its cards use (limits, steps); cards keep their own ---
   const presetRows = new Map<number, { name: string; blob: Uint8Array }>()
   for (const r of db.prepare('SELECT id, name, config FROM deck_config').all()) {
     presetRows.set(Number(r.id), { name: String(r.name), blob: r.config as Uint8Array })
+  }
+  // Parsed presets, and the ones studied cards use (FsrsCard.preset indexes cardPresets)
+  const parsed = new Map<number, ReturnType<typeof readPreset>>()
+  const presetSettings = (id: number) => parsed.get(id) ?? parsed.set(id, readPreset(presetRows.get(id)!.blob)).get(id)!
+  const cardPresets: CardPreset[] = []
+  const cardPresetIndex = (id: number) => {
+    let i = cardPresets.findIndex((p) => p.presetId === id)
+    if (i < 0) {
+      const p = presetSettings(id)
+      i = cardPresets.push({
+        presetId: id,
+        presetName: presetRows.get(id)!.name,
+        params: p.params,
+        paramsSource: p.paramsSource,
+        desiredRetention: p.desiredRetention,
+        maxInterval: p.maxInterval,
+      }) - 1
+    }
+    return i
   }
   const deckPreset = new Map<number, number>()
   for (const r of db.prepare('SELECT id, kind FROM decks').all()) {
@@ -132,6 +153,7 @@ export function readFsrsData(ctx: Context): FsrsData {
   // --- One pass over the cards: home deck, preset votes, current states, new/suspended counts ---
   const presetVotes = new Map<string, Map<number, number>>()
   const cardGroup = new Map<number, string>() // card id -> deck group, for the review log below
+  const cardPresetId = new Map<number, number>() // card id -> preset of its home deck
   const cards: FsrsCard[] = []
   const newCards: Record<string, number> = {}
   const suspended: Record<string, number> = {}
@@ -147,6 +169,7 @@ export function readFsrsData(ctx: Context): FsrsData {
     if (!group) continue
     cardGroup.set(Number(r.id), group)
     const preset = deckPreset.get(home)
+    if (preset !== undefined && presetRows.has(preset)) cardPresetId.set(Number(r.id), preset)
     if (preset !== undefined) {
       const votes = presetVotes.get(group) ?? presetVotes.set(group, new Map()).get(group)!
       votes.set(preset, (votes.get(preset) ?? 0) + 1)
@@ -180,6 +203,7 @@ export function readFsrsData(ctx: Context): FsrsData {
       continue
     }
     storedState.set(Number(r.id), { stability: data.s, difficulty: data.d })
+    const presetIndex = cardPresetId.has(Number(r.id)) ? cardPresetIndex(cardPresetId.get(Number(r.id))!) : undefined
     cards.push({
       deckId: group,
       stability: data.s,
@@ -188,6 +212,7 @@ export function readFsrsData(ctx: Context): FsrsData {
       due,
       interval: Math.max(0, Number(r.ivl)),
       state: type === 2 ? 'review' : type === 3 ? 'relearning' : 'learning',
+      ...(presetIndex !== undefined && { preset: presetIndex }),
     })
   }
 
@@ -198,9 +223,13 @@ export function readFsrsData(ctx: Context): FsrsData {
     const presetId = [...votes].sort((a, b) => b[1] - a[1])[0][0]
     const row = presetRows.get(presetId)
     if (!row) continue
-    presets.push({ deckId: group, presetName: row.name, ...readPreset(row.blob) })
+    presets.push({ deckId: group, presetId, presetName: row.name, ...presetSettings(presetId) })
   }
-  const paramsFor = (group: string) => presets.find((p) => p.deckId === group)?.params ?? [...DEFAULT_PARAMS]
+  // Each card uses its own home deck's preset, as Anki does; the group's preset is only a fallback
+  const paramsFor = (cid: number, group: string) => {
+    const id = cardPresetId.get(cid)
+    return id !== undefined ? presetSettings(id).params : (presets.find((p) => p.deckId === group)?.params ?? [...DEFAULT_PARAMS])
+  }
 
   // --- Review log: replay for calibration + validation, and measure behaviour ---
   const byCard = new Map<number, RevlogRow[]>()
@@ -223,6 +252,7 @@ export function readFsrsData(ctx: Context): FsrsData {
   const bins = new Map<string, CalibrationBin>()
   const validation = { cards: 0, stabilityMatched: 0, difficultyMatched: 0 }
   let resetCards = 0
+  let incompleteHistory = 0
   const windowStart = dayNumber(dayKey(ctx.now)) - WINDOW_DAYS
   const behaviour = new Map<string, DeckBehaviour & { timeSum: number; timeN: number; learnN: number }>()
   for (const g of groupIds) {
@@ -247,14 +277,18 @@ export function readFsrsData(ctx: Context): FsrsData {
     const history = fsrsHistory(entries)
     if (history.length === 0) continue
     const days = history.map((e) => dayNumber(dayKey(e.id)))
+    // A history that doesn't start with a learning answer can't be replayed from scratch: Anki seeds it
+    // from SM-2 values. Its predictions are not reconstructed (never inferred), so it's left out below.
+    const complete = history[0].type === 0
+    if (!complete) incompleteHistory++
     const { state, predicted } = replay(
       history.map((e, i) => ({ day: days[i], rating: e.ease as Rating })),
-      paramsFor(group),
+      paramsFor(cid, group),
     )
 
     // Validation against Anki's stored state (only meaningful for a complete history)
     const stored = storedState.get(cid)
-    if (stored && state && history[0].type === 0) {
+    if (stored && state && complete) {
       validation.cards++
       if (Math.abs(state.stability - stored.stability) / stored.stability < 0.01) validation.stabilityMatched++
       if (Math.abs(state.difficulty - stored.difficulty) < 0.01) validation.difficultyMatched++
@@ -271,8 +305,8 @@ export function readFsrsData(ctx: Context): FsrsData {
           else b.reviewAgain++
         }
       }
-      // Calibration: reviews of graduated cards with a known prior state and at least a day's gap
-      if (e.type !== 1 || Number.isNaN(predicted[i])) return
+      // Calibration: reviews of graduated cards with a replayed prior state and at least a day's gap
+      if (!complete || e.type !== 1 || Number.isNaN(predicted[i])) return
       const month = keyFromDayNumber(days[i]).slice(0, 7)
       const key = `${month}|${group}`
       const p = calib.get(key) ?? {
@@ -330,6 +364,8 @@ export function readFsrsData(ctx: Context): FsrsData {
     missingState,
     invalidDue,
     resetCards,
+    incompleteHistory,
+    cardPresets,
     calibration: [...calib.values()].sort((a, b) => a.month.localeCompare(b.month)),
     calibrationBins: [...bins.values()].sort((a, b) => a.deckId.localeCompare(b.deckId) || a.from - b.from),
     behaviour: [...behaviour.values()]

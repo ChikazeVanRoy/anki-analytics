@@ -44,11 +44,16 @@ export interface CardNow extends FsrsCard {
   overdue: boolean
 }
 
-/** Current retrievability of each card, using its deck preset's FSRS parameters. */
+/** The memory-model settings a card uses: its own preset, else its deck group's preset. */
+export function presetOfCard(fsrs: FsrsData, c: FsrsCard): { params: number[]; desiredRetention: number; maxInterval: number } | undefined {
+  return (c.preset !== undefined ? fsrs.cardPresets?.[c.preset] : undefined) ?? fsrs.presets.find((p) => p.deckId === c.deckId)
+}
+
+/** Current retrievability of each card, using its own preset's FSRS parameters and desired retention. */
 export function cardsNow(fsrs: FsrsData, todayKey: string): CardNow[] {
   const today = dayNumber(todayKey)
   return fsrs.cards.map((c) => {
-    const preset = fsrs.presets.find((p) => p.deckId === c.deckId)
+    const preset = presetOfCard(fsrs, c)
     const elapsed = Math.max(today - dayNumber(c.lastReview), 0)
     return {
       ...c,

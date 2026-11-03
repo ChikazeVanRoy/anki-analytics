@@ -49,6 +49,21 @@ const decks = [deck('a', 200), deck('b', 100)]
 const total = (s: Partial<SimSettings>, horizon = 120, ds = decks) => summarise(simulate(ds, { ...base, ...s }), horizon, 10).total.mean
 
 describe('simulate', () => {
+  it('schedules each card with its own preset when a deck mixes presets', () => {
+    const settings = { ...base, deckIds: ['a'], newPerDay: 0, desiredRetention: undefined }
+    const plain = deck('a', 200)
+    const total = (d: SimDeck) => summarise(simulate([d], settings), 365, 10).total.mean
+    // A model identical to the deck's own settings changes nothing
+    const same = { ...plain, models: [{ params: plain.params, desiredRetention: 0.9, maxInterval: 36500 }], cards: plain.cards.map((c) => ({ ...c, m: 0 })) }
+    expect(total(same)).toBe(total(plain))
+    // Half the cards on a preset with a higher target are reviewed more often
+    const stricter = { ...plain, models: [{ params: plain.params, desiredRetention: 0.97, maxInterval: 36500 }], cards: plain.cards.map((c, i) => ({ ...c, m: i % 2 ? 0 : -1 })) }
+    expect(total(stricter)).toBeGreaterThan(total(plain) * 1.1)
+    // The custom-retention override still applies to every card
+    const override = { ...settings, desiredRetention: 0.9 }
+    expect(summarise(simulate([stricter], override), 365, 10).total.mean).toBe(summarise(simulate([plain], override), 365, 10).total.mean)
+  })
+
   it('is reproducible for the same seed', () => {
     expect(simulate(decks, base).days.map((d) => d.total)).toEqual(simulate(decks, base).days.map((d) => d.total))
   })
@@ -189,6 +204,17 @@ describe('buildSimDecks', () => {
     expect(d.passRating).toEqual([0.25, 0.5, 0.25])
     expect(d.failRatio).toBeCloseTo(1.5 / 10) // (1 observed + 0.5) / 10 expected
     expect(d).toMatchObject({ reviewLimit: 200, maxInterval: 365, newPool: 50, learnSteps: 2, relearnSteps: 1, learningReviewsPerNewCard: 1.8 })
+    expect(d.models).toBeUndefined() // one preset: every card uses the deck's settings
+    expect(d.cards.map((c) => c.m)).toEqual([-1, -1])
+  })
+
+  it('gives cards on a subdeck’s own preset that preset’s settings', () => {
+    const own = { presetId: 2, presetName: 'Own', params: DEFAULT_PARAMS.map((w, i) => (i === 3 ? 10 : w)), paramsSource: 'optimised', desiredRetention: 0.95, maxInterval: 100 }
+    const same = { ...own, presetId: 1, presetName: 'A', params: [...DEFAULT_PARAMS], desiredRetention: 0.9, maxInterval: 365 }
+    const mixed = { ...fsrs, cardPresets: [same, own], cards: [{ ...fsrs.cards[0], preset: 0 }, { ...fsrs.cards[1], preset: 1 }] } as unknown as FsrsData
+    const [d] = buildSimDecks(mixed, '2026-03-10')
+    expect(d.models).toEqual([{ params: own.params, desiredRetention: 0.95, maxInterval: 100 }])
+    expect(d.cards.map((c) => c.m)).toEqual([-1, 0])
   })
 })
 

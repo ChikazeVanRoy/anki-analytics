@@ -10,16 +10,29 @@
 
 import type { FsrsData } from '../data/types'
 import { dayNumber } from './dates'
+import { presetOfCard } from './fsrsStats'
 import { nextInterval, retrievability, step, type Rating } from './fsrs'
 
 export const SIM_DAYS = 365 // always simulate a year; shorter horizons are prefixes of the same run
 export const HORIZONS = [7, 30, 90, 180, 365] as const
+
+/** Memory-model settings a card is scheduled with (its own preset's). */
+export interface SimModel {
+  params: number[]
+  desiredRetention: number
+  maxInterval: number
+}
 
 export interface SimDeck {
   deckId: string
   params: number[]
   desiredRetention: number // the deck preset's value
   maxInterval: number
+  /**
+   * Presets of cards in subdecks that use a different preset from the group's; a card's `m` indexes
+   * this list (absent or -1: the deck's own settings above). New cards use the deck's settings.
+   */
+  models?: SimModel[]
   reviewLimit: number
   newPool: number
   learnSteps: number // number of learning steps
@@ -28,7 +41,7 @@ export interface SimDeck {
   passRating: number[] // probabilities of Hard/Good/Easy given a passed review
   failRatio: number // observed / FSRS-predicted lapses (for the "calibrated" recall model)
   learningReviewsPerNewCard: number // measured answers on a new card's first day
-  cards: { s: number; d: number; lastDay: number; dueDay: number; interval: number }[] // days relative to today
+  cards: { s: number; d: number; lastDay: number; dueDay: number; interval: number; m?: number }[] // days relative to today
 }
 
 export interface SimSettings {
@@ -145,6 +158,28 @@ export function buildSimDecks(fsrs: FsrsData, todayKey: string): SimDeck[] {
     const cal = fsrs.calibration.filter((c) => c.deckId === p.deckId)
     const observed = cal.reduce((n, c) => n + c.reviews - c.passed, 0)
     const expected = cal.reduce((n, c) => n + c.reviews - c.predicted, 0)
+    // Cards on a different preset from the group's keep their own parameters, target and maximum interval
+    const models: SimModel[] = []
+    const modelOf = (c: FsrsData['cards'][number]) => {
+      const own = presetOfCard(fsrs, c)
+      if (!own) return -1
+      const same = (x: SimModel) =>
+        x.desiredRetention === own.desiredRetention && x.maxInterval === own.maxInterval && x.params.every((w, i) => w === own.params[i])
+      if (same(p)) return -1
+      let i = models.findIndex(same)
+      if (i < 0) i = models.push({ params: own.params, desiredRetention: own.desiredRetention, maxInterval: own.maxInterval }) - 1
+      return i
+    }
+    const cards = fsrs.cards
+      .filter((c) => c.deckId === p.deckId)
+      .map((c) => ({
+        s: c.stability,
+        d: c.difficulty,
+        lastDay: dayNumber(c.lastReview) - today,
+        dueDay: Math.max(dayNumber(c.due) - today, 0), // overdue cards are due today
+        interval: c.interval,
+        m: modelOf(c),
+      }))
     return {
       deckId: p.deckId,
       params: p.params,
@@ -159,15 +194,8 @@ export function buildSimDecks(fsrs: FsrsData, todayKey: string): SimDeck[] {
       passRating: norm(b?.passRating ?? [], [0.224, 0.631, 0.145]),
       failRatio: expected > 0 ? Math.min(Math.max((observed + 0.5) / expected, 0.01), 3) : 1,
       learningReviewsPerNewCard: b && b.newCardsIntroduced > 0 ? b.learningReviewsPerNewCard : 1 + p.learnSteps.length,
-      cards: fsrs.cards
-        .filter((c) => c.deckId === p.deckId)
-        .map((c) => ({
-          s: c.stability,
-          d: c.difficulty,
-          lastDay: dayNumber(c.lastReview) - today,
-          dueDay: Math.max(dayNumber(c.due) - today, 0), // overdue cards are due today
-          interval: c.interval,
-        })),
+      ...(models.length > 0 && { models }),
+      cards,
     }
   })
 }
@@ -178,7 +206,9 @@ export function simulate(allDecks: SimDeck[], settings: SimSettings): SimResult 
   const H = settings.days ?? SIM_DAYS
   const decks = allDecks.filter((d) => settings.deckIds.includes(d.deckId))
   const R = settings.runs
-  const retentionOf = (deck: SimDeck) => settings.desiredRetention ?? deck.desiredRetention
+  // A card's settings: its own preset's (models[m]) or its deck's. The retention override applies to all.
+  const modelFor = (deck: SimDeck, m: number): SimModel => (m >= 0 && deck.models?.[m]) || deck
+  const retentionOf = (model: SimModel) => settings.desiredRetention ?? model.desiredRetention
 
   const daily = { known: new Float64Array(H), followUp: new Float64Array(H), fresh: new Float64Array(H) }
   const newIntro = new Float64Array(H)
@@ -199,6 +229,7 @@ export function simulate(allDecks: SimDeck[], settings: SimSettings): SimResult 
     const last = new Int32Array(cap)
     const ivl = new Int32Array(cap)
     const deckOf = new Uint8Array(cap)
+    const modelIx = new Int16Array(cap) // index into the deck's models, -1 = the deck's own settings
     const origin = new Uint8Array(cap) // 0 existing (not yet reviewed), 1 existing (reviewed), 2 new
     const buckets: number[][][] = decks.map(() => Array.from({ length: H }, () => []))
     const carry: number[][] = decks.map(() => [])
@@ -211,6 +242,7 @@ export function simulate(allDecks: SimDeck[], settings: SimSettings): SimResult 
         last[n] = c.lastDay
         ivl[n] = c.interval
         deckOf[n] = di
+        modelIx[n] = c.m ?? -1
         origin[n] = 0
         if (c.dueDay < H) buckets[di][c.dueDay].push(n)
         n++
@@ -219,10 +251,10 @@ export function simulate(allDecks: SimDeck[], settings: SimSettings): SimResult 
     const pools = decks.map((d) => d.newPool)
 
     const schedule = (c: number, day: number, di: number) => {
-      const deck = decks[di]
+      const model = modelFor(decks[di], modelIx[c])
       const wasMature = ivl[c] >= 21
-      const raw = nextInterval(S[c], retentionOf(deck), deck.params)
-      ivl[c] = fuzzInterval(Math.min(raw, deck.maxInterval), deck.maxInterval, rand())
+      const raw = nextInterval(S[c], retentionOf(model), model.params)
+      ivl[c] = fuzzInterval(Math.min(raw, model.maxInterval), model.maxInterval, rand())
       last[c] = day
       if (wasMature !== ivl[c] >= 21) mature += ivl[c] >= 21 ? 1 : -1
       const due = day + ivl[c]
@@ -244,17 +276,18 @@ export function simulate(allDecks: SimDeck[], settings: SimSettings): SimResult 
         carry[di] = queue.length > deck.reviewLimit ? queue.slice(deck.reviewLimit) : []
         waiting += carry[di].length
         for (const c of todays) {
+          const w = modelFor(deck, modelIx[c]).params
           const elapsed = Math.max(day - last[c], 0)
-          const r = retrievability(elapsed, S[c], deck.params)
+          const r = retrievability(elapsed, S[c], w)
           const pFail = settings.recall === 'calibrated' ? (1 - r) * deck.failRatio : 1 - r
           let reviews = 1
           let state = { stability: S[c], difficulty: D[c] }
           if (rand() >= pFail) {
-            state = step(state, (2 + sample(deck.passRating, rand())) as Rating, elapsed, deck.params)
+            state = step(state, (2 + sample(deck.passRating, rand())) as Rating, elapsed, w)
           } else {
-            state = step(state, 1, elapsed, deck.params)
+            state = step(state, 1, elapsed, w)
             // Relearning steps the same day, each answered Good
-            for (let k = 0; k < deck.relearnSteps; k++) state = step(state, 3, 0, deck.params)
+            for (let k = 0; k < deck.relearnSteps; k++) state = step(state, 3, 0, w)
             reviews += deck.relearnSteps
           }
           S[c] = state.stability
@@ -288,6 +321,7 @@ export function simulate(allDecks: SimDeck[], settings: SimSettings): SimResult 
             D[c] = state.difficulty
             ivl[c] = 0
             deckOf[c] = di
+            modelIx[c] = -1
             origin[c] = 2
             // Count the answers you actually give on a new card's first day (measured)
             const m = deck.learningReviewsPerNewCard

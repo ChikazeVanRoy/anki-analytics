@@ -7,6 +7,7 @@ import {
   replay,
   retrievability,
   step,
+  toFsrs6Params,
   type MemoryState,
   type Rating,
 } from './fsrs'
@@ -87,6 +88,33 @@ describe("matches Anki's own engine", () => {
       })
     })
   }
+})
+
+describe("matches Anki's own engine with a preset's own parameters", () => {
+  // The preset's stored parameters go through toFsrs6Params, as they do when the server reads a preset
+  for (const [name, preset] of Object.entries(reference.presets)) {
+    it(`${name} (${preset.params.length} parameters)`, () => {
+      const w = toFsrs6Params(preset.params)!
+      let state: MemoryState | null = null
+      preset.reviews.forEach((r, i) => {
+        const elapsed = i ? r.day - preset.reviews[i - 1].day : 0
+        state = step(state, r.rating as Rating, elapsed, w)
+        expect(Math.abs(state.stability / preset.anki[i].stability - 1), `stability after review ${i + 1}`).toBeLessThan(1e-3)
+        expect(state.difficulty, `difficulty after review ${i + 1}`).toBeCloseTo(preset.anki[i].difficulty, 3)
+      })
+    })
+  }
+})
+
+describe('toFsrs6Params', () => {
+  it('keeps FSRS-6 parameters and pads FSRS-5 ones', () => {
+    expect(toFsrs6Params(W)).toEqual([...W])
+    expect(toFsrs6Params(W.slice(0, 19))).toEqual([...W.slice(0, 19), 0, 0.5])
+  })
+  it('rejects other lengths', () => {
+    expect(toFsrs6Params([])).toBeNull()
+    expect(toFsrs6Params([1, 2, 3])).toBeNull()
+  })
 })
 
 describe('replay', () => {

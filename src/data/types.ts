@@ -49,11 +49,14 @@ export interface FsrsCard {
   due: string // Anki day the card is next due
   interval: number // current scheduled interval in days
   state: 'review' | 'learning' | 'relearning'
+  /** Index into FsrsData.cardPresets: the preset of the card's home deck. Absent: use the group's preset. */
+  preset?: number
 }
 
-/** Scheduler settings of the preset a deck group uses. */
+/** Scheduler settings of the preset a deck group uses (the one most of its cards use). */
 export interface DeckPreset {
   deckId: string
+  presetId?: number // Anki's preset id
   presetName: string
   desiredRetention: number
   newPerDay: number
@@ -63,6 +66,19 @@ export interface DeckPreset {
   relearnSteps: number[] // minutes
   params: number[] // FSRS-6 weights (21)
   paramsSource: 'optimised' | 'default'
+}
+
+/**
+ * Memory-model settings of a preset that studied cards use. A deck group can mix presets across its
+ * subdecks; each card is replayed, scored and simulated with its own preset's values.
+ */
+export interface CardPreset {
+  presetId: number
+  presetName: string
+  params: number[] // FSRS-6 weights (21)
+  paramsSource: 'optimised' | 'default'
+  desiredRetention: number
+  maxInterval: number
 }
 
 /** Historical review-card reviews per month, with FSRS's prediction replayed from the review log. */
@@ -106,11 +122,19 @@ export interface FsrsData {
   windowDays: number // measurement window for DeckBehaviour
   presets: DeckPreset[]
   cards: FsrsCard[]
+  /** Presets referenced by FsrsCard.preset. */
+  cardPresets?: CardPreset[]
   newCards: Record<string, number> // unsuspended new cards available per deck group
   suspended: Record<string, number>
   missingState: Record<string, number> // studied cards without an FSRS memory state (excluded everywhere)
   invalidDue: Record<string, number> // studied cards with a memory state but an unreadable due date (excluded)
   resetCards: number // cards whose history was cut by a "Forget" reset (Anki ignores reviews before it)
+  /**
+   * Cards whose kept history doesn't start with a learning answer (e.g. imported, or the log was trimmed).
+   * Anki seeds their memory state from SM-2 values, so their past predictions are not replayed and they
+   * are left out of calibration (and so of the measured lapse rate).
+   */
+  incompleteHistory?: number
   calibration: CalibrationPoint[]
   calibrationBins: CalibrationBin[]
   behaviour: DeckBehaviour[]

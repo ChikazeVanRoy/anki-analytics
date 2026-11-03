@@ -652,7 +652,9 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
                 Starts from every studied card’s real FSRS state and due date. Each review draws recall from FSRS-6’s
                 predicted probability (or your measured lapse rate), uses your measured Hard/Good/Easy mix, updates the
                 memory state with the FSRS-6 formulas, and schedules the next interval at the desired retention with
-                Anki’s interval fuzz and your presets’ maximum interval and daily review limit.
+                Anki’s interval fuzz and your presets’ maximum interval and daily review limit. Cards in subdecks with
+                their own preset keep that preset’s parameters, desired retention and maximum interval; daily limits,
+                learning steps and new cards follow the preset most of a deck’s cards use.
               </li>
               <li>
                 New cards use your measured first-answer mix (Again/Hard/Good/Easy) and your learning steps. Their first-day
