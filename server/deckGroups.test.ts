@@ -110,8 +110,8 @@ describe('planDeckGroups with a config', () => {
   })
 
   it('leaves out a group that matches no deck, so a typo doesn’t cost a place, and reports it', () => {
-    const result = plan({ groups: [{ name: 'Mandarin', decks: ['Mandrin*'] }] })
-    expect(result.unmatched).toEqual(['Mandarin'])
+    const result = plan({ groups: [{ name: 'Spanish', decks: ['Spansh*'] }] })
+    expect(result.unmatched).toEqual(['Spanish'])
     expect(result.groups.map((g) => [g.name, g.color])).toEqual([
       ['Medicine', 1],
       ['Japanese', 2],
@@ -139,7 +139,7 @@ describe('planDeckGroups with a config', () => {
 
 describe('deck name patterns', () => {
   it('match whole names, ignore case, and treat only * as special', () => {
-    expect(namePattern('chinese*').test('Chinese🇨🇳')).toBe(true)
+    expect(namePattern('castilian*').test('Castilian🇪🇸')).toBe(true)
     expect(namePattern('Law').test('Lawyers')).toBe(false)
     expect(namePattern('C++ (notes)').test('c++ (notes)')).toBe(true)
   })
@@ -147,7 +147,7 @@ describe('deck name patterns', () => {
 
 describe('parseDeckConfig', () => {
   it('accepts a full config', () => {
-    const config = { groups: [{ name: 'Mandarin', decks: ['Chinese*'], color: 2 }], exclude: ['Old'], maxDecks: 2 }
+    const config = { groups: [{ name: 'Spanish', decks: ['Castilian*'], color: 2 }], exclude: ['Old'], maxDecks: 2 }
     expect(parseDeckConfig(config)).toEqual(config)
   })
 

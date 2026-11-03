@@ -6,6 +6,7 @@
 # Writes data/fsrs-validation/anki.json (git-ignored with the rest of /data/). Nothing is written to
 # Anki's own files or to data/collection.anki2: Anki opens a temporary copy, which is deleted afterwards.
 
+import fnmatch
 import json
 import os
 import re
@@ -22,8 +23,18 @@ from anki import scheduler_pb2  # noqa: E402
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SOURCE = os.path.join(ROOT, 'data', 'collection.anki2')
 OUT = os.path.join(ROOT, 'data', 'fsrs-validation', 'anki.json')
-# Same deck grouping as server/anki.ts (top-level deck name)
-GROUPS = [('mandarin', re.compile(r'^(chinese|mandarin)', re.I)), ('portuguese', re.compile(r'^portuguese', re.I))]
+CONFIG = os.path.join(ROOT, 'anki-analytics.config.json')
+
+
+def load_groups():
+    """Deck groups from the git-ignored config, so no deck names live in this script."""
+    with open(CONFIG, encoding='utf-8') as f:
+        groups = json.load(f).get('groups', [])
+    return [(re.sub(r'[^a-z0-9]+', '-', g['name'].lower()).strip('-'),
+             re.compile('|'.join(fnmatch.translate(p) for p in g['decks']), re.I)) for g in groups]
+
+
+GROUPS = load_groups()
 DEFAULT_PARAMS = [0.212, 1.2931, 2.3065, 8.2956, 6.4133, 0.8334, 3.0194, 0.001, 1.8722, 0.1666, 0.796, 1.4835,
                   0.0614, 0.2629, 1.6483, 0.6014, 1.8729, 0.5425, 0.0912, 0.0658, 0.1542]
 NEW_PER_DAY = [0, 10, 30]

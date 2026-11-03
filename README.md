@@ -39,7 +39,7 @@ To merge, rename, leave out or pin decks, copy `anki-analytics.config.example.js
 
 ```json
 {
-  "groups": [{ "name": "Mandarin", "decks": ["Chinese*", "Mandarin*"], "color": 1 }],
+  "groups": [{ "name": "Language", "decks": ["Spanish*", "Language*"], "color": 1 }],
   "exclude": ["Old decks"],
   "maxDecks": 3
 }
@@ -69,9 +69,9 @@ Measured, projected and sample data look different (solid badge, dashed badge an
 Milestones only count what the data shows (lifetime reviews, longest streak, cards known well) and nothing
 rewards a single heavy day. Light and dark themes follow the system, with a toggle in the header.
 
-The replay reproduces every memory state that Anki 26.9.3's own engine computes for this collection (all
-2,221 reviews checked), and Anki's stored state for 728 of 740 cards (the other 12 were most likely written
-by an older Anki version or another device). The gap between predicted and actual recall comes from
+The replay reproduces every memory state that Anki 26.9.3's own engine computes (checked review by review on a real
+collection), and nearly all of Anki's stored states (the exceptions were most likely written by an older Anki
+version or another device). The gap between predicted and actual recall comes from
 FSRS's default parameters, not from the calculations; see [docs/fsrs-validation.md](docs/fsrs-validation.md).
 Forecast assumptions and limits are listed in the app under "How the forecast works".
 

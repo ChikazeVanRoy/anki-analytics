@@ -145,12 +145,12 @@ describe('insights', () => {
       year: sweep[2].year,
       horizon,
       sweep,
-      deckNames: { a: 'Mandarin', b: 'Portuguese' },
+      deckNames: { a: 'Spanish', b: 'German' },
     })
     expect(out).toHaveLength(4)
     expect(out[0].tone).toBe('warning') // 50 min heaviest month > 40 budget
     expect(out[1].answer).toContain('About 15 per day')
-    expect(out[2].answer).toContain('Mandarin: 400 of 500')
+    expect(out[2].answer).toContain('Spanish: 400 of 500')
     expect(out[3].answer).toContain('30 new/day adds about 20 reviews')
     expect(out[3].answer).toContain('10 new/day removes about 20 reviews')
   })

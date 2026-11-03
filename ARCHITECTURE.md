@@ -95,7 +95,7 @@ flowchart TD
   C["Copy to data/collection.anki2<br/>delete stale -wal/-shm of the old copy"]
   X["Refuse: 409 with a message"]
   D["Open copy read-only (anki.ts)"]
-  E["Group top-level decks by name<br/>Mandarin, Portuguese, Other; exclude Redundant<br/>(GROUPS, EXCLUDED_DECKS in anki.ts)"]
+  E["Group top-level decks by name<br/>using the optional config file<br/>(deckGroups.ts)"]
   F["Daily totals per deck from revlog<br/>Anki day = local date shifted by the rollover hour"]
   G["Card counts per deck from cards"]
   H["FSRS (fsrsData.ts): stored s/d/lrt per card,<br/>presets from deck_config protobuf,<br/>due dates from col.crt + due"]
@@ -243,7 +243,7 @@ Results are in `docs/fsrs-validation.md`.
 | Users | One person, one Mac | Accounts, sign-in, sessions |
 | Data intake | Copy of a local Anki profile (`~/Library/Application Support/Anki2`, macOS only) | Upload of Anki exports (`.colpkg`/`.apkg`, compressed `collection.anki21b`), schema-version checks, other OSes |
 | Storage | One file, `data/collection.anki2`, overwritten on refresh | Per-user storage, encryption at rest, retention and deletion, storing derived results instead of raw collections |
-| Configuration | Deck groups and exclusions hard-coded in `server/anki.ts` (`GROUPS`, `EXCLUDED_DECKS`) | Per-user deck settings stored as data |
+| Configuration | Deck groups and exclusions in a git-ignored local config file (`anki-analytics.config.json`) | Per-user deck settings stored as data |
 | Computation | Whole collection re-read and replayed on every `GET /api/stats` (~0.5 s, blocks the server) | Caching, background jobs, horizontal scaling |
 | Security | Binds to 127.0.0.1, Host-header allowlist, refresh header, read-only SQLite | Authentication, authorisation, tenant isolation, rate limits, TLS, audit logging |
 | Deployment | `npm run dev` (Vite dev server + Node API) | Production hosting, a production server for the built app, monitoring, backups |
@@ -252,17 +252,14 @@ Results are in `docs/fsrs-validation.md`.
 ## 6. Weaknesses and risks
 
 - **Single-user by construction.** File paths, the Anki-process check (`pgrep`), the version check
-  (`/Applications/Anki.app`) and the deck names are specific to one person's Mac. A SaaS needs a different
+  (`/Applications/Anki.app`) and the local config file are specific to one person's Mac. A SaaS needs a different
   data-intake path, not just more servers.
-- **Personal choices live in code.** `GROUPS` and `EXCLUDED_DECKS` in `server/anki.ts` encode one user's
-  decks; adding a deck means editing source code.
 - **Recomputed on every request.** `GET /api/stats` reads the full `revlog` and replays every card
   synchronously (`server/fsrsData.ts`), blocking the Node event loop. Fine for one user, not for many.
 - **The browser receives detailed data.** Per-card FSRS states are sent to the client. Acceptable locally;
   for other people's data it raises privacy and payload-size questions.
 - **The forecast is a model.** It assumes FSRS-6 default parameters (your presets have none optimised), and
-  FSRS's predictions are badly calibrated for this collection (about 88% predicted vs about 100% actual
-  recall). That gap comes from the default parameters, not from the calculations: the replay matches Anki's
+  FSRS's predictions can be badly calibrated for a collection that uses them. Any such gap comes from the default parameters, not from the calculations: the replay matches Anki's
   own engine exactly, and Anki's evaluator reports the same mis-calibration (`docs/fsrs-validation.md`).
   It does not model lapses during learning steps, Anki's load balancing or easy days, and review limits are
   applied per deck group, not through Anki's deck hierarchy. Compared with Anki's built-in simulator, review

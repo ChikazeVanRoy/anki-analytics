@@ -82,15 +82,15 @@ beforeAll(() => {
     INSERT INTO config VALUES ('rollover', CAST('${ROLLOVER}' AS BLOB)), ('fsrs', CAST('true' AS BLOB));
   `)
   db.prepare('INSERT INTO col VALUES (?)').run(crtSecs)
-  db.prepare('INSERT INTO deck_config VALUES (?, ?, ?)').run(100, 'Chinese preset', preset(0.85, 15))
-  db.prepare('INSERT INTO deck_config VALUES (?, ?, ?)').run(200, 'Portuguese preset', preset(0.9, 30, OPTIMISED))
+  db.prepare('INSERT INTO deck_config VALUES (?, ?, ?)').run(100, 'Castilian preset', preset(0.85, 15))
+  db.prepare('INSERT INTO deck_config VALUES (?, ?, ?)').run(200, 'German preset', preset(0.9, 30, OPTIMISED))
   // A truncated blob (cut mid-float), as a damaged or unexpected settings record would be
   db.prepare('INSERT INTO deck_config VALUES (?, ?, ?)').run(300, 'Damaged preset', preset(0.8, 20).slice(0, -2))
   const deck = db.prepare('INSERT INTO decks VALUES (?, ?, ?)')
-  deck.run(1, 'Chinese🇨🇳', kind(100))
-  deck.run(2, 'Chinese🇨🇳\x1fSpoonfed', kind(100))
-  deck.run(3, 'Portuguese🇧🇷', kind(200))
-  deck.run(4, 'Redundant\x1fFrench', kind(100))
+  deck.run(1, 'Castilian🇨🇳', kind(100))
+  deck.run(2, 'Castilian🇨🇳\x1fSpoonfed', kind(100))
+  deck.run(3, 'German🇩🇪', kind(200))
+  deck.run(4, 'Archive\x1fFrench', kind(100))
   deck.run(5, 'Japanese', kind(300))
   deck.run(6, 'Filtered study', Uint8Array.from(bytesField(2, []))) // filtered deck: DeckKind field 2, no preset
 
@@ -125,9 +125,9 @@ beforeAll(() => {
   rev.run(at(2026, 3, 11, 3), 13, 1, 2000, 0, -60, 0) // learning, Again, 3am -> counts as 10 Mar
   rev.run(at(2026, 2, 20, 12), 15, 0, 0, 4, 0, 0) // "Forget" reset: history before it is ignored
   rev.run(at(2026, 3, 1, 12), 15, 4, 1000, 0, 0, 0)
-  rev.run(at(2026, 3, 11, 12), 21, 4, 5000, 1, 3, 2500) // Portuguese: young review (history incomplete)
+  rev.run(at(2026, 3, 11, 12), 21, 4, 5000, 1, 3, 2500) // German: young review (history incomplete)
   rev.run(at(2026, 3, 11, 13), 21, 0, 0, 4, 0, 2500) // manual reschedule -> ignored
-  rev.run(at(2026, 3, 11, 14), 41, 3, 5000, 1, 50, 2500) // Redundant -> excluded
+  rev.run(at(2026, 3, 11, 14), 41, 3, 5000, 1, 50, 2500) // Archive -> excluded
   rev.run(at(2026, 3, 11, 15), 99, 3, 5000, 1, 50, 2500) // deleted card -> skipped
   rev.run(at(2026, 3, 12, 12), 51, 3, 3000, 0, 0, 0) // Japanese -> "Other decks"
   db.close()
@@ -138,10 +138,10 @@ afterAll(() => rmSync(dir, { recursive: true, force: true }))
 // The deck grouping these fixtures were written for (each test collection names its decks this way)
 const DECKS: DeckConfig = {
   groups: [
-    { name: 'Mandarin', decks: ['Chinese*', 'Mandarin*'] },
-    { name: 'Portuguese', decks: ['Portuguese*'] },
+    { name: 'Spanish', decks: ['Castilian*', 'Spanish*'] },
+    { name: 'German', decks: ['German*'] },
   ],
-  exclude: ['Redundant'],
+  exclude: ['Archive'],
   maxDecks: 2,
 }
 
@@ -157,9 +157,9 @@ describe('readAnkiData', () => {
     expect(readAnkiData(path, NOW, { deckConfig: DECKS }).dayStartHour).toBe(4)
   })
 
-  it('groups decks by top-level name and leaves out Redundant', () => {
+  it('groups decks by top-level name and leaves out Archive', () => {
     const decks = readAnkiData(path, NOW, { deckConfig: DECKS }).decks
-    expect(decks.map((d) => d.id)).toEqual(['mandarin', 'portuguese', 'other'])
+    expect(decks.map((d) => d.id)).toEqual(['spanish', 'german', 'other'])
     // incl. the subdeck and the card currently in a filtered deck (counted in its home deck)
     // Suspended cards are counted on their own, not in the total or a stage
     expect(decks[0]).toMatchObject({ totalCards: 7, newCards: 1, youngCards: 5, matureCards: 1, suspendedCards: 2 })
@@ -171,10 +171,10 @@ describe('readAnkiData', () => {
     const data = readAnkiData(path, NOW)
     const ids = data.decks.map((d) => d.id)
     expect(data.decks.map((d) => [d.name, d.color, d.totalCards])).toEqual([
-      ['Chinese🇨🇳', 1, 7],
-      ['Portuguese🇧🇷', 2, 1],
+      ['Castilian🇨🇳', 1, 7],
+      ['German🇩🇪', 2, 1],
       ['Japanese', 3, 3], // its own deck now, instead of "Other decks"
-      ['Other decks', undefined, 1], // Redundant isn't excluded without a config
+      ['Other decks', undefined, 1], // Archive isn't excluded without a config
     ])
     // Every review, card state and preset belongs to a deck the dashboard shows
     const shown = (deckIds: string[]) => deckIds.every((id) => ids.includes(id))
@@ -185,15 +185,15 @@ describe('readAnkiData', () => {
     const total = (d: typeof data) => d.decks.reduce((n, x) => n + x.totalCards, 0)
     const reviews = (d: typeof data) => d.daily.reduce((n, x) => n + x.reviews, 0)
     const configured = readAnkiData(path, NOW, { deckConfig: DECKS })
-    expect(total(data)).toBe(total(configured) + 1) // + Redundant's card
-    expect(reviews(data)).toBe(reviews(configured) + 1) // + Redundant's review
+    expect(total(data)).toBe(total(configured) + 1) // + Archive's card
+    expect(reviews(data)).toBe(reviews(configured) + 1) // + Archive's review
   })
 
   it('counts real reviews per Anki day, honouring the rollover hour', () => {
     const march = readAnkiData(path, NOW, { deckConfig: DECKS }).daily.filter((s) => s.date >= '2026-03-10')
     expect(march).toEqual([
-      expect.objectContaining({ date: '2026-03-10', deckId: 'mandarin', reviews: 3, again: 2, studySeconds: 14 }),
-      expect.objectContaining({ date: '2026-03-11', deckId: 'portuguese', reviews: 1, again: 0 }),
+      expect.objectContaining({ date: '2026-03-10', deckId: 'spanish', reviews: 3, again: 2, studySeconds: 14 }),
+      expect.objectContaining({ date: '2026-03-11', deckId: 'german', reviews: 1, again: 0 }),
       expect.objectContaining({ date: '2026-03-12', deckId: 'other', reviews: 1 }),
     ])
   })
@@ -219,7 +219,7 @@ describe('FSRS data', () => {
 
   it('decodes each deck group’s preset from its protobuf blob', () => {
     const [zh, pt] = fsrs().presets
-    expect(zh).toMatchObject({ deckId: 'mandarin', presetName: 'Chinese preset', newPerDay: 15, reviewsPerDay: 400, maxInterval: 36500 })
+    expect(zh).toMatchObject({ deckId: 'spanish', presetName: 'Castilian preset', newPerDay: 15, reviewsPerDay: 400, maxInterval: 36500 })
     expect(zh.desiredRetention).toBeCloseTo(0.85, 5)
     expect(zh.learnSteps).toEqual([1, 10])
     expect(zh.relearnSteps).toEqual([10])
@@ -231,19 +231,19 @@ describe('FSRS data', () => {
 
   it('converts due numbers to dates: day count from the collection’s creation, or a timestamp for intraday learning', () => {
     const cards = fsrs().cards
-    expect(cards.find((c) => c.interval === 30)).toMatchObject({ deckId: 'mandarin', due: '2026-04-09', state: 'review' })
+    expect(cards.find((c) => c.interval === 30)).toMatchObject({ deckId: 'spanish', due: '2026-04-09', state: 'review' })
     expect(cards.find((c) => c.state === 'learning')).toMatchObject({ due: '2026-03-15', lastReview: '2026-03-10' })
   })
 
-  it('uses Anki’s stored memory state and excludes new, suspended and Redundant cards', () => {
+  it('uses Anki’s stored memory state and excludes new, suspended and Archive cards', () => {
     const f = fsrs()
-    expect(f.cards).toHaveLength(6) // 12, 13, 15, 16, 17 (mandarin) + 21 (portuguese); 18 has no state
+    expect(f.cards).toHaveLength(6) // 12, 13, 15, 16, 17 (spanish) + 21 (german); 18 has no state
     const c12 = f.cards.find((c) => c.interval === 30)!
     expect(c12.stability).toBeCloseTo(replay12.state!.stability, 6)
     expect(c12.lastReview).toBe('2026-03-10')
-    expect(f.newCards).toEqual({ mandarin: 1, other: 1 })
-    expect(f.suspended).toEqual({ mandarin: 2 })
-    expect(f.missingState).toEqual({ mandarin: 1, other: 1 }) // '{}' and 'null' card data
+    expect(f.newCards).toEqual({ spanish: 1, other: 1 })
+    expect(f.suspended).toEqual({ spanish: 2 })
+    expect(f.missingState).toEqual({ spanish: 1, other: 1 }) // '{}' and 'null' card data
     expect(f.invalidDue).toEqual({ other: 1 }) // reported separately: it has a state, but no readable due date
   })
 
@@ -253,7 +253,7 @@ describe('FSRS data', () => {
   })
 
   it('puts a card in a filtered deck in its home deck, due on its original date', () => {
-    expect(fsrs().cards.find((c) => c.stability === 12)).toMatchObject({ deckId: 'mandarin', due: '2026-03-25' })
+    expect(fsrs().cards.find((c) => c.stability === 12)).toMatchObject({ deckId: 'spanish', due: '2026-03-25' })
   })
 
   it('survives a truncated preset blob, keeping the fields read before the damage', () => {
@@ -273,16 +273,16 @@ describe('FSRS data', () => {
 
   it('calibrates only review-card reviews with a prior state and at least a day’s gap', () => {
     const cal = fsrs().calibration
-    const zh = cal.find((c) => c.deckId === 'mandarin')!
+    const zh = cal.find((c) => c.deckId === 'spanish')!
     const elapsed = day(card12[2].ms) - day(card12[1].ms)
     const learned = replay(card12.slice(0, 2).map((e) => ({ day: day(e.ms), rating: e.rating }))).state!
     expect(zh).toMatchObject({ month: '2026-03', reviews: 1, passed: 1, matureReviews: 1, maturePassed: 1 })
     expect(zh.predicted).toBeCloseTo(retrievability(elapsed, learned.stability), 6)
-    expect(cal.find((c) => c.deckId === 'portuguese')).toBeUndefined() // no prior state for card 21
+    expect(cal.find((c) => c.deckId === 'german')).toBeUndefined() // no prior state for card 21
   })
 
   it('measures answer behaviour within the window', () => {
-    const zh = fsrs().behaviour.find((b) => b.deckId === 'mandarin')!
+    const zh = fsrs().behaviour.find((b) => b.deckId === 'spanish')!
     expect(zh.firstRating).toEqual([1, 0, 1, 1]) // 13 Again, 12 Good, 15 Easy
     expect(zh.newCardsIntroduced).toBe(3)
     expect(zh.learningReviewsPerNewCard).toBeCloseTo(4 / 3) // 2 + 1 + 1 same-day learning answers
@@ -297,7 +297,7 @@ describe('FSRS data', () => {
              CREATE TABLE config (key TEXT PRIMARY KEY, val BLOB);
              CREATE TABLE cards (id INTEGER PRIMARY KEY, did INTEGER, odid INTEGER, type INTEGER, queue INTEGER, ivl INTEGER);
              CREATE TABLE revlog (id INTEGER PRIMARY KEY, cid INTEGER, ease INTEGER, time INTEGER, type INTEGER, lastIvl INTEGER);
-             INSERT INTO decks VALUES (1, 'Chinese');
+             INSERT INTO decks VALUES (1, 'Castilian');
              INSERT INTO cards VALUES (1, 1, 0, 2, 2, 5);`)
     db.prepare('INSERT INTO revlog VALUES (?, 1, 3, 5000, 1, 3)').run(at(2026, 3, 10, 12))
     db.close()
@@ -356,7 +356,7 @@ describe('FSRS data with mixed presets and incomplete histories', () => {
   const custom = readPreset(ankiBlob('fsrs6-custom')).params
   const fsrs45 = readPreset(ankiBlob('fsrs45')).params
   const ms = (d: number, h = 12) => at(2026, 2, d, h)
-  // Same answers in both Chinese decks; the subdeck's own preset gives a different memory state
+  // Same answers in both Castilian decks; the subdeck's own preset gives a different memory state
   const history = [
     { ms: ms(1, 10), rating: 3 as const, type: 0 },
     { ms: ms(1, 11), rating: 3 as const, type: 0 },
@@ -382,9 +382,9 @@ describe('FSRS data with mixed presets and incomplete histories', () => {
     conf.run(20, 'Subdeck preset', ankiBlob('fsrs6-custom'))
     conf.run(30, 'FSRS-4.5 preset', ankiBlob('fsrs45'))
     const deck = db.prepare('INSERT INTO decks VALUES (?, ?, ?)')
-    deck.run(1, 'Chinese', kind(10))
-    deck.run(2, 'Chinese\x1fOwn preset', kind(20))
-    deck.run(3, 'Portuguese', kind(30))
+    deck.run(1, 'Castilian', kind(10))
+    deck.run(2, 'Castilian\x1fOwn preset', kind(20))
+    deck.run(3, 'German', kind(30))
     const card = db.prepare('INSERT INTO cards (id, did, type, queue, due, ivl, data) VALUES (?, ?, 2, 2, ?, ?, ?)')
     const data = (st: { stability: number; difficulty: number }) =>
       JSON.stringify({ s: st.stability, d: st.difficulty, lrt: Math.floor(history[3].ms / 1000) })
@@ -405,7 +405,7 @@ describe('FSRS data with mixed presets and incomplete histories', () => {
   it('replays each card with its own home deck’s preset, as Anki does', () => {
     // If card 3 were replayed with the group’s (majority) preset, its stored state wouldn’t match
     expect(fsrs().validation).toEqual({ cards: 4, stabilityMatched: 4, difficultyMatched: 4 })
-    expect(fsrs().presets.find((p) => p.deckId === 'mandarin')).toMatchObject({ presetName: 'Zero limits', reviewsPerDay: 0 })
+    expect(fsrs().presets.find((p) => p.deckId === 'spanish')).toMatchObject({ presetName: 'Zero limits', reviewsPerDay: 0 })
   })
 
   it('tells the dashboard which preset each card uses (current recall and the forecast use it)', () => {
@@ -414,14 +414,14 @@ describe('FSRS data with mixed presets and incomplete histories', () => {
     expect(presetOf(replayed(custom).stability)).toMatchObject({ presetName: 'Subdeck preset', paramsSource: 'optimised' })
     expect(presetOf(replayed(custom).stability).params).toEqual(custom)
     expect(presetOf(replayed(DEFAULT_PARAMS).stability).presetName).toBe('Zero limits')
-    expect(f.presets.find((p) => p.deckId === 'mandarin')!.presetId).toBe(10)
+    expect(f.presets.find((p) => p.deckId === 'spanish')!.presetId).toBe(10)
   })
 
   it('leaves cards whose history doesn’t start with learning out of calibration', () => {
     const f = fsrs()
     expect(f.incompleteHistory).toBe(1)
     // Card 4 (complete history): reviews on 3 and 12 Feb are calibrated. Card 5 (starts with a review): none.
-    const pt = f.calibration.filter((c) => c.deckId === 'portuguese').reduce((n, c) => n + c.reviews, 0)
+    const pt = f.calibration.filter((c) => c.deckId === 'german').reduce((n, c) => n + c.reviews, 0)
     expect(pt).toBe(2) // card 4's two reviews; none of card 5's three
   })
 })
