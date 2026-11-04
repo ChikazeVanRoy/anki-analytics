@@ -124,3 +124,21 @@ describe('Home weekly goal', () => {
     expect(screen.getByText(messages.home.goal.change(3))).toBeTruthy()
   })
 })
+
+describe('Home Today plan', () => {
+  it('shows what’s due from real data, and never for sample data', () => {
+    render(<HomePage data={realShapedData()} />)
+    expect(screen.getByRole('heading', { name: messages.home.today.title })).toBeTruthy()
+    expect(screen.getByText(messages.home.today.dueLabel)).toBeTruthy()
+    cleanup()
+    render(<HomePage data={{ ...mockData }} />)
+    expect(screen.queryByText(messages.home.today.dueLabel)).toBeNull()
+    expect(screen.queryByText(messages.home.today.newLabel)).toBeNull()
+  })
+
+  it('asks for a refresh rather than guessing from a copy made on an earlier day', () => {
+    const old = new Date(Date.now() - 3 * 86_400_000).toISOString()
+    render(<HomePage data={{ ...realShapedData(), generatedAt: old }} />)
+    expect(screen.getByText(messages.home.today.dueStale)).toBeTruthy()
+  })
+})

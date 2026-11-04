@@ -18,6 +18,8 @@ export interface InsightInputs {
   year: HorizonSummary // current settings, 365-day run
   horizon: HorizonSummary // current settings, selected horizon
   sweep: { value: number; year: HorizonSummary }[] // new/day scenarios, 365-day runs
+  /** The scenarios the sustainable limit is read from, if not all of them. Keeps it equal to the plan shown on Home. */
+  capacitySweep?: { value: number; year: HorizonSummary }[]
   deckNames: Record<string, string>
 }
 
@@ -75,7 +77,8 @@ export function buildInsights(x: InsightInputs): Insight[] {
   }
 
   // 2. Maximum sustainable new cards
-  const max = maxSustainableNewPerDay(x.sweep, x.budgetMinutes, x.secondsPerReview)
+  const capacity = x.capacitySweep ?? x.sweep
+  const max = maxSustainableNewPerDay(capacity, x.budgetMinutes, x.secondsPerReview)
   out.push({
     question: 'How many new cards per day could I reasonably maintain?',
     answer: !max
@@ -83,7 +86,7 @@ export function buildInsights(x: InsightInputs): Insight[] {
       : max.capped
         ? `At least ${max.value} per day: every simulated scenario up to ${max.value} stays within ${fmt(x.budgetMinutes)} min per study day.`
         : `About ${max.value} per day keeps your heaviest month within ${fmt(x.budgetMinutes)} min per study day.`,
-    basis: `Interpolated between simulated scenarios (${x.sweep.map((s) => s.value).join(', ')} new/day, one year each). Change the time budget to see a different answer.`,
+    basis: `Interpolated between simulated scenarios (${capacity.map((s) => s.value).join(', ')} new/day, one year each). Change the time budget to see a different answer.`,
     tone: max && max.value >= x.newPerDay ? 'good' : 'neutral',
   })
 

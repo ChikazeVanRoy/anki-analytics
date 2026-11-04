@@ -42,6 +42,12 @@ async function started() {
 }
 
 describe('useSimulation', () => {
+  it('runs nothing when the caller already has the answer', async () => {
+    renderHook(() => useSimulation(decks, settings, false))
+    await act(() => vi.advanceTimersByTimeAsync(300))
+    expect(FakeWorker.last).toBeNull()
+  })
+
   it('reports a worker failure and stops, instead of spinning forever', async () => {
     const { hook, worker } = await started()
     expect(hook.result.current.running).toBe(true)

@@ -1,17 +1,19 @@
 import { useEffect, useState } from 'react'
+import { SCENARIO_NEW_PER_DAY } from '../lib/plan'
 import { retentionScenarioValues, type SimDeck, type SimSettings } from '../lib/simulator'
 import type { SimRequest, SimResponse } from '../lib/simulator.worker'
+
+export { SCENARIO_NEW_PER_DAY }
 
 type Main = Extract<SimResponse, { kind: 'main' }>
 type Scenarios = Extract<SimResponse, { kind: 'scenarios' }>
 
-export const SCENARIO_NEW_PER_DAY = [0, 10, 20, 30, 40, 50, 60]
-
 /**
  * Runs the simulator in a Web Worker whenever the inputs change (debounced).
  * A new request terminates the previous worker, so stale runs never finish late.
+ * With `enabled` false, nothing runs (the caller already has the answer).
  */
-export function useSimulation(decks: SimDeck[], settings: SimSettings) {
+export function useSimulation(decks: SimDeck[], settings: SimSettings, enabled = true) {
   const [main, setMain] = useState<Main | null>(null)
   const [scenarios, setScenarios] = useState<Scenarios | null>(null)
   const [running, setRunning] = useState(false)
@@ -22,7 +24,7 @@ export function useSimulation(decks: SimDeck[], settings: SimSettings) {
   const unavailable = selected.length === 0 || selected.every((d) => d.cards.length === 0 && d.newPool === 0)
 
   useEffect(() => {
-    if (unavailable) return
+    if (unavailable || !enabled || typeof Worker === 'undefined') return
     // Rebuild settings from `key` so the effect depends only on values it lists (a new settings object
     // is created on every render, so depending on it directly would restart the simulation each time)
     const current = JSON.parse(key) as SimSettings
@@ -61,7 +63,7 @@ export function useSimulation(decks: SimDeck[], settings: SimSettings) {
       clearTimeout(timer)
       worker?.terminate()
     }
-  }, [decks, key, unavailable])
+  }, [decks, key, unavailable, enabled])
 
   // A run cancelled because the selection became empty never reports back, so don't keep showing "updating"
   return { main, scenarios, running: running && !unavailable, error, unavailable }

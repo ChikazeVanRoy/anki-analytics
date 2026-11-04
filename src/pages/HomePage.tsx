@@ -5,6 +5,7 @@ import { StatCard } from '../components/StatCard'
 import { CountUp, InfoTip, ProgressBar, SourceBadge } from '../components/ui'
 import { useWeeklyGoal } from '../app/useWeeklyGoal'
 import { useDeckColor } from '../data/deckColors'
+import { useTodayPlan, type TodayPlan } from '../data/useTodayPlan'
 import type { AnkiData } from '../data/types'
 import { LOCALE, messages } from '../i18n'
 import { parseDateKey, toDateKey } from '../lib/dates'
@@ -18,6 +19,7 @@ import {
   recentDays,
   weekComparison,
   weekGoal,
+  type DueToday,
   type MilestoneTrack,
   type WeekGoal,
 } from '../lib/progress'
@@ -40,6 +42,7 @@ export function HomePage({ data }: { data: AnkiData }) {
   const decksMonth = useMemo(() => deckSummaries(data, 30), [data])
   const due = useMemo(() => dueToday(data, today), [data, today])
 
+  const plan = useTodayPlan(data, today)
   const measured = useMemo(() => measuredDefaults(data, today), [data, today])
   const { goal, change: changeGoal } = useWeeklyGoal(measured.studyDaysPerWeek)
   const thisWeek = useMemo(() => weekGoal(byDate, today, goal), [byDate, today, goal])
@@ -69,7 +72,8 @@ export function HomePage({ data }: { data: AnkiData }) {
                 ? m.status.keep(thisWeek.done, thisWeek.goal)
                 : m.status.empty
         }
-        due={due && (due.stale ? m.due.stale : due.cards > 0 ? m.due.some(due.cards, due.minutes) : m.due.none)}
+        due={due}
+        plan={plan}
         week={thisWeek}
         onChangeGoal={changeGoal}
         sample={sample}
@@ -193,6 +197,7 @@ function Hero({
   greeting,
   status,
   due,
+  plan,
   week,
   onChangeGoal,
   sample,
@@ -200,7 +205,8 @@ function Hero({
 }: {
   greeting: string
   status: string
-  due: string | null
+  due: DueToday | null
+  plan: TodayPlan | null
   week: WeekGoal
   onChangeGoal: (by: number) => void
   sample: boolean
@@ -221,16 +227,62 @@ function Hero({
             {sample && <SourceBadge kind="sample" />}
           </div>
           <p className="mt-1 text-sm font-semibold text-ink-2 sm:text-base">{status}</p>
-          {due && (
-            <p className="mt-2 inline-flex items-center gap-1.5 rounded-xl bg-surface/70 px-2.5 py-1 text-sm font-bold text-ink">
-              {due}
-              <InfoTip label={m.due.tipLabel}>{m.due.tip}</InfoTip>
-            </p>
-          )}
           {copied && <p className="mt-2 text-xs text-ink-2">{copied}</p>}
         </div>
         <WeekGoalCard week={week} onChange={onChangeGoal} />
       </div>
+      {due && <TodayPlanRow due={due} plan={plan} />}
+    </section>
+  )
+}
+
+function TodayPlanRow({ due, plan }: { due: DueToday; plan: TodayPlan | null }) {
+  const t = m.today
+  const ready = plan?.status === 'ready' ? plan : null
+  return (
+    <section aria-labelledby="home-today" className="relative mt-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 id="home-today" className="text-sm font-extrabold text-ink">
+          {t.title}
+        </h2>
+        <SourceBadge kind="mixed" />
+      </div>
+      <div className={`mt-2 grid gap-3 ${plan ? 'grid-cols-2' : ''}`}>
+        <div className="rounded-2xl bg-surface/70 p-3">
+          <p className="text-xs font-bold text-ink-2">
+            {t.dueLabel}
+            <InfoTip label={t.dueTipLabel}>{t.dueTip}</InfoTip>
+          </p>
+          <p className="mt-0.5 text-2xl font-black tracking-tight text-ink tabular-nums">{due.stale ? '—' : formatInt(due.cards)}</p>
+          <p className="mt-0.5 text-xs text-ink-2">{due.stale ? t.dueStale : due.cards > 0 ? t.dueSome(due.minutes) : t.dueNone}</p>
+        </div>
+        {plan && (
+          <div className="rounded-2xl bg-surface/70 p-3">
+            <p className="text-xs font-bold text-ink-2">
+              {t.newLabel}
+              {ready && <InfoTip label={t.newTipLabel}>{t.newTip(ready.budget)}</InfoTip>}
+            </p>
+            {ready ? (
+              <>
+                <p className="mt-0.5 text-2xl font-black tracking-tight text-ink tabular-nums">
+                  {!ready.max ? '0' : ready.max.capped ? t.newCapped(ready.max.value) : `≈ ${ready.max.value}`}
+                </p>
+                <p className="mt-0.5 text-xs text-ink-2">{ready.max ? t.newFits(ready.budget) : t.newNone(ready.budget)}</p>
+              </>
+            ) : (
+              <>
+                <div className="skeleton mt-1.5 h-6 w-14" aria-hidden />
+                <p role="status" className="mt-1 text-xs text-ink-2">
+                  {t.newPending}
+                </p>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+      <a href={routeHref('planner')} className="mt-2 inline-flex items-center gap-1.5 text-sm font-bold text-brand-strong hover:underline">
+        {t.planLink} <ArrowRightIcon size={16} />
+      </a>
     </section>
   )
 }

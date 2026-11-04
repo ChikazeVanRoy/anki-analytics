@@ -66,13 +66,24 @@ export const en = {
       met: 'This week’s goal is met. Anything more is a bonus.',
       empty: 'Your progress will appear here after your first review in Anki.',
     },
-    due: {
-      some: (n: number, minutes: number) =>
-        `${int(n)} ${plural(n, 'card is', 'cards are')} due today: about ${int(Math.max(1, minutes))} min at your usual pace.`,
-      none: 'Nothing is due right now. Enjoy the free time.',
-      stale: 'Refresh to see what’s due today: this copy is from an earlier day.',
-      tipLabel: 'About this estimate',
-      tip: 'Cards due today or overdue, from the due dates Anki stored when the collection was copied (buried cards left out). Minutes are an estimate from your measured time per answer; Anki’s daily review limit may show you fewer.',
+    today: {
+      title: 'Today',
+      dueLabel: 'Cards due',
+      dueSome: (minutes: number) => `about ${int(Math.max(1, minutes))} min at your usual pace`,
+      dueNone: 'Nothing is due right now. Enjoy the free time.',
+      dueStale: 'Refresh to see what’s due today: this copy is from an earlier day.',
+      dueTipLabel: 'About cards due',
+      dueTip:
+        'Cards due today or overdue, from the due dates Anki stored when the collection was copied (buried cards left out). Minutes are an estimate from your measured time per answer; Anki’s daily review limit may show you fewer.',
+      newLabel: 'New cards a day',
+      newFits: (budget: number) => `Projection: fits your usual ${budget} min`,
+      newNone: (budget: number) => `Projection: reviews already fill your usual ${budget} min`,
+      newCapped: (n: number) => `${n}+`,
+      newPending: 'Working it out…',
+      newTipLabel: 'About this suggestion',
+      newTip: (budget: number) =>
+        `A projection from the Planner’s simulation of your real cards: the most new cards a day whose heaviest month in the next year stays within ${budget} minutes per study day. ${budget} minutes is your measured time per study day over the last 4 weeks, rounded up to 5. It assumes you keep your recent study days and pace. Nothing changes in Anki.`,
+      planLink: 'Open the Planner',
     },
     goal: {
       progress: (done: number, goal: number) => `${done} of ${goal}`,

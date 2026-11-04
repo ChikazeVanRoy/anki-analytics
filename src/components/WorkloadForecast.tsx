@@ -20,6 +20,7 @@ import { formatInt, formatLongDate, formatPct, formatShortDate } from '../lib/fo
 import { buildInsights } from '../lib/insights'
 import type { MeasuredDefaults } from '../lib/measured'
 import { lapseEvidence } from '../lib/fsrsStats'
+import { defaultBudget, planSettings, standardSweep } from '../lib/plan'
 import { buildSimDecks, HORIZONS, presetRetentionLabel, type SimDay, type SimSettings } from '../lib/simulator'
 import { chart, forecast } from '../lib/theme'
 import { ChartTooltip } from './ChartTooltip'
@@ -76,7 +77,7 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
   const [retention, setRetention] = useState(Math.round((fsrs.presets[0]?.desiredRetention ?? 0.9) * 100) / 100)
   const [studyDays, setStudyDays] = useState(measured.studyDaysPerWeek)
   const [secs, setSecs] = useState(Math.round(measured.secondsPerReview))
-  const [budget, setBudget] = useState(Math.max(10, Math.ceil(measured.minutesPerStudyDay / 5) * 5))
+  const [budget, setBudget] = useState(defaultBudget(measured))
   const [recall, setRecall] = useState<SimSettings['recall']>('fsrs')
 
   const deckIds = deckSel === 'all' ? decks.map((d) => d.id) : [deckSel]
@@ -85,14 +86,10 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
   // The retention bar to highlight: the custom value, or the presets' value when they all agree
   const effectiveRetention = retentionMode === 'custom' ? retention : presetValues.length === 1 ? presetValues[0] / 100 : null
   const settings: SimSettings = {
-    deckIds,
+    ...planSettings(deckIds, studyDays, startWeekday),
     newPerDay,
     desiredRetention: retentionMode === 'custom' ? retention : undefined,
-    studyDaysPerWeek: studyDays,
-    runs: 24,
-    seed: 20261103,
     recall,
-    startWeekday,
   }
   const { main, scenarios, running, error, unavailable } = useSimulation(simDecks, settings)
   const summary = main?.byHorizon[horizon]
@@ -129,6 +126,7 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
           year,
           horizon: summary,
           sweep: scenarios.newPerDay.map((s) => ({ value: s.value, year: s.byHorizon[365] })),
+          capacitySweep: standardSweep(scenarios.newPerDay),
           deckNames,
         })
       : []
