@@ -36,7 +36,7 @@ describe('GoalPlanner', () => {
     show()
     fireEvent.change(target(), { target: { value: '1200' } })
     cleanup()
-    show(vi.fn(), 'mandarin')
+    show(vi.fn(), 'science')
     expect((target() as HTMLInputElement).value).toBe('1000')
   })
 
