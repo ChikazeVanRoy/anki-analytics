@@ -49,8 +49,7 @@ export function ActivityPage({ data, range, onRangeChange }: Props) {
   const canCompare = range !== 'all' && summary.hasPrevious
   const avgChange = summary.avgPerDay / summary.prevAvgPerDay - 1
   const againChange = summary.againRate - summary.prevAgainRate // percentage points
-  const compareHint =
-    range === 'all' ? 'all time' : canCompare ? `vs previous ${days} days` : `no reviews in the previous ${days} days`
+  const compareNote = range === 'all' ? null : canCompare ? m.compareWith(days) : m.compareNone(days)
   const { reviewCards, mature } = summary.retention
   const { matureThin } = retentionSplit(summary.retention)
   const minutes = decks.reduce((n, d) => n + d.minutes, 0)
@@ -77,7 +76,6 @@ export function ActivityPage({ data, range, onRangeChange }: Props) {
                 })
               : undefined
           }
-          hint={compareHint}
         />
         <StatCard
           label={m.forgot}
@@ -93,7 +91,6 @@ export function ActivityPage({ data, range, onRangeChange }: Props) {
                 })
               : undefined
           }
-          hint={compareHint}
           style={{ animationDelay: '60ms' }}
         />
         <StatCard
@@ -119,6 +116,7 @@ export function ActivityPage({ data, range, onRangeChange }: Props) {
           style={{ animationDelay: '180ms' }}
         />
       </div>
+      {compareNote && <p className="-mt-3 text-xs text-muted">{compareNote}</p>}
 
       <ActivityHeatmap byDate={byDate} today={today} years={years} />
       <DailyReviewsChart rows={periodRows} decks={data.decks} bucket={bucket} period={period} />

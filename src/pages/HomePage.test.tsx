@@ -84,6 +84,13 @@ describe('Home hero', () => {
   })
 })
 
+describe('Home insight', () => {
+  it('links to the section behind it', () => {
+    render(<HomePage data={withRetention([40, 38], [0, 0])} />)
+    expect(screen.getByRole('link', { name: messages.home.insight.more }).getAttribute('href')).toBe('#/activity')
+  })
+})
+
 describe('Home deck cards', () => {
   it('say when a deck’s Remembered rate is mostly young cards', () => {
     render(<HomePage data={withRetention([796, 795], [1, 1])} />)

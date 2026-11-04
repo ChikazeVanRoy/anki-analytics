@@ -79,4 +79,23 @@ describe('Activity headline cards', () => {
     const card = screen.getAllByText(m.forgot)[0].closest('div.animate-rise') as HTMLElement
     expect(within(card).getByText(m.noChange).className).toContain('bg-good-soft')
   })
+
+  it('explains a missing comparison once, not on every card', () => {
+    show(data([100, 95]))
+    expect(screen.getAllByText(m.compareNone(30))).toHaveLength(1)
+  })
+
+  it('says what changes are compared with, once', () => {
+    const d = data([100, 95])
+    const earlier = new Date(ankiToday(d))
+    earlier.setDate(earlier.getDate() - 30)
+    d.daily = [{ ...d.daily[0], date: toDateKey(earlier) }, ...d.daily]
+    show(d)
+    expect(screen.getAllByText(m.compareWith(30))).toHaveLength(1)
+  })
+
+  it('has nothing to compare over all time', () => {
+    render(<ActivityPage data={data([100, 95])} range="all" onRangeChange={() => {}} />)
+    expect(screen.queryByText(/previous \d+ days/)).toBeNull()
+  })
 })

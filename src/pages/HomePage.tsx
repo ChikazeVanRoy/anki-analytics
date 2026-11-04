@@ -136,7 +136,7 @@ export function HomePage({ data }: { data: AnkiData }) {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <RecentActivity rows={recent} sample={sample} className="lg:col-span-2" />
-        <InsightCard text={insight?.text ?? m.status.empty} tone={insight?.tone ?? 'neutral'} sample={sample} />
+        <InsightCard text={insight?.text ?? m.status.empty} tone={insight?.tone ?? 'neutral'} link={insight?.link} sample={sample} />
       </div>
 
       {shownDecks.length > 0 && (
@@ -326,7 +326,7 @@ function RecentActivity({ rows, sample, className = '' }: { rows: { date: string
   )
 }
 
-function InsightCard({ text, tone, sample }: { text: string; tone: 'good' | 'neutral'; sample: boolean }) {
+function InsightCard({ text, tone, link, sample }: { text: string; tone: 'good' | 'neutral'; link?: Route; sample: boolean }) {
   return (
     <section
       aria-labelledby="home-insight"
@@ -341,6 +341,15 @@ function InsightCard({ text, tone, sample }: { text: string; tone: 'good' | 'neu
       </h2>
       <p className="mt-1 text-lg leading-snug font-extrabold text-ink">{text}</p>
       <p className="mt-3 text-xs text-muted">{sample ? m.insight.basisSample : m.insight.basis}</p>
+      {link && (
+        // The ::after covers the whole card, so a tap anywhere on it follows the link
+        <a
+          href={routeHref(link)}
+          className="mt-3 inline-flex items-center gap-1.5 text-sm font-bold text-brand-strong after:absolute after:inset-0 after:content-[''] hover:underline"
+        >
+          {m.insight.more} <ArrowRightIcon size={16} />
+        </a>
+      )}
     </section>
   )
 }

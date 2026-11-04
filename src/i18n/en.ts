@@ -130,7 +130,7 @@ export const en = {
         `${deck}: ${int(flower)} known well, ${int(sprout)} learning, ${int(seed)} not started. Each plant is ${unit === 1 ? 'one card' : `about ${int(unit)} cards`}.`,
       note: 'Grown from Anki’s card counts: a card blooms once its interval reaches 21 days. Suspended cards aren’t planted.',
     },
-    insight: { title: 'Insight', basis: 'Based on your review history', basisSample: 'Based on the generated sample data' },
+    insight: { title: 'Insight', basis: 'Based on your review history', basisSample: 'Based on the generated sample data', more: 'See the detail' },
     milestones: {
       title: 'Milestones',
       question: 'What have I achieved so far?',
@@ -167,6 +167,8 @@ export const en = {
     rememberedThin: 'too few reviews of cards known well to rate them',
     rememberedNone: 'no scheduled reviews in this period',
     noChange: 'no change',
+    compareWith: (days: number) => `Changes compare with the previous ${days} days.`,
+    compareNone: (days: number) => `No reviews in the previous ${days} days, so there’s nothing to compare with yet.`,
     deckThin: (n: number) => `only ${int(n)}, too few to rate`,
     calendarRegion: 'Study calendar',
     replay: 'Replay',
