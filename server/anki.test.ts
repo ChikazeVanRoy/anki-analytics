@@ -2,7 +2,7 @@
 // The tables only have the columns the reader uses; settings blobs use Anki's real protobuf format.
 
 import { createHash } from 'node:crypto'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { copyFileSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
@@ -288,10 +288,36 @@ describe('FSRS data', () => {
     expect(cal.find((c) => c.deckId === 'german')).toBeUndefined() // no prior state for card 21
   })
 
-  it('counts cards first studied today, for the daily new-card limit', () => {
+  it('counts what was done today against the daily limits, by Anki day', () => {
+    // 10 Mar: two reviews of card 12, plus card 13's first answer at 3am on the 11th, before the rollover
+    const lateOn10th = readAnkiData(path, at(2026, 3, 10, 14), { deckConfig: DECKS }).fsrs!
+    expect(lateOn10th.reviewsToday).toEqual({ spanish: 2 })
+    expect(lateOn10th.newToday).toEqual({ spanish: 1 })
+    expect(readAnkiData(path, at(2026, 3, 11, 3), { deckConfig: DECKS }).fsrs!.newToday).toEqual({ spanish: 1 })
     expect(fsrs().newToday).toEqual({})
-    const firstDay = readAnkiData(path, card12[0].ms, { deckConfig: DECKS }).fsrs!
-    expect(firstDay.newToday.spanish).toBeGreaterThan(0)
+    expect(fsrs().reviewsToday).toEqual({})
+  })
+
+  it('leaves manual, deleted and excluded entries out of today’s reviews', () => {
+    expect(readAnkiData(path, at(2026, 3, 11, 14), { deckConfig: DECKS }).fsrs!.reviewsToday).toEqual({ german: 1 })
+  })
+
+  it('counts a card restudied after "Forget" as new that day', () => {
+    expect(readAnkiData(path, at(2026, 3, 1, 14), { deckConfig: DECKS }).fsrs!.newToday).toEqual({ spanish: 1 })
+  })
+
+  it('reads buried new cards and the review-limit option', () => {
+    expect(fsrs().newCardsIgnoreReviewLimit).toBe(false)
+    expect(fsrs().buriedNew).toEqual({})
+    const other = join(dir, 'buried.anki2')
+    copyFileSync(path, other)
+    const db = new DatabaseSync(other)
+    db.exec(`UPDATE cards SET queue = -3 WHERE id = 11; INSERT INTO config VALUES ('newCardsIgnoreReviewLimit', CAST('true' AS BLOB))`)
+    db.close()
+    const changed = readAnkiData(other, NOW, { deckConfig: DECKS }).fsrs!
+    expect(changed.buriedNew).toEqual({ spanish: 1 })
+    expect(changed.newCards).toEqual({ spanish: 1, other: 1 })
+    expect(changed.newCardsIgnoreReviewLimit).toBe(true)
   })
 
   it('measures answer behaviour within the window', () => {

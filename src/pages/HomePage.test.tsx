@@ -144,7 +144,7 @@ describe('Home Today plan', () => {
     render(<HomePage data={data} />)
     // Three decks with a limit of 20, and 5 already started today
     const tile = screen.getByText(messages.home.today.newLabel).closest('div') as HTMLElement
-    expect(tile.textContent).toContain('55')
+    expect(tile.textContent).toContain('≈ 55')
     expect(screen.getByText(messages.home.today.timeLabel)).toBeTruthy()
   })
 
@@ -178,5 +178,14 @@ describe('Home decks', () => {
   it('no longer repeats the navigation', () => {
     render(<HomePage data={realShapedData()} />)
     expect(screen.queryByRole('region', { name: 'Explore' })).toBeNull()
+  })
+})
+
+describe('Home Today limits', () => {
+  it('says when the review limit holds cards back', () => {
+    const data = realShapedData()
+    data.fsrs!.presets = data.fsrs!.presets.map((p) => ({ ...p, reviewsPerDay: 1 }))
+    render(<HomePage data={data} />)
+    expect(screen.getByText(/more held back by your review limit/)).toBeTruthy()
   })
 })

@@ -2,12 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AnkiData, DailyDeckStat } from '../data/types'
 import {
   dayStatus,
-  dueToday,
   greetingPart,
   homeInsight,
   milestones,
   milestoneTrack,
   recentDays,
+  todayWork,
   weekGoal,
   weekComparison,
 } from './progress'
@@ -154,7 +154,7 @@ describe('insight percentages', () => {
   })
 })
 
-describe('dueToday', () => {
+describe('todayWork', () => {
   const card = (due: string) => ({
     deckId: 'a',
     stability: 10,
@@ -170,7 +170,7 @@ describe('dueToday', () => {
     fsrs: {
       enabled: true,
       behaviour: [{ deckId: 'a', secondsPerReview: 6, answers: 100, learningReviewsPerNewCard: 2.5 }],
-      presets: [{ deckId: 'a', newPerDay: 0 }],
+      presets: [{ deckId: 'a', newPerDay: 0, reviewsPerDay: 1_000 }],
       newCards: {},
       newToday: {},
       cards: [...dues.map(card), ...buried.map((d) => ({ ...card(d), buried: true }))],
@@ -179,13 +179,15 @@ describe('dueToday', () => {
   })
 
   it('counts cards due today or overdue, not later ones, and estimates minutes at the measured pace', () => {
-    const due = dueToday(withFsrs(['2026-11-01', '2026-11-03', '2026-11-04', '2026-12-01']), TODAY)
-    expect(due).toEqual({ stale: false, cards: 2, newCards: 0, minutes: (2 * 6) / 60 })
+    const due = todayWork(withFsrs(['2026-11-01', '2026-11-03', '2026-11-04', '2026-12-01']), TODAY, 6)
+    expect(due).toEqual({ stale: false, cards: 2, heldBack: 0, newCards: 0, minutes: (2 * 6) / 60 })
   })
   describe('with new cards', () => {
-    const newDay = (presets: { deckId: string; newPerDay: number }[], newCards: Record<string, number>, newToday: Record<string, number>) => {
+    type Limits = { deckId: string; newPerDay: number; reviewsPerDay?: number }
+    const newDay = (presets: Limits[], newCards: Record<string, number>, newToday: Record<string, number>, extra: Partial<NonNullable<AnkiData['fsrs']>> = {}) => {
       const d = withFsrs(['2026-11-03'])
-      return dueToday({ ...d, fsrs: { ...d.fsrs!, presets, newCards, newToday } as NonNullable<AnkiData['fsrs']> }, TODAY)
+      const limited = presets.map((p) => ({ reviewsPerDay: 1_000, ...p }))
+      return todayWork({ ...d, fsrs: { ...d.fsrs!, presets: limited, newCards, newToday, ...extra } as unknown as NonNullable<AnkiData['fsrs']> }, TODAY, 6)
     }
     it('takes off what was already started today', () => {
       expect(newDay([{ deckId: 'a', newPerDay: 15 }], { a: 100 }, { a: 4 })).toMatchObject({ newCards: 11 })
@@ -196,6 +198,39 @@ describe('dueToday', () => {
     it('never goes below zero when the limit was exceeded', () => {
       expect(newDay([{ deckId: 'a', newPerDay: 5 }], { a: 100 }, { a: 9 })).toMatchObject({ newCards: 0 })
     })
+    it('leaves out buried new cards, which Anki won’t show today', () => {
+      expect(newDay([{ deckId: 'a', newPerDay: 15 }], { a: 12 }, {}, { buriedNew: { a: 8 } })).toMatchObject({ newCards: 4 })
+    })
+    it('caps reviews at the review limit, and says how many are held back', () => {
+      const d = withFsrs(['2026-11-03', '2026-11-03', '2026-11-02'])
+      const fsrs = { ...d.fsrs!, presets: [{ deckId: 'a', newPerDay: 10, reviewsPerDay: 2 }], newCards: { a: 100 } } as unknown as NonNullable<AnkiData['fsrs']>
+      expect(todayWork({ ...d, fsrs }, TODAY, 6)).toMatchObject({ cards: 2, heldBack: 1, newCards: 0 })
+    })
+    it('counts reviews and new cards already done against the review limit', () => {
+      const work = newDay([{ deckId: 'a', newPerDay: 10, reviewsPerDay: 8 }], { a: 100 }, { a: 2 }, { reviewsToday: { a: 3 } })
+      // 8 - 3 reviews - 2 new leaves 3: one due card, then 2 new cards
+      expect(work).toMatchObject({ cards: 1, heldBack: 0, newCards: 2 })
+    })
+    it('lets new cards past a used-up review limit when Anki is set to', () => {
+      const work = newDay([{ deckId: 'a', newPerDay: 10, reviewsPerDay: 1 }], { a: 100 }, {}, { newCardsIgnoreReviewLimit: true })
+      expect(work).toMatchObject({ cards: 1, newCards: 10 })
+    })
+    it('still works on an answer from an older API, without today’s counts', () => {
+      expect(newDay([{ deckId: 'a', newPerDay: 10 }], { a: 100 }, undefined as unknown as Record<string, number>)).toMatchObject({ newCards: 10 })
+    })
+    it('times each deck at its own pace', () => {
+      const d = withFsrs([])
+      const fsrs = {
+        ...d.fsrs!,
+        cards: [card('2026-11-03'), { ...card('2026-11-03'), deckId: 'b' }],
+        presets: ['a', 'b'].map((deckId) => ({ deckId, newPerDay: 0, reviewsPerDay: 100 })),
+        behaviour: [
+          { deckId: 'a', secondsPerReview: 10, answers: 100, learningReviewsPerNewCard: 2 },
+          { deckId: 'b', secondsPerReview: 20, answers: 100, learningReviewsPerNewCard: 2 },
+        ],
+      } as unknown as NonNullable<AnkiData['fsrs']>
+      expect(todayWork({ ...d, fsrs }, TODAY, 6)).toMatchObject({ minutes: 30 / 60 })
+    })
     it('counts a new card’s measured first-day answers in the time', () => {
       expect(newDay([{ deckId: 'a', newPerDay: 10 }], { a: 100 }, {})).toMatchObject({ minutes: ((1 + 10 * 2.5) * 6) / 60 })
     })
@@ -204,17 +239,17 @@ describe('dueToday', () => {
     })
   })
   it('leaves out buried cards, which Anki won’t show today', () => {
-    expect(dueToday(withFsrs(['2026-11-02'], {}, ['2026-11-02', '2026-11-03']), TODAY)).toMatchObject({ cards: 1 })
+    expect(todayWork(withFsrs(['2026-11-02'], {}, ['2026-11-02', '2026-11-03']), TODAY, 6)).toMatchObject({ cards: 1 })
   })
   it('gives no count when the copy is from an earlier Anki day', () => {
     const yesterday = { generatedAt: new Date(2026, 10, 2, 20).toISOString() }
-    expect(dueToday(withFsrs(['2026-11-01'], yesterday), TODAY)).toEqual({ stale: true })
+    expect(todayWork(withFsrs(['2026-11-01'], yesterday), TODAY, 6)).toEqual({ stale: true })
     // Before the rollover hour it's still the previous Anki day: a copy from 2am counts as 2 Nov
     const early = { generatedAt: new Date(2026, 10, 3, 2).toISOString(), dayStartHour: 4 }
-    expect(dueToday(withFsrs(['2026-11-01'], early), TODAY)).toEqual({ stale: true })
+    expect(todayWork(withFsrs(['2026-11-01'], early), TODAY, 6)).toEqual({ stale: true })
   })
   it('is null without FSRS data, so sample data never shows a due count', () => {
-    expect(dueToday(data([]), TODAY)).toBeNull()
+    expect(todayWork(data([]), TODAY, 6)).toBeNull()
   })
 })
 

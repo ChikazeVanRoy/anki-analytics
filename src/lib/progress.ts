@@ -5,7 +5,6 @@
 import type { AnkiData } from '../data/types'
 import { ankiDayKey, dayNumber, toDateKey } from './dates'
 import { formatInt, formatPct, formatRate } from './format'
-import { measuredDefaults } from './measured'
 import { deckSummaries, lastNDays, MIN_RATE_SAMPLE, ratio, retentionSplit, type DayTotal } from './stats'
 
 const studied = (byDate: Map<string, DayTotal>, key: string) => (byDate.get(key)?.reviews ?? 0) > 0
@@ -144,14 +143,15 @@ export function greetingPart(hour: number): 'morning' | 'afternoon' | 'evening' 
   return 'evening'
 }
 
-export type DueToday =
+export type TodayWork =
   | {
       stale: false
-      cards: number // studied, unburied cards due today or overdue, from Anki's stored due dates
-      newCards: number // new cards left today: each deck's daily limit, less those started, up to what's available
+      cards: number // reviews Anki will show today: unburied cards due or overdue, within the daily review limit
+      heldBack: number // cards due beyond the review limit, left for another day
+      newCards: number // estimate of new cards left today, within the daily limits
       /**
-       * Estimate of everything above: answers × measured seconds per answer, where a new card takes its deck's
-       * measured answers on the first day. Anki's daily limits may show fewer.
+       * Estimate of everything above: answers × each deck's measured seconds per answer, where a new card takes
+       * its deck's measured answers on the first day.
        */
       minutes: number
     }
@@ -164,21 +164,42 @@ export function copiedOnEarlierDay(data: AnkiData, today: Date) {
   return !Number.isFinite(copied) || ankiDayKey(copied, data.dayStartHour) < toDateKey(today)
 }
 
-/** What's waiting today, from FSRS card data. Null without real FSRS data (mock data has none). */
-export function dueToday(data: AnkiData, today: Date): DueToday | null {
+/**
+ * What's left today, from FSRS card data, following Anki's limits per deck group. Reviews come first; unless
+ * Anki's "New cards ignore review limit" is on, new cards count towards the review limit and get what's left of it.
+ * Limits are the preset most of a group's cards use, so a group of decks with different limits is approximate.
+ * `seconds` is the pace for a deck with none measured. Null without real FSRS data (mock data has none).
+ */
+export function todayWork(data: AnkiData, today: Date, seconds: number): TodayWork | null {
   if (!data.fsrs?.enabled) return null
   if (copiedOnEarlierDay(data, today)) return { stale: true }
   const day = dayNumber(toDateKey(today))
   const { fsrs } = data
-  const cards = fsrs.cards.filter((c) => !c.buried && dayNumber(c.due) <= day).length
-  let newCards = 0
-  let answers = cards
-  for (const p of fsrs.presets) {
-    const left = Math.min(Math.max(0, p.newPerDay - (fsrs.newToday[p.deckId] ?? 0)), fsrs.newCards[p.deckId] ?? 0)
-    newCards += left
-    answers += left * Math.max(1, fsrs.behaviour.find((b) => b.deckId === p.deckId)?.learningReviewsPerNewCard ?? 1)
+  const due = new Map<string, number>()
+  for (const c of fsrs.cards) {
+    if (!c.buried && dayNumber(c.due) <= day) due.set(c.deckId, (due.get(c.deckId) ?? 0) + 1)
   }
-  return { stale: false, cards, newCards, minutes: (answers * measuredDefaults(data, today).secondsPerReview) / 60 }
+  const work = { cards: 0, heldBack: 0, newCards: 0, seconds: 0 }
+  for (const [deckId, count] of due) {
+    if (fsrs.presets.some((p) => p.deckId === deckId)) continue
+    work.cards += count // no preset read for this group, so no limit to apply
+    work.seconds += count * (fsrs.behaviour.find((b) => b.deckId === deckId)?.secondsPerReview || seconds)
+  }
+  for (const p of fsrs.presets) {
+    const started = fsrs.newToday?.[p.deckId] ?? 0
+    const ignoreLimit = !!fsrs.newCardsIgnoreReviewLimit
+    const reviewRoom = Math.max(0, p.reviewsPerDay - (fsrs.reviewsToday?.[p.deckId] ?? 0) - (ignoreLimit ? 0 : started))
+    const dueHere = due.get(p.deckId) ?? 0
+    const shown = Math.min(dueHere, reviewRoom)
+    const available = Math.max(0, (fsrs.newCards[p.deckId] ?? 0) - (fsrs.buriedNew?.[p.deckId] ?? 0))
+    const newLeft = Math.min(Math.max(0, p.newPerDay - started), available, ignoreLimit ? Infinity : reviewRoom - shown)
+    const b = fsrs.behaviour.find((x) => x.deckId === p.deckId)
+    work.cards += shown
+    work.heldBack += dueHere - shown
+    work.newCards += newLeft
+    work.seconds += (shown + newLeft * Math.max(1, b?.learningReviewsPerNewCard ?? 1)) * (b?.secondsPerReview || seconds)
+  }
+  return { stale: false, cards: work.cards, heldBack: work.heldBack, newCards: work.newCards, minutes: work.seconds / 60 }
 }
 
 // ---------- One insight ----------

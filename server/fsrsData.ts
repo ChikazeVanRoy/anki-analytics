@@ -156,6 +156,7 @@ export function readFsrsData(ctx: Context): FsrsData {
   const cardPresetId = new Map<number, number>() // card id -> preset of its home deck
   const cards: FsrsCard[] = []
   const newCards: Record<string, number> = {}
+  const buriedNew: Record<string, number> = {}
   const suspended: Record<string, number> = {}
   const missingState: Record<string, number> = {}
   const invalidDue: Record<string, number> = {}
@@ -182,6 +183,7 @@ export function readFsrsData(ctx: Context): FsrsData {
     }
     if (type === 0) {
       add(newCards, group)
+      if (queue === -2 || queue === -3) add(buriedNew, group)
       continue
     }
     let data: { s?: unknown; d?: unknown; lrt?: unknown } = {}
@@ -254,9 +256,10 @@ export function readFsrsData(ctx: Context): FsrsData {
   const validation = { cards: 0, stabilityMatched: 0, difficultyMatched: 0 }
   let resetCards = 0
   let incompleteHistory = 0
-  const windowStart = dayNumber(dayKey(ctx.now)) - WINDOW_DAYS
   const today = dayNumber(dayKey(ctx.now))
+  const windowStart = today - WINDOW_DAYS
   const newToday: Record<string, number> = {}
+  const reviewsToday: Record<string, number> = {}
   const behaviour = new Map<string, DeckBehaviour & { timeSum: number; timeN: number; learnN: number }>()
   for (const g of groupIds) {
     behaviour.set(g, {
@@ -347,7 +350,11 @@ export function readFsrsData(ctx: Context): FsrsData {
       bins.set(binKey, bin)
     })
 
+    // What counts against today's limits
     if (history[0].type === 0 && days[0] === today) add(newToday, group)
+    history.forEach((e, i) => {
+      if (e.type === 1 && days[i] === today) add(reviewsToday, group)
+    })
 
     // New-card behaviour: first answer, and same-day learning answers on the introduction day
     if (history[0].type === 0 && days[0] >= windowStart) {
@@ -365,7 +372,10 @@ export function readFsrsData(ctx: Context): FsrsData {
     presets,
     cards,
     newCards,
+    buriedNew,
     newToday,
+    reviewsToday,
+    newCardsIgnoreReviewLimit: readConfigJson(db, 'newCardsIgnoreReviewLimit') === true,
     suspended,
     missingState,
     invalidDue,

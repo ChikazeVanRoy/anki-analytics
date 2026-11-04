@@ -14,15 +14,15 @@ import { deckFinish, type DeckFinish } from '../lib/deckPace'
 import { changeDelta, formatCopiedAt, formatInt, formatMinutes, formatPct, formatRate, SAME_RELATIVE } from '../lib/format'
 import {
   dayStatus,
-  dueToday,
   greetingPart,
   homeInsight,
   milestones,
   recentDays,
+  todayWork,
   weekComparison,
   weekGoal,
-  type DueToday,
   type MilestoneTrack,
+  type TodayWork,
   type WeekGoal,
 } from '../lib/progress'
 import { gardenBed, plantUnit, type GardenBed } from '../lib/garden'
@@ -43,10 +43,10 @@ export function HomePage({ data }: { data: AnkiData }) {
   const insight = useMemo(() => homeInsight(data, byDate, today), [data, byDate, today])
   const decksWeek = useMemo(() => deckSummaries(data, 7), [data])
   const decksMonth = useMemo(() => deckSummaries(data, 30), [data])
-  const due = useMemo(() => dueToday(data, today), [data, today])
 
   const plan = useTodayPlan(data, today)
   const measured = useMemo(() => measuredDefaults(data, today), [data, today])
+  const due = useMemo(() => todayWork(data, today, measured.secondsPerReview), [data, today, measured])
   const { goal, change: changeGoal } = useWeeklyGoal(measured.studyDaysPerWeek)
   const thisWeek = useMemo(() => weekGoal(byDate, today, goal), [byDate, today, goal])
 
@@ -198,7 +198,7 @@ function Hero({
 }: {
   greeting: string
   status: string
-  due: DueToday | null
+  due: TodayWork | null
   plan: TodayPlan | null
   week: WeekGoal
   onChangeGoal: (by: number) => void
@@ -229,7 +229,7 @@ function Hero({
   )
 }
 
-function TodayPlanRow({ due, plan }: { due: DueToday; plan: TodayPlan | null }) {
+function TodayPlanRow({ due, plan }: { due: TodayWork; plan: TodayPlan | null }) {
   const t = m.today
   const left = !due.stale && due.cards + due.newCards > 0
   return (
@@ -244,8 +244,8 @@ function TodayPlanRow({ due, plan }: { due: DueToday; plan: TodayPlan | null }) 
         <p className="mt-2 rounded-2xl bg-surface/70 p-3 text-sm font-semibold text-ink-2">{t.stale}</p>
       ) : (
         <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <TodayTile label={t.dueLabel} tipLabel={t.dueTipLabel} tip={t.dueTip} value={formatInt(due.cards)} sub={t.dueSub} />
-          <TodayTile label={t.newLabel} tipLabel={t.newTipLabel} tip={t.newTip} value={formatInt(due.newCards)} sub={t.newSub} />
+          <TodayTile label={t.dueLabel} tipLabel={t.dueTipLabel} tip={t.dueTip} value={formatInt(due.cards)} sub={due.heldBack > 0 ? t.dueHeld(due.heldBack) : t.dueSub} />
+          <TodayTile label={t.newLabel} tipLabel={t.newTipLabel} tip={t.newTip} value={`≈ ${formatInt(due.newCards)}`} sub={t.newSub} />
           <TodayTile
             label={t.timeLabel}
             tipLabel={t.timeTipLabel}
@@ -290,7 +290,13 @@ function PlanSuggestion({ plan }: { plan: TodayPlan }) {
   const { budget, max } = plan
   return (
     <p className="mt-2 text-xs text-ink-2">
-      {!max ? t.suggestNone(budget) : max.capped ? t.suggestCapped(max.value, budget) : t.suggest(max.value, budget)}
+      {!max
+        ? t.suggestNone(budget)
+        : max.value === 0
+          ? t.suggestNoRoom(budget)
+          : max.capped
+            ? t.suggestCapped(max.value, budget)
+            : t.suggest(max.value, budget)}
       <InfoTip label={t.suggestTipLabel}>{t.suggestTip(budget)}</InfoTip>
     </p>
   )

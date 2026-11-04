@@ -132,7 +132,14 @@ export interface FsrsData {
   /** Presets referenced by FsrsCard.preset. */
   cardPresets?: CardPreset[]
   newCards: Record<string, number> // unsuspended new cards available per deck group
-  newToday: Record<string, number> // cards first studied today, per deck group (counts against Anki's daily limit)
+  /** New cards in `newCards` that are buried, so Anki won't show them today. */
+  buriedNew?: Record<string, number>
+  /** Cards first studied today, per deck group. Counts against the daily new-card limit. */
+  newToday?: Record<string, number>
+  /** Review-card answers today, per deck group. Counts against the daily review limit. */
+  reviewsToday?: Record<string, number>
+  /** Anki's "New cards ignore review limit" option. Off, new cards stop once the review limit is used up. */
+  newCardsIgnoreReviewLimit?: boolean
   suspended: Record<string, number>
   missingState: Record<string, number> // studied cards without an FSRS memory state (excluded everywhere)
   invalidDue: Record<string, number> // studied cards with a memory state but an unreadable due date (excluded)
