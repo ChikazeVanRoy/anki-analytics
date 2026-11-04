@@ -43,7 +43,8 @@ export default function App() {
     // A refresh already running will bring this in, or report why it can't
     if (!refreshing) void refresh()
   }, [attempt, refreshing, refresh])
-  const { recap, dismissRecap } = useSessionRecap(real)
+  // Not from a snapshot: it can be older than the last visit, which would count those reviews a second time
+  const { recap, dismissRecap } = useSessionRecap(state.status === 'ready' && state.fromSnapshot ? null : real)
   const decks = state.status === 'ready' ? state.data.decks : undefined
   const deckColors = useMemo(() => deckColorMap(decks ?? []), [decks])
 
@@ -57,6 +58,7 @@ export default function App() {
     <AppShell
       route={route}
       data={state.data}
+      fromSnapshot={state.fromSnapshot}
       fallbackReason={state.fallbackReason}
       fallbackKind={state.fallbackKind}
       onRefresh={refresh}

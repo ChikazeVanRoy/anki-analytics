@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { messages } from '../src/i18n'
+import { SNAPSHOT_VERSION } from '../src/lib/snapshot'
 import { realShapedData } from '../src/test/fsrsFixture'
 
 const ROUTES = ['#/', '#/activity', '#/planner', '#/advanced', '#/wrapped']
@@ -19,7 +20,11 @@ async function useRealShapedData(page: Page) {
   // Answered here so it never reaches a real API running on this machine
   await page.route('**/api/status', (route) => route.fulfill({ json: { ankiRunning: true, updateAvailable: false, sourceModified: null } }))
 }
-const useNoApi = (page: Page) => page.route('**/api/**', (route) => route.abort())
+// The snapshot too, so a test can't pick up one saved on this machine
+const useNoApi = async (page: Page) => {
+  await page.route('**/api/**', (route) => route.abort())
+  await page.route('**/snapshot.json', (route) => route.abort())
+}
 
 const expectNoSidewaysScroll = (page: Page) =>
   expect
@@ -78,6 +83,21 @@ test('falls back to labelled sample data with no API, and never calls it measure
     await expect(page.locator('main').getByText(messages.badges.sample, { exact: true })).toBeVisible()
     await expect(page.getByText(messages.badges.measured, { exact: true })).toHaveCount(0)
   }
+})
+
+test('with no API, a saved snapshot is shown with its age instead of sample data', async ({ page }) => {
+  const errors = watchErrors(page)
+  const data = realShapedData()
+  await useNoApi(page)
+  await page.route('**/snapshot.json', (route) => route.fulfill({ json: { version: SNAPSHOT_VERSION, data } }))
+  for (const route of ROUTES) {
+    await page.goto(route)
+    await page.reload()
+    await expect(page.getByText(messages.data.snapshotTitle)).toBeVisible()
+    await expect(page.getByText(messages.data.sampleTitle)).toHaveCount(0)
+    await expectNoSidewaysScroll(page)
+  }
+  expect(errors).toEqual([])
 })
 
 test('a refused refresh explains itself and keeps the real data', async ({ page }) => {

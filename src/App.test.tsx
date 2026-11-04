@@ -4,6 +4,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { mockData } from './data/mockData'
 import { messages } from './i18n'
+import { formatCopiedAt } from './lib/format'
+import { SNAPSHOT_VERSION } from './lib/snapshot'
 
 // The clock the page reads, so a test can cross midnight without stepping real intervals
 const clock = vi.hoisted(() => ({ now: null as number | null }))
@@ -18,6 +20,80 @@ afterEach(() => {
   clock.now = null
   vi.useRealTimers()
   vi.unstubAllGlobals()
+})
+
+describe('a saved snapshot', () => {
+  const stats = { ...mockData, source: 'anki', generatedAt: '2026-11-01T09:00:00.000Z' }
+  const noApi = (snapshot: () => Response) =>
+    vi.fn(async (url: string) => {
+      if (url === '/snapshot.json') return snapshot()
+      throw new TypeError('Failed to fetch')
+    })
+
+  it('is shown with its age when the API can’t answer, and never as sample data', async () => {
+    vi.stubGlobal('fetch', noApi(() => new Response(JSON.stringify({ version: SNAPSHOT_VERSION, data: stats }))))
+    render(<App />)
+    expect(await screen.findByText(messages.data.snapshotTitle)).toBeTruthy()
+    expect(screen.getByRole('status').textContent).toContain(messages.data.lastUpdated(formatCopiedAt(stats.generatedAt)))
+    expect(screen.queryByText(messages.data.sampleTitle)).toBeNull()
+  })
+
+  it('still says why live data failed, so a broken config can be fixed', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) =>
+        url === '/snapshot.json' ? new Response(JSON.stringify({ version: SNAPSHOT_VERSION, data: stats })) : new Response('{"error":"Bad deck config"}', { status: 500 }),
+      ),
+    )
+    render(<App />)
+    expect(await screen.findByText(messages.data.sampleReason('Bad deck config'))).toBeTruthy()
+  })
+
+  it('leaves the last visit alone, as a snapshot can be older than it', async () => {
+    const lastVisit = JSON.stringify({ reviews: 999_999, seconds: 0, started: 0, proven: 0, day: '2026-11-04', before: 0, streak: 0, badges: [] })
+    localStorage.setItem('anki-analytics:last-visit', lastVisit)
+    vi.stubGlobal('fetch', noApi(() => new Response(JSON.stringify({ version: SNAPSHOT_VERSION, data: stats }))))
+    render(<App />)
+    await screen.findByText(messages.data.snapshotTitle)
+    await act(async () => {})
+    expect(localStorage.getItem('anki-analytics:last-visit')).toBe(lastVisit)
+    localStorage.removeItem('anki-analytics:last-visit')
+  })
+
+  it('isn’t used while the API answers', async () => {
+    const fetchMock = vi.fn(async (url: string) => new Response(url === '/api/status' ? '{}' : JSON.stringify(stats)))
+    vi.stubGlobal('fetch', fetchMock)
+    render(<App />)
+    await screen.findAllByText(messages.data.live)
+    expect(screen.queryByText(messages.data.snapshotTitle)).toBeNull()
+    expect(fetchMock).not.toHaveBeenCalledWith('/snapshot.json', expect.anything())
+  })
+
+  it('gives way to live data once a refresh works', async () => {
+    let apiUp = false
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (url === '/snapshot.json') return new Response(JSON.stringify({ version: SNAPSHOT_VERSION, data: stats }))
+        if (url === '/api/refresh' && apiUp) return new Response(JSON.stringify({ ...stats, generatedAt: new Date().toISOString() }))
+        throw new TypeError('Failed to fetch')
+      }),
+    )
+    render(<App />)
+    await screen.findByText(messages.data.snapshotTitle)
+    apiUp = true
+    fireEvent.click(screen.getByRole('button', { name: messages.data.refresh }))
+    await waitFor(() => expect(screen.queryByText(messages.data.snapshotTitle)).toBeNull())
+  })
+
+  it('falls back to labelled sample data when a snapshot is missing or from another version', async () => {
+    for (const response of [new Response('{}', { status: 404 }), new Response(JSON.stringify({ version: SNAPSHOT_VERSION + 1, data: stats }))]) {
+      vi.stubGlobal('fetch', noApi(() => response))
+      render(<App />)
+      expect(await screen.findByText(messages.data.sampleTitle)).toBeTruthy()
+      cleanup()
+    }
+  })
 })
 
 describe('fresh data when Anki closes', () => {
@@ -116,7 +192,7 @@ describe('App data states', () => {
     )
     render(<App />)
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(15_000)
+      await vi.advanceTimersByTimeAsync(20_000) // the API's wait, then the snapshot's
     })
     expect(await screen.findByText(/did not answer in time/)).toBeTruthy()
     expect(screen.getByText(/check that npm run dev is still running/)).toBeTruthy()

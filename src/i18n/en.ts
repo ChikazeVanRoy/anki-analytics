@@ -25,6 +25,9 @@ export const en = {
   data: {
     live: 'Your Anki data',
     sample: 'Sample data',
+    snapshot: 'Saved snapshot',
+    snapshotTitle: 'Showing a saved snapshot.',
+    lastUpdated: (when: string) => `Last updated ${when}. Newer reviews won’t appear until the next update.`,
     copiedAt: (when: string) => `Copied from Anki ${when}`,
     sampleTitle: 'You’re looking at sample data',
     sampleBody:

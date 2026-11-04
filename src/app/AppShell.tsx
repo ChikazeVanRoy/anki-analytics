@@ -18,6 +18,8 @@ const NAV_ICONS: Record<(typeof NAV_ROUTES)[number], (p: { size?: number }) => R
 interface ShellProps {
   route: Route
   data: AnkiData
+  /** The stats come from a saved snapshot, because the live API couldn't answer. */
+  fromSnapshot?: boolean
   fallbackReason?: string
   fallbackKind?: FailureKind
   onRefresh: () => void
@@ -33,7 +35,7 @@ interface ShellProps {
 }
 
 export function AppShell(props: ShellProps) {
-  const { route, data, fallbackReason, fallbackKind, onRefresh, refreshing, refreshError, onDismissError, update, onDismissUpdate, theme, onCycleTheme, children } = props
+  const { route, data, fromSnapshot, fallbackReason, fallbackKind, onRefresh, refreshing, refreshError, onDismissError, update, onDismissUpdate, theme, onCycleTheme, children } = props
   const sample = data.source === 'mock'
   const copied = formatCopiedAt(data.generatedAt)
 
@@ -80,11 +82,11 @@ export function AppShell(props: ShellProps) {
             <span
               title={sample ? fallbackReason : m.data.copiedAt(copied)}
               className={`hidden items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold lg:inline-flex ${
-                sample ? 'bg-warning-soft text-warning' : 'bg-good-soft text-good'
+                sample ? 'bg-warning-soft text-warning' : fromSnapshot ? 'bg-surface-2 text-ink-2' : 'bg-good-soft text-good'
               }`}
             >
-              {sample ? <WarningIcon size={14} /> : <span className="size-2 rounded-full bg-good" aria-hidden />}
-              {sample ? m.data.sample : m.data.live}
+              {sample ? <WarningIcon size={14} /> : <span className={`size-2 rounded-full ${fromSnapshot ? 'bg-muted' : 'bg-good'}`} aria-hidden />}
+              {sample ? m.data.sample : fromSnapshot ? m.data.snapshot : m.data.live}
             </span>
             <button
               type="button"
@@ -122,6 +124,15 @@ export function AppShell(props: ShellProps) {
               <p className="font-bold text-ink-2">{m.data.sampleNext[fallbackKind ?? 'collection']}</p>
               {fallbackReason && <p className="mt-1 text-xs text-muted">{m.data.sampleReason(fallbackReason)}</p>}
             </div>
+          </div>
+        )}
+
+        {fromSnapshot && (
+          <div role="status" className="animate-rise mt-5 rounded-3xl border border-line bg-surface-2 px-5 py-3 text-sm text-ink-2">
+            <p>
+              <span className="font-bold text-ink">{m.data.snapshotTitle}</span> {m.data.lastUpdated(copied)}
+            </p>
+            {fallbackReason && <p className="mt-1 text-xs text-muted">{m.data.sampleReason(fallbackReason)}</p>}
           </div>
         )}
 
