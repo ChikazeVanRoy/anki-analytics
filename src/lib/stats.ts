@@ -78,18 +78,6 @@ function sumDays(byDate: Map<string, DayTotal>, days: string[]): DayTotal {
   return sum
 }
 
-/** Consecutive days with reviews. If today has none yet, the streak runs to yesterday. */
-export function currentStreak(byDate: Map<string, DayTotal>, today = new Date()): number {
-  const d = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-  if (!byDate.get(toDateKey(d))?.reviews) d.setDate(d.getDate() - 1)
-  let streak = 0
-  while ((byDate.get(toDateKey(d))?.reviews ?? 0) > 0) {
-    streak++
-    d.setDate(d.getDate() - 1)
-  }
-  return streak
-}
-
 export interface Retention {
   reviewCards: { reviews: number; passed: number; hard: number; rate: number }
   mature: { reviews: number; passed: number; rate: number }
@@ -146,7 +134,6 @@ export function summarize(data: AnkiData, days: number) {
     againRate: ratio(current.again, current.reviews),
     prevAgainRate: ratio(previous.again, previous.reviews),
     activeDays: range.filter((d) => (byDate.get(d)?.reviews ?? 0) > 0).length,
-    streak: currentStreak(byDate, today),
     retention: retentionOf(data.daily.filter((s) => inRange.has(s.date))),
   }
 }

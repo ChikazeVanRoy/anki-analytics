@@ -81,7 +81,6 @@
 
   --animate-rise: rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
   --animate-pop: pop 0.45s cubic-bezier(0.3, 1.4, 0.5, 1) both;
-  --animate-flicker: flicker 2.4s ease-in-out infinite;
   --animate-shimmer: shimmer 1.6s linear infinite;
   --animate-grow: grow 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 
@@ -95,18 +94,6 @@
     from {
       opacity: 0;
       transform: scale(0.85);
-    }
-  }
-  @keyframes flicker {
-    0%,
-    100% {
-      transform: scale(1) rotate(0deg);
-    }
-    30% {
-      transform: scale(1.05, 0.97) rotate(-2deg);
-    }
-    60% {
-      transform: scale(0.97, 1.04) rotate(2deg);
     }
   }
   @keyframes shimmer {

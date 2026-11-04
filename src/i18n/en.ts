@@ -61,8 +61,9 @@ export const en = {
     status: {
       done: (n: number) => `You’ve reviewed ${int(n)} ${plural(n, 'card', 'cards')} today. Nice work!`,
       doneMoreDue: (n: number) => `You’ve reviewed ${int(n)} ${plural(n, 'card', 'cards')} today, with more waiting when you’re ready.`,
-      keep: (streak: number) => `Your ${streak}-day streak is waiting. A short session today keeps it going.`,
-      start: 'Ready when you are. A short session today starts a new streak.',
+      keep: (done: number, goal: number) =>
+        done === 0 ? 'A new week. A short session today gets it started.' : `${done} of ${goal} days so far this week. A short session today counts.`,
+      met: 'This week’s goal is met. Anything more is a bonus.',
       empty: 'Your progress will appear here after your first review in Anki.',
     },
     due: {
@@ -73,7 +74,20 @@ export const en = {
       tipLabel: 'About this estimate',
       tip: 'Cards due today or overdue, from the due dates Anki stored when the collection was copied (buried cards left out). Minutes are an estimate from your measured time per answer; Anki’s daily review limit may show you fewer.',
     },
-    streak: { label: 'day streak', best: (n: number) => `Best: ${n} ${plural(n, 'day', 'days')}` },
+    goal: {
+      progress: (done: number, goal: number) => `${done} of ${goal}`,
+      unit: 'days this week',
+      met: 'Goal met',
+      left: (n: number) => `${n} more ${plural(n, 'day', 'days')} to go`,
+      nextWeek: 'A new week starts on Monday',
+      inARow: (n: number) => `${n} weeks in a row`,
+      day: (date: string, studied: boolean) => `${date}: ${studied ? 'studied' : 'not studied'}`,
+      label: 'Weekly goal',
+      fewer: 'Lower the goal by one day',
+      more: 'Raise the goal by one day',
+      change: (goal: number) => `Goal: ${goal} ${plural(goal, 'day', 'days')}`,
+      tip: 'Days with at least one review this calendar week, Monday to Sunday. The goal starts at your measured habit over the last 4 weeks; change it with the buttons. Rest days don’t count against you.',
+    },
     kpi: {
       today: 'Reviewed today',
       todaySub: (minutes: number) => (minutes > 0 ? `about ${int(minutes)} min` : 'nothing yet today'),
@@ -135,7 +149,7 @@ export const en = {
       title: 'Milestones',
       question: 'What have I achieved so far?',
       reviews: 'Reviews completed',
-      streak: 'Longest streak',
+      days: 'Days studied',
       known: 'Cards known well',
       reached: (label: string) => `Reached ${label}`,
       none: 'First milestone ahead',

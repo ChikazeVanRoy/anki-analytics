@@ -133,33 +133,6 @@ export const BrainIcon = (p: IconProps) => (
   </Icon>
 )
 
-/** Streak flame: filled and gently flickering when lit, an outline when the streak is 0. */
-export function Flame({ lit, size = 44 }: { lit: boolean; size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden className={lit ? 'origin-bottom animate-flicker' : ''}>
-      <defs>
-        <linearGradient id="flame-outer" x1="0" y1="1" x2="0" y2="0">
-          <stop offset="0" stopColor="#f0600f" />
-          <stop offset="1" stopColor="#ffb340" />
-        </linearGradient>
-        <linearGradient id="flame-inner" x1="0" y1="1" x2="0" y2="0">
-          <stop offset="0" stopColor="#ffd25e" />
-          <stop offset="1" stopColor="#fff3c4" />
-        </linearGradient>
-      </defs>
-      <path
-        d="M24 4c2 7 10 11 10 22a10 10 0 0 1-20 0c0-5 2.5-8 5-10 0 4 1.5 6 3.5 6C22.5 16 20 11 24 4Z"
-        fill={lit ? 'url(#flame-outer)' : 'none'}
-        stroke={lit ? 'none' : 'var(--color-muted)'}
-        strokeWidth="2.2"
-        strokeLinejoin="round"
-        transform="translate(0 6)"
-      />
-      {lit && <path d="M24 27c2 2.5 5 4.5 5 8.5a5 5 0 0 1-10 0c0-3 2-5 5-8.5Z" fill="url(#flame-inner)" transform="translate(0 2)" />}
-    </svg>
-  )
-}
-
 /** App logo: two stacked cards with a check. */
 export function Logo({ size = 32 }: { size?: number }) {
   return (

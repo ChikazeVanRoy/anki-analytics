@@ -1,8 +1,9 @@
 import { useMemo, useState, type KeyboardEvent, type ReactNode } from 'react'
-import { ActivityIcon, AdvancedIcon, ArrowRightIcon, BrainIcon, CheckIcon, Flame, LayersIcon, PlannerIcon, SparkleIcon, TrophyIcon } from '../components/icons'
+import { ActivityIcon, AdvancedIcon, ArrowRightIcon, BrainIcon, CheckIcon, LayersIcon, PlannerIcon, SparkleIcon, TrophyIcon } from '../components/icons'
 import { MemoryGarden } from '../components/MemoryGarden'
 import { StatCard } from '../components/StatCard'
 import { CountUp, InfoTip, ProgressBar, SourceBadge } from '../components/ui'
+import { useWeeklyGoal } from '../app/useWeeklyGoal'
 import { useDeckColor } from '../data/deckColors'
 import type { AnkiData } from '../data/types'
 import { LOCALE, messages } from '../i18n'
@@ -13,12 +14,14 @@ import {
   dueToday,
   greetingPart,
   homeInsight,
-  longestStreak,
   milestones,
   recentDays,
   weekComparison,
+  weekGoal,
   type MilestoneTrack,
+  type WeekGoal,
 } from '../lib/progress'
+import { measuredDefaults } from '../lib/measured'
 import { routeHref, type Route } from '../lib/route'
 import { ankiToday, deckSummaries, retentionSplit, summarize, totalsByDate, type DeckSummary } from '../lib/stats'
 
@@ -30,7 +33,6 @@ export function HomePage({ data }: { data: AnkiData }) {
   const week7 = useMemo(() => summarize(data, 7), [data])
   const month = useMemo(() => summarize(data, 30), [data])
   const week = useMemo(() => weekComparison(byDate, today), [byDate, today])
-  const best = useMemo(() => longestStreak(byDate), [byDate])
   const recent = useMemo(() => recentDays(byDate, today, 14), [byDate, today])
   const tracks = useMemo(() => milestones(data, byDate), [data, byDate])
   const insight = useMemo(() => homeInsight(data, byDate, today), [data, byDate, today])
@@ -38,9 +40,13 @@ export function HomePage({ data }: { data: AnkiData }) {
   const decksMonth = useMemo(() => deckSummaries(data, 30), [data])
   const due = useMemo(() => dueToday(data, today), [data, today])
 
+  const measured = useMemo(() => measuredDefaults(data, today), [data, today])
+  const { goal, change: changeGoal } = useWeeklyGoal(measured.studyDaysPerWeek)
+  const thisWeek = useMemo(() => weekGoal(byDate, today, goal), [byDate, today, goal])
+
   const [hour] = useState(() => new Date().getHours())
   const hasAny = data.daily.some((s) => s.reviews > 0)
-  const status = dayStatus(hasAny, week7.reviewsToday, week7.streak)
+  const status = dayStatus(hasAny, week7.reviewsToday, thisWeek.met)
   const todayMinutes = (byDate.get(toDateKey(today))?.seconds ?? 0) / 60
   const { reviewCards } = month.retention
   const split = retentionSplit(month.retention)
@@ -57,15 +63,15 @@ export function HomePage({ data }: { data: AnkiData }) {
             ? due && !due.stale && due.cards > 0
               ? m.status.doneMoreDue(week7.reviewsToday)
               : m.status.done(week7.reviewsToday)
-            : status === 'keep'
-              ? m.status.keep(week7.streak)
-              : status === 'start'
-                ? m.status.start
+            : status === 'met'
+              ? m.status.met
+              : status === 'keep'
+                ? m.status.keep(thisWeek.done, thisWeek.goal)
                 : m.status.empty
         }
         due={due && (due.stale ? m.due.stale : due.cards > 0 ? m.due.some(due.cards, due.minutes) : m.due.none)}
-        streak={week7.streak}
-        best={best}
+        week={thisWeek}
+        onChangeGoal={changeGoal}
         sample={sample}
         copied={sample ? null : messages.data.copiedAt(formatCopiedAt(data.generatedAt))}
       />
@@ -187,16 +193,16 @@ function Hero({
   greeting,
   status,
   due,
-  streak,
-  best,
+  week,
+  onChangeGoal,
   sample,
   copied,
 }: {
   greeting: string
   status: string
   due: string | null
-  streak: number
-  best: number
+  week: WeekGoal
+  onChangeGoal: (by: number) => void
   sample: boolean
   copied: string | null
 }) {
@@ -223,18 +229,50 @@ function Hero({
           )}
           {copied && <p className="mt-2 text-xs text-ink-2">{copied}</p>}
         </div>
-        <div className="flex shrink-0 items-center gap-2 self-start rounded-2xl bg-surface px-3.5 py-2.5 shadow-card sm:self-auto">
-          <Flame lit={streak > 0} size={30} />
-          <div>
-            <p className="text-sm leading-tight text-ink">
-              <span className="text-xl font-black tabular-nums">
-                <CountUp value={streak} format={formatInt} />
-              </span>{' '}
-              <span className="font-bold text-sun-ink">{m.streak.label}</span>
-            </p>
-            {best > 0 && <p className="text-xs text-muted">{m.streak.best(best)}</p>}
-          </div>
-        </div>
+        <WeekGoalCard week={week} onChange={onChangeGoal} />
+      </div>
+    </section>
+  )
+}
+
+function WeekGoalCard({ week, onChange }: { week: WeekGoal; onChange: (by: number) => void }) {
+  const g = m.goal
+  const hint = week.met ? g.met : week.reachable ? g.left(week.goal - week.done) : g.nextWeek
+  const stepClass = 'grid size-8 place-items-center rounded-xl bg-surface-2 text-base leading-none font-black text-ink-2 hover:text-ink disabled:opacity-40'
+  return (
+    <section aria-label={g.label} className="shrink-0 self-start rounded-2xl bg-surface px-3.5 py-3 shadow-card sm:self-auto">
+      <p className="text-sm text-ink">
+        <span className="text-xl font-black tabular-nums">{g.progress(week.done, week.goal)}</span> <span className="font-bold text-ink-2">{g.unit}</span>
+        <InfoTip label={`About ${g.label}`}>{g.tip}</InfoTip>
+      </p>
+      <ol className="mt-2 flex gap-1.5">
+        {week.days.map((d) => {
+          const date = parseDateKey(d.date)
+          return (
+            <li
+              key={d.date}
+              className={`grid size-7 place-items-center rounded-full text-[11px] font-bold ${
+                d.studied ? 'bg-brand text-brand-ink' : d.future ? 'border border-dashed border-line text-muted' : 'bg-surface-2 text-muted'
+              } ${d.isToday ? 'ring-2 ring-sun ring-offset-2 ring-offset-surface' : ''}`}
+            >
+              <span className="sr-only">{g.day(date.toLocaleDateString(LOCALE, { weekday: 'long' }), d.studied)}</span>
+              <span aria-hidden>{d.studied ? <CheckIcon size={14} /> : date.toLocaleDateString(LOCALE, { weekday: 'narrow' })}</span>
+            </li>
+          )
+        })}
+      </ol>
+      <p className="mt-2 text-xs text-muted">
+        {hint}
+        {week.weeksInRow > 1 && ` · ${g.inARow(week.weeksInRow)}`}
+      </p>
+      <div className="mt-2 flex items-center gap-1.5 text-xs font-bold text-ink-2">
+        <span className="mr-auto">{g.change(week.goal)}</span>
+        <button type="button" aria-label={g.fewer} disabled={week.goal <= 1} onClick={() => onChange(-1)} className={stepClass}>
+          −
+        </button>
+        <button type="button" aria-label={g.more} disabled={week.goal >= 7} onClick={() => onChange(1)} className={stepClass}>
+          +
+        </button>
       </div>
     </section>
   )
@@ -413,19 +451,18 @@ function DeckCard({ week, month }: { week: DeckSummary; month: DeckSummary }) {
 
 const MILESTONE_STYLE: Record<MilestoneTrack['kind'], { icon: ReactNode; color: string; tint: string; title: string }> = {
   reviews: { icon: <TrophyIcon size={20} />, color: 'var(--color-brand)', tint: 'var(--color-brand-soft)', title: m.milestones.reviews },
-  streak: { icon: <Flame lit size={24} />, color: 'var(--color-sun-ink)', tint: 'var(--color-sun-soft)', title: m.milestones.streak },
+  days: { icon: <ActivityIcon size={20} />, color: 'var(--color-sun-ink)', tint: 'var(--color-sun-soft)', title: m.milestones.days },
   known: { icon: <BrainIcon size={20} />, color: 'var(--color-good)', tint: 'var(--color-good-soft)', title: m.milestones.known },
 }
 
 function MilestoneCard({ track }: { track: MilestoneTrack }) {
   const s = MILESTONE_STYLE[track.kind]
-  const unit = track.kind === 'streak' ? (n: number) => `${formatInt(n)} ${n === 1 ? 'day' : 'days'}` : formatInt
+  const unit = track.kind === 'days' ? (n: number) => `${formatInt(n)} ${n === 1 ? 'day' : 'days'}` : formatInt
   return (
     <article className="rounded-3xl border border-line bg-surface p-5 shadow-card">
       <div className="flex items-center justify-between gap-2">
         <span className="grid size-10 place-items-center rounded-2xl" style={{ background: s.tint, color: s.color }}>
-          {/* The streak flame is decorative here; the title says what it is */}
-          {track.kind === 'streak' ? <Flame lit={track.current > 0} size={24} /> : s.icon}
+          {s.icon}
         </span>
         {track.reached !== null ? (
           <span className="animate-pop inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-extrabold" style={{ background: s.tint, color: s.color }}>

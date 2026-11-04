@@ -5,7 +5,6 @@ import {
   ankiToday,
   bucketFor,
   bucketStart,
-  currentStreak,
   deckSummaries,
   lastNDays,
   rangeDays,
@@ -13,7 +12,6 @@ import {
   reviewsByPeriod,
   summarize,
   toDateKey,
-  totalsByDate,
 } from './stats'
 
 function stat(date: string, deckId: string, reviews: number, again = 0, extra: Partial<DailyDeckStat> = {}): DailyDeckStat {
@@ -67,25 +65,6 @@ describe('ankiToday', () => {
     expect(toDateKey(ankiToday(data([], 1)))).toBe('2026-03-14')
     vi.setSystemTime(new Date(2026, 2, 15, 1, 30))
     expect(toDateKey(ankiToday(data([], 1)))).toBe('2026-03-15')
-  })
-})
-
-describe('currentStreak', () => {
-  const today = new Date(2026, 2, 15)
-  it('counts consecutive days ending today', () => {
-    const byDate = totalsByDate([stat('2026-03-13', 'a', 5), stat('2026-03-14', 'a', 5), stat('2026-03-15', 'a', 5)])
-    expect(currentStreak(byDate, today)).toBe(3)
-  })
-  it('still counts up to yesterday when today has no reviews yet', () => {
-    const byDate = totalsByDate([stat('2026-03-13', 'a', 5), stat('2026-03-14', 'a', 5)])
-    expect(currentStreak(byDate, today)).toBe(2)
-  })
-  it('stops at a gap', () => {
-    const byDate = totalsByDate([stat('2026-03-11', 'a', 5), stat('2026-03-13', 'a', 5), stat('2026-03-14', 'a', 5)])
-    expect(currentStreak(byDate, today)).toBe(2)
-  })
-  it('is 0 with no recent reviews', () => {
-    expect(currentStreak(totalsByDate([stat('2026-03-01', 'a', 5)]), today)).toBe(0)
   })
 })
 
