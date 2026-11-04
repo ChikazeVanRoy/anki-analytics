@@ -5,7 +5,7 @@
 import { execFileSync } from 'node:child_process'
 import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ANKI_DIR = join(homedir(), 'Library', 'Application Support', 'Anki2')
@@ -27,10 +27,18 @@ function matches(...pgrepArgs: string[]) {
 
 // Exact process name, or anything launched from Anki.app. A loose "anki" match would also
 // hit unrelated processes such as macOS's "voicebankingd".
-const ankiIsRunning = () => matches('-x', '-i', 'anki') || matches('-f', 'Anki\\.app/Contents/')
+export const ankiIsRunning = () => matches('-x', '-i', 'anki') || matches('-f', 'Anki\\.app/Contents/')
 
-const findProfiles = () =>
-  existsSync(ANKI_DIR) ? readdirSync(ANKI_DIR).filter((name) => existsSync(join(ANKI_DIR, name, 'collection.anki2'))) : []
+/** Where this runs against. Tests pass throwaway folders, so they never touch Anki's files or the real copy. */
+export interface CopyPlaces {
+  ankiDir: string
+  copyPath: string
+  ankiRunning: () => boolean
+}
+const REAL_PLACES: CopyPlaces = { ankiDir: ANKI_DIR, copyPath: COLLECTION_COPY, ankiRunning: ankiIsRunning }
+
+const findProfiles = (ankiDir: string) =>
+  existsSync(ankiDir) ? readdirSync(ankiDir).filter((name) => existsSync(join(ankiDir, name, 'collection.anki2'))) : []
 
 export interface AnkiStatus {
   ankiRunning: boolean
@@ -49,35 +57,36 @@ export function canUpdate(running: boolean, cleanClose: boolean, sourceModified:
 const modified = (path: string) => (existsSync(path) ? statSync(path).mtimeMs : null)
 
 /** Whether a refresh is worth offering. Only looks at file dates: it never opens Anki's collection. */
-export function ankiStatus(profileName = process.env.ANKI_PROFILE): AnkiStatus {
-  const ankiRunning = ankiIsRunning()
-  const profiles = findProfiles()
+export function ankiStatus(profileName = process.env.ANKI_PROFILE, places = REAL_PLACES): AnkiStatus {
+  const ankiRunning = places.ankiRunning()
+  const profiles = findProfiles(places.ankiDir)
   const profile = profileName ?? (profiles.length === 1 ? profiles[0] : undefined)
-  const source = profile && profiles.includes(profile) ? join(ANKI_DIR, profile, 'collection.anki2') : null
+  const source = profile && profiles.includes(profile) ? join(places.ankiDir, profile, 'collection.anki2') : null
   const sourceModified = source ? modified(source) : null
   const cleanClose = !!source && !existsSync(`${source}-wal`)
-  return { ankiRunning, sourceModified, updateAvailable: canUpdate(ankiRunning, cleanClose, sourceModified, modified(COLLECTION_COPY)) }
+  return { ankiRunning, sourceModified, updateAvailable: canUpdate(ankiRunning, cleanClose, sourceModified, modified(places.copyPath)) }
 }
 
-export function copyCollection(profileName = process.env.ANKI_PROFILE): { profile: string; bytes: number } {
-  if (ankiIsRunning()) throw new CopyError('Anki is running. Quit Anki completely, then try again.')
+export function copyCollection(profileName = process.env.ANKI_PROFILE, places = REAL_PLACES): { profile: string; bytes: number } {
+  if (places.ankiRunning()) throw new CopyError('Anki is running. Quit Anki completely, then try again.')
 
-  const profiles = findProfiles()
+  const profiles = findProfiles(places.ankiDir)
   const profile = profileName ?? (profiles.length === 1 ? profiles[0] : undefined)
   if (!profile) throw new CopyError(`Found profiles: ${profiles.join(', ') || 'none'}. Set ANKI_PROFILE=<name>.`)
   // Only accept an existing profile folder name, so ANKI_PROFILE can't point outside Anki's folder (e.g. "../..")
   if (!profiles.includes(profile)) throw new CopyError(`Unknown profile "${profile}". Found: ${profiles.join(', ') || 'none'}.`)
 
-  const source = join(ANKI_DIR, profile, 'collection.anki2')
+  const source = join(places.ankiDir, profile, 'collection.anki2')
   if (!existsSync(source)) throw new CopyError(`No collection found for profile "${profile}".`)
   // A leftover write-ahead log means Anki didn't close cleanly; the copy could be incomplete.
   if (existsSync(`${source}-wal`)) {
     throw new CopyError('Anki did not close cleanly. Open and quit Anki once, then try again.')
   }
 
-  mkdirSync(DEST_DIR, { recursive: true })
+  const { copyPath } = places
+  mkdirSync(dirname(copyPath), { recursive: true })
   // Remove SQLite side-files left by reading the previous copy, so they can't be replayed onto the new one
-  for (const suffix of ['-wal', '-shm']) rmSync(`${COLLECTION_COPY}${suffix}`, { force: true })
-  copyFileSync(source, COLLECTION_COPY)
-  return { profile, bytes: statSync(COLLECTION_COPY).size }
+  for (const suffix of ['-wal', '-shm']) rmSync(`${copyPath}${suffix}`, { force: true })
+  copyFileSync(source, copyPath)
+  return { profile, bytes: statSync(copyPath).size }
 }
