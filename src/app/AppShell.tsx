@@ -38,6 +38,8 @@ export function AppShell(props: ShellProps) {
   const { route, data, fromSnapshot, fallbackReason, fallbackKind, onRefresh, refreshing, refreshError, onDismissError, update, onDismissUpdate, theme, onCycleTheme, children } = props
   const sample = data.source === 'mock'
   const copied = formatCopiedAt(data.generatedAt)
+  // Showing a snapshot because the server can't be reached: a refresh would fail, and the reason is only about that
+  const unreachable = !!fromSnapshot && (fallbackKind === 'api-down' || fallbackKind === 'timeout')
 
   return (
     <div className="min-h-screen pb-24 md:pb-0">
@@ -88,17 +90,19 @@ export function AppShell(props: ShellProps) {
               {sample ? <WarningIcon size={14} /> : <span className={`size-2 rounded-full ${fromSnapshot ? 'bg-muted' : 'bg-good'}`} aria-hidden />}
               {sample ? m.data.sample : fromSnapshot ? m.data.snapshot : m.data.live}
             </span>
-            <button
-              type="button"
-              onClick={onRefresh}
-              disabled={refreshing}
-              title={m.data.refreshHint}
-              aria-label={refreshing ? m.data.refreshing : m.data.refresh}
-              className="inline-flex h-10 items-center gap-2 rounded-2xl border border-line bg-surface px-3 text-sm font-bold text-ink-2 shadow-card transition-all hover:text-ink active:scale-95 disabled:opacity-60"
-            >
-              <RefreshIcon size={18} spinning={refreshing} />
-              <span className="hidden sm:inline">{refreshing ? m.data.refreshing : m.data.refresh}</span>
-            </button>
+            {!unreachable && (
+              <button
+                type="button"
+                onClick={onRefresh}
+                disabled={refreshing}
+                title={m.data.refreshHint}
+                aria-label={refreshing ? m.data.refreshing : m.data.refresh}
+                className="inline-flex h-10 items-center gap-2 rounded-2xl border border-line bg-surface px-3 text-sm font-bold text-ink-2 shadow-card transition-all hover:text-ink active:scale-95 disabled:opacity-60"
+              >
+                <RefreshIcon size={18} spinning={refreshing} />
+                <span className="hidden sm:inline">{refreshing ? m.data.refreshing : m.data.refresh}</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={onCycleTheme}
@@ -132,7 +136,7 @@ export function AppShell(props: ShellProps) {
             <p>
               <span className="font-bold text-ink">{m.data.snapshotTitle}</span> {m.data.lastUpdated(copied)}
             </p>
-            {fallbackReason && <p className="mt-1 text-xs text-muted">{m.data.sampleReason(fallbackReason)}</p>}
+            {fallbackReason && !unreachable && <p className="mt-1 text-xs text-muted">{m.data.sampleReason(fallbackReason)}</p>}
           </div>
         )}
 

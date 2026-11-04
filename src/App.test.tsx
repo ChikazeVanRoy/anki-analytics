@@ -38,6 +38,49 @@ describe('a saved snapshot', () => {
     expect(screen.queryByText(messages.data.sampleTitle)).toBeNull()
   })
 
+  it('offers no refresh that can’t work, and no talk of servers, when the Mac can’t be reached', async () => {
+    vi.stubGlobal('fetch', noApi(() => new Response(JSON.stringify({ version: SNAPSHOT_VERSION, data: stats }))))
+    render(<App />)
+    await screen.findByText(messages.data.snapshotTitle)
+    expect(screen.queryByRole('button', { name: messages.data.refresh })).toBeNull()
+    expect(screen.queryByText(new RegExp(messages.data.apiDown.slice(0, 12)))).toBeNull()
+  })
+
+  it('looks again when the app comes back into view: a newer snapshot, then live data', async () => {
+    const newer = { ...stats, generatedAt: '2026-11-02T09:00:00.000Z' }
+    let saved = stats
+    let apiUp = false
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (url === '/snapshot.json') return new Response(JSON.stringify({ version: SNAPSHOT_VERSION, data: saved }))
+        if (url === '/api/stats' && apiUp) return new Response(JSON.stringify(newer))
+        if (url === '/api/status') return new Response('{}')
+        throw new TypeError('Failed to fetch')
+      }),
+    )
+    render(<App />)
+    await screen.findByText(messages.data.snapshotTitle)
+    saved = newer
+    await act(async () => void window.dispatchEvent(new Event('focus')))
+    await waitFor(() => expect(screen.getByRole('status').textContent).toContain(messages.data.lastUpdated(formatCopiedAt(newer.generatedAt))))
+    apiUp = true
+    await act(async () => void document.dispatchEvent(new Event('visibilitychange')))
+    await waitFor(() => expect(screen.queryByText(messages.data.snapshotTitle)).toBeNull())
+  })
+
+  it('keeps the snapshot if looking again finds nothing, rather than turning to sample data', async () => {
+    let up = true
+    vi.stubGlobal('fetch', noApi(() => (up ? new Response(JSON.stringify({ version: SNAPSHOT_VERSION, data: stats })) : new Response('{}', { status: 404 }))))
+    render(<App />)
+    await screen.findByText(messages.data.snapshotTitle)
+    up = false
+    await act(async () => void window.dispatchEvent(new Event('focus')))
+    await act(async () => {})
+    expect(screen.getByText(messages.data.snapshotTitle)).toBeTruthy()
+    expect(screen.queryByText(messages.data.sampleTitle)).toBeNull()
+  })
+
   it('still says why live data failed, so a broken config can be fixed', async () => {
     vi.stubGlobal(
       'fetch',
@@ -76,7 +119,7 @@ describe('a saved snapshot', () => {
       vi.fn(async (url: string) => {
         if (url === '/snapshot.json') return new Response(JSON.stringify({ version: SNAPSHOT_VERSION, data: stats }))
         if (url === '/api/refresh' && apiUp) return new Response(JSON.stringify({ ...stats, generatedAt: new Date().toISOString() }))
-        throw new TypeError('Failed to fetch')
+        return new Response('{"error":"Bad deck config"}', { status: 500 })
       }),
     )
     render(<App />)
@@ -182,6 +225,21 @@ describe('App data states', () => {
     render(<App />)
     expect(await screen.findByText(/quit Anki, then press Refresh/)).toBeTruthy()
     expect(screen.getByText(/No collection copy yet\./)).toBeTruthy()
+  })
+
+  it('gives up on the API sooner when installed, so a sleeping Mac doesn’t hold up the app', async () => {
+    Object.defineProperty(navigator, 'standalone', { value: true, configurable: true })
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_url: string, init: RequestInit) => new Promise((_, reject) => init.signal!.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError'))))),
+    )
+    render(<App />)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(9_000) // 4 s for the API, then 5 s for the snapshot
+    })
+    delete (navigator as { standalone?: boolean }).standalone
+    expect(await screen.findByText(/did not answer in time/)).toBeTruthy()
   })
 
   it('aborts the request and reports a timeout when the API never answers', async () => {

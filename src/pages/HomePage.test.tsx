@@ -228,3 +228,11 @@ describe('Home Today limits', () => {
     expect(screen.getByText(/more held back by your review limit/)).toBeTruthy()
   })
 })
+
+describe('next step on a saved snapshot', () => {
+  it('doesn’t promise an update when Anki closes, as nothing is watching it', async () => {
+    render(<HomePage data={realShapedData()} fromSnapshot />)
+    expect(await screen.findByText(messages.home.next.snapshotSub)).toBeTruthy()
+    expect(screen.queryByText(messages.home.next.sub)).toBeNull()
+  })
+})

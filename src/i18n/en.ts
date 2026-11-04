@@ -121,6 +121,7 @@ export const en = {
       refresh: 'Update your copy to see today’s cards',
       refreshSub: 'Quit Anki and it updates by itself, or press Refresh.',
       sub: 'Open Anki when you’re ready. This page updates when you close it.',
+      snapshotSub: 'Open Anki when you’re ready. Your reviews appear here after the next update.',
     },
     quests: {
       title: 'Today’s quests',

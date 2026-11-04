@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { messages } from '../i18n'
 import { parseSnapshot } from '../lib/snapshot'
 import { mockData } from './mockData'
@@ -20,9 +20,16 @@ export class ApiError extends Error {
 }
 /** The first load must not hang forever; a refresh copies the collection, so it gets longer. */
 const LOAD_TIMEOUT_MS = 15_000
+/** The installed app has a snapshot to show, so it shouldn't sit on a blank screen while the Mac sleeps. */
+const INSTALLED_LOAD_TIMEOUT_MS = 4_000
 const REFRESH_TIMEOUT_MS = 90_000
 /** Only tried after the API has failed, so it adds little to that wait. */
 const SNAPSHOT_TIMEOUT_MS = 5_000
+
+/** Opened from the home screen, not in a browser tab. iOS only reports this through navigator.standalone. */
+function isInstalled() {
+  return window.matchMedia?.('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone === true
+}
 
 /** fetch + JSON, turning API errors and proxy failures (API not running) into typed, readable errors. */
 async function request(url: string, timeoutMs: number, init?: RequestInit): Promise<unknown> {
@@ -61,9 +68,31 @@ async function savedSnapshot(): Promise<AnkiData | null> {
   }
 }
 
+type Loaded = Extract<State, { status: 'ready' }>
+
+/** The best stats available right now: live, then a saved snapshot, then labelled sample data. */
+async function loadBest(): Promise<Loaded> {
+  try {
+    const data = await request('/api/stats', isInstalled() ? INSTALLED_LOAD_TIMEOUT_MS : LOAD_TIMEOUT_MS)
+    return { status: 'ready', data: data as AnkiData }
+  } catch (err) {
+    const saved = await savedSnapshot()
+    const failure = err instanceof ApiError ? err : new ApiError('server', messages.data.serverError)
+    const fallback = { fallbackReason: failure.message, fallbackKind: failure.kind }
+    return saved ? { status: 'ready', data: saved, fromSnapshot: true, ...fallback } : { status: 'ready', data: mockData, ...fallback }
+  }
+}
+
+/** What to show after looking again. Unchanged stats keep their object, so the pages don't recalculate for nothing. */
+function afterRecheck(current: State, next: Loaded): State {
+  if (current.status !== 'ready' || next.data.source === 'mock') return current
+  return next.fromSnapshot && current.data.generatedAt === next.data.generatedAt ? current : next
+}
+
 /**
  * Loads real stats from the local API, falling back to a saved snapshot, then to clearly labelled mock data.
- * `refresh()` asks the API to re-copy the collection from Anki first.
+ * `refresh()` asks the API to re-copy the collection from Anki first. While on a snapshot it looks again each time the
+ * app comes back into view: a phone keeps an installed app in memory, so reopening one doesn't reload the page.
  */
 export function useAnkiData() {
   const [state, setState] = useState<State>({ status: 'loading' })
@@ -72,20 +101,33 @@ export function useAnkiData() {
 
   useEffect(() => {
     let cancelled = false
-    request('/api/stats', LOAD_TIMEOUT_MS)
-      .then((data) => !cancelled && setState({ status: 'ready', data: data as AnkiData }))
-      .catch(async (err: unknown) => {
-        const saved = await savedSnapshot()
-        if (cancelled) return
-        const failure = err instanceof ApiError ? err : new ApiError('server', messages.data.serverError)
-        if (saved) return setState({ status: 'ready', data: saved, fromSnapshot: true, fallbackReason: failure.message })
-        setState({ status: 'ready', data: mockData, fallbackReason: failure.message, fallbackKind: failure.kind })
-      })
+    void loadBest().then((loaded) => !cancelled && setState(loaded))
     // Cleanup: ignore the response if the component unmounts first
     return () => {
       cancelled = true
     }
   }, [])
+
+  const onSnapshot = state.status === 'ready' && !!state.fromSnapshot
+  const checking = useRef(false)
+  useEffect(() => {
+    if (!onSnapshot) return
+    const lookAgain = () => {
+      if (document.hidden || checking.current) return
+      checking.current = true
+      void loadBest()
+        .then((loaded) => setState((current) => afterRecheck(current, loaded)))
+        .finally(() => {
+          checking.current = false
+        })
+    }
+    window.addEventListener('focus', lookAgain)
+    document.addEventListener('visibilitychange', lookAgain)
+    return () => {
+      window.removeEventListener('focus', lookAgain)
+      document.removeEventListener('visibilitychange', lookAgain)
+    }
+  }, [onSnapshot])
 
   const refresh = useCallback(async () => {
     setRefreshing(true)

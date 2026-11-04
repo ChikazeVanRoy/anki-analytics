@@ -46,7 +46,7 @@ import { ankiToday, answerCounts, deckSummaries, lastNDays, retentionSplit, summ
 
 const m = messages.home
 
-export function HomePage({ data }: { data: AnkiData }) {
+export function HomePage({ data, fromSnapshot = false }: { data: AnkiData; fromSnapshot?: boolean }) {
   const today = useMemo(() => ankiToday(data), [data])
   const byDate = useMemo(() => totalsByDate(data.daily), [data])
   // An old copy can't see the days since it was made, so every window ends on its day, not today
@@ -114,6 +114,7 @@ export function HomePage({ data }: { data: AnkiData }) {
         best={best}
         streakAsOf={copyLabel}
         sample={sample}
+        fromSnapshot={fromSnapshot}
         copied={sample ? null : messages.data.copiedAt(formatCopiedAt(data.generatedAt))}
       />
 
@@ -248,8 +249,10 @@ function Hero({
   best,
   streakAsOf,
   sample,
+  fromSnapshot,
   copied,
 }: {
+  fromSnapshot: boolean
   greeting: string
   status: string
   due: TodayWork | null
@@ -296,18 +299,18 @@ function Hero({
           </div>
         </div>
       </div>
-      {next && <NextUp step={next} />}
+      {next && <NextUp step={next} fromSnapshot={fromSnapshot} />}
       {due && <TodayPlanRow due={due} plan={plan} />}
     </section>
   )
 }
 
 /** The one thing to do now, bigger than everything around it. */
-function NextUp({ step }: { step: NextStep }) {
+function NextUp({ step, fromSnapshot }: { step: NextStep; fromSnapshot: boolean }) {
   const n = m.next
   const title =
     step.kind === 'reviews' ? n.reviews(step.cards, step.minutes) : step.kind === 'new' ? n.fresh(step.cards, step.minutes) : step.kind === 'done' ? n.done : n.refresh
-  const sub = step.kind === 'done' ? n.doneSub : step.kind === 'refresh' ? n.refreshSub : n.sub
+  const sub = step.kind === 'done' ? n.doneSub : fromSnapshot ? n.snapshotSub : step.kind === 'refresh' ? n.refreshSub : n.sub
   return (
     <div className="relative mt-4 rounded-2xl bg-surface p-4 shadow-card">
       <p className="text-xs font-extrabold tracking-wide text-brand-strong uppercase">{n.label}</p>

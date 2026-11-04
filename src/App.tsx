@@ -79,6 +79,7 @@ export default function App() {
               key={ankiDayKey(now, state.data.dayStartHour)}
               route={route}
               data={state.data}
+              fromSnapshot={state.fromSnapshot}
               range={range}
               onRangeChange={setRange}
             />
@@ -89,7 +90,7 @@ export default function App() {
   )
 }
 
-function Page({ route, data, range, onRangeChange }: { route: string; data: AnkiData; range: RangeKey; onRangeChange: (r: RangeKey) => void }) {
+function Page({ route, data, fromSnapshot, range, onRangeChange }: { route: string; data: AnkiData; fromSnapshot?: boolean; range: RangeKey; onRangeChange: (r: RangeKey) => void }) {
   const today = useMemo(() => ankiToday(data), [data])
   switch (route) {
     case 'activity':
@@ -101,6 +102,6 @@ function Page({ route, data, range, onRangeChange }: { route: string; data: Anki
     case 'advanced':
       return <AdvancedPage data={data} today={today} />
     default:
-      return <HomePage data={data} />
+      return <HomePage data={data} fromSnapshot={fromSnapshot} />
   }
 }
