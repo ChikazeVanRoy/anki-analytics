@@ -158,13 +158,13 @@ describe('Home Today plan', () => {
 describe('Home decks', () => {
   it('keeps the garden inside each deck card', () => {
     render(<HomePage data={realShapedData()} />)
-    const card = screen.getByRole('heading', { name: 'Language' }).closest('article') as HTMLElement
+    const card = screen.getAllByRole('heading', { name: 'Language' })[0].closest('article') as HTMLElement
     expect(card.querySelector('[role="group"]')?.getAttribute('aria-label')).toMatch(/^Language: /)
   })
 
   it('labels a finish date as a projection', () => {
     render(<HomePage data={realShapedData()} />)
-    const card = screen.getByRole('heading', { name: 'Language' }).closest('article') as HTMLElement
+    const card = screen.getAllByRole('heading', { name: 'Language' })[0].closest('article') as HTMLElement
     expect(card.textContent).toContain(messages.badges.projection)
     expect(card.textContent).toMatch(/you’d start the last card around/)
   })

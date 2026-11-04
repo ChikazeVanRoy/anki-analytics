@@ -1,14 +1,18 @@
 import { useMemo, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { ActivityIcon, ArrowRightIcon, BrainIcon, CheckIcon, Flame, LayersIcon, SparkleIcon, TrophyIcon } from '../components/icons'
 import { AnswerBar } from '../components/AnswerBar'
+import { Badges } from '../components/Badges'
+import { JourneyMap } from '../components/JourneyMap'
 import { GardenLegend, GardenPlot } from '../components/MemoryGarden'
 import { Mascot } from '../components/Mascot'
+import { Quests } from '../components/Quests'
 import { StatCard } from '../components/StatCard'
 import { CountUp, Disclosure, InfoTip, ProgressBar, SourceBadge } from '../components/ui'
 import { useDeckColor } from '../data/deckColors'
 import { useTodayPlan, type TodayPlan } from '../data/useTodayPlan'
 import type { AnkiData } from '../data/types'
 import { LOCALE, messages } from '../i18n'
+import { earnedBadges } from '../lib/badges'
 import { parseDateKey, toDateKey } from '../lib/dates'
 import { deckFinish, type DeckFinish } from '../lib/deckPace'
 import { changeDelta, formatCopiedAt, formatInt, formatMinutes, formatPct, formatRate, formatShortDate, SAME_RELATIVE } from '../lib/format'
@@ -36,6 +40,7 @@ import { cardsNow } from '../lib/fsrsStats'
 import { gardenBed, livingBed, plantUnit, type GardenBed } from '../lib/garden'
 import { measuredDefaults } from '../lib/measured'
 import { limitRange } from '../lib/plan'
+import { dailyQuests } from '../lib/quests'
 import { routeHref, type Route } from '../lib/route'
 import { ankiToday, answerCounts, deckSummaries, lastNDays, retentionSplit, summarize, totalsByDate, type DeckSummary } from '../lib/stats'
 
@@ -77,6 +82,9 @@ export function HomePage({ data }: { data: AnkiData }) {
   const shownDecks = data.decks.filter((d) => d.totalCards + d.suspendedCards > 0)
   const plantsPer = plantUnit(shownDecks, 60)
   const asOfKey = toDateKey(asOf)
+  const badges = useMemo(() => earnedBadges(data, byDate), [data, byDate])
+  const paceNew = plan?.status === 'ready' ? (limitRange(plan.max, plan.altMax)?.[0] || plan.max?.value || null) : null
+  const quests = useMemo(() => dailyQuests(data, today, due, paceNew), [data, today, due, paceNew])
   const living = useMemo(() => (data.fsrs ? cardsNow(data.fsrs, asOfKey) : null), [data, asOfKey])
 
   return (
@@ -107,6 +115,8 @@ export function HomePage({ data }: { data: AnkiData }) {
         copied={sample ? null : messages.data.copiedAt(formatCopiedAt(data.generatedAt))}
       />
 
+      <Quests quests={quests} />
+
       {shownDecks.length > 0 && (
         <section aria-labelledby="home-decks" className="animate-rise">
           <div className="flex flex-wrap items-start justify-between gap-2">
@@ -131,6 +141,8 @@ export function HomePage({ data }: { data: AnkiData }) {
         </section>
       )}
 
+      {shownDecks.length > 0 && <JourneyMap decks={shownDecks} />}
+
       <section aria-labelledby="home-milestones" className="animate-rise rounded-3xl border border-line bg-surface p-5 shadow-card sm:p-6">
         <SectionHeading id="home-milestones" title={m.milestones.title} question={m.milestones.question} />
         <div className="grid gap-4 md:grid-cols-3">
@@ -140,6 +152,8 @@ export function HomePage({ data }: { data: AnkiData }) {
         </div>
         <p className="mt-3 text-xs text-muted">{m.milestones.note}</p>
       </section>
+
+      <Badges earned={badges} />
 
       <Disclosure title={m.numbers.title} subtitle={m.numbers.subtitle}>
         <div className="space-y-6 pt-2">
