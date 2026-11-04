@@ -176,7 +176,7 @@ Notes from the code:
 
 ## 4. Source files and their responsibilities
 
-### Server (`server/`, Node 22.18+, TypeScript run directly)
+### Server (`server/`, Node 26.1+, TypeScript run directly)
 
 | File | Responsibility |
 |---|---|

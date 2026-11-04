@@ -3,6 +3,7 @@
 // Used as: osascript -l JavaScript scripts/finder-look.js <file> <icon.png>
 ObjC.import('AppKit')
 
+// oxlint-disable-next-line no-unused-vars -- osascript calls this
 function run([file, icon]) {
   const image = $.NSImage.alloc.initWithContentsOfFile(icon)
   $.NSWorkspace.sharedWorkspace.setIconForFileOptions(image, file, 0)

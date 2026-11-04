@@ -4,7 +4,7 @@ A local-first dashboard for Anki learning progress, with FSRS memory analytics a
 React + TypeScript + Vite, Tailwind CSS, Recharts; a small Node API reads a **copy** of your Anki collection
 with Node's built-in SQLite. The original collection is never modified.
 
-Requires Node 22.18+ (the API's TypeScript runs directly, no build step) and macOS (it looks for Anki in
+Requires Node 26.1+ (the API's TypeScript runs directly, no build step, and card text needs its newest SQLite features) and macOS (it looks for Anki in
 `~/Library/Application Support/Anki2`).
 
 ## Run
