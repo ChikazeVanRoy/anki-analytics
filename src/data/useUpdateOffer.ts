@@ -6,9 +6,10 @@ const POLL_MS = 15_000
 export type UpdateReason = 'reviews' | 'day'
 
 /**
- * Watches for Anki closing with reviews this copy doesn't have, so the app can offer a refresh instead of a
+ * Watches for Anki closing with reviews this copy doesn't have, so the app can refresh by itself instead of a
  * refresh failing because Anki is still open. Checks while the page is in view, and again whenever the copy
- * changes. Dismissing hides that one version of the collection; newer reviews offer again.
+ * changes. `version` tells one update from the next. Dismissing hides that one version of the collection; newer
+ * reviews offer again.
  * `newDay`: the copy is from an earlier Anki day, so a refresh is what brings today's due cards in.
  */
 export function useUpdateOffer(copiedAt: string | undefined, newDay: boolean) {
@@ -39,5 +40,6 @@ export function useUpdateOffer(copiedAt: string | undefined, newDay: boolean) {
   }, [copiedAt, newDay])
 
   const dismiss = useCallback(() => setDismissed(available?.modified ?? null), [available])
-  return { update: available && available.modified !== dismissed ? available.reason : null, dismissUpdate: dismiss }
+  const shown = available && available.modified !== dismissed ? available : null
+  return { update: shown?.reason ?? null, version: shown?.modified ?? null, dismissUpdate: dismiss }
 }

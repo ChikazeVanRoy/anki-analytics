@@ -19,12 +19,15 @@ npm run lint              # oxlint
 npm run build             # type-check + production build
 ```
 
-Or double-click **`Anki Analytics.command`** in Finder: it installs the dependencies on the first run, starts
-the app and opens it in your browser. Keep its Terminal window open while you use the dashboard; close it to
-stop. Drag the file to the right-hand side of the Dock for one-click launching. If macOS says it can't be
-opened (it does for files downloaded as a ZIP), right-click it and choose **Open** once.
+Or double-click **`Anki Analytics.command`** in Finder: it installs the dependencies and builds the app when
+needed, starts it in the background on http://localhost:5174 and opens it in your browser. You can close the
+Terminal window straight away. To stop the app, double-click **`Stop Anki Analytics.command`**. Drag the launcher
+to the right-hand side of the Dock for one-click launching. If macOS says it can't be opened (it does for files
+downloaded as a ZIP), right-click it and choose **Open** once. Its log is `data/server.log`. Stop it before
+running `npm run dev`, which needs the same API port.
 
-For fresh stats, quit Anki and press **Refresh** in the dashboard (or re-run `copy-collection`).
+While the dashboard is open it fetches fresh stats by itself once you quit Anki. You can also quit Anki and press
+**Refresh** (or re-run `copy-collection`).
 If the API isn't running, the dashboard shows clearly labelled sample data and the Planner and Advanced
 sections explain why they need real FSRS data.
 
@@ -61,14 +64,15 @@ Four sections (`#/`, `#/activity`, `#/planner`, `#/advanced`), simple first and 
 
 | Section | What it answers | Source |
 |---|---|---|
-| **Home** | What should I do today? Today plan, streak, key numbers, last two weeks, one insight, deck progress, milestones | **Measured** from your review log and card counts; the suggested new-card limit and deck finish dates are labelled **projections** |
-| **Activity** | When and how much did I study, and am I forgetting less? Heatmap, review charts, deck comparison | **Measured** from your review log |
-| **Planner** | How much work is coming, and how many new cards can I sustain? | **Projection**: Monte Carlo simulation with FSRS-6 scheduling on your real cards |
+| **Home** | What should I do today? Today plan, streak, key numbers, last two weeks, one insight, deck progress, milestones | **Measured** from your review log and card counts; the suggested new-card limit, your current pace's cost and deck finish dates are labelled **projections** |
+| **Activity** | When and how much did I study, am I forgetting less, and which cards keep tripping me up? Heatmap, knowledge curve, review charts, new cards vs reviews, deck comparison, trouble cards | **Measured** from your review log; the knowledge curve is **FSRS's estimate**, replayed from that log |
+| **Planner** | How much work is coming, how many new cards can I sustain, and what would a goal take? | **Projection**: Monte Carlo simulation with FSRS-6 scheduling on your real cards, opening on your current pace |
 | **Advanced** | How strong are my memories, and does FSRS predict me well? Stability, difficulty, recall, risk, calibration | **Measured** card states (as Anki stored them) + the FSRS-6 forgetting curve; past predictions replayed from the review log |
 
 Measured, projected and sample data look different (solid badge, dashed badge and edges, amber banner).
-Milestones only count what the data shows (lifetime reviews, days studied, cards known well) and nothing
-rewards a single heavy day. Light and dark themes follow the system, with a toggle in the header.
+Milestones only count what the data shows (lifetime reviews, days studied, cards proven at 21+ days) and nothing
+rewards a single heavy day. "Known well" means a card passed a review at an interval of 21+ days; one whose
+interval has reached that but which hasn't been tested yet is shown as "Not yet tested". Light and dark themes follow the system, with a toggle in the header.
 
 The replay reproduces every memory state that Anki 26.9.3's own engine computes (checked review by review on a real
 collection), and nearly all of Anki's stored states (the exceptions were most likely written by an older Anki
@@ -76,17 +80,22 @@ version or another device). The gap between predicted and actual recall comes fr
 FSRS's default parameters, not from the calculations; see [docs/fsrs-validation.md](docs/fsrs-validation.md).
 Forecast assumptions and limits are listed in the app under "How the forecast works".
 
+If your lapse rate changes sharply compared with what FSRS expected (for example, you start pressing Again where
+you used to press Hard), the app dates the change and doesn't pool the two habits: Advanced's verdict and the
+Planner's lapse rate use reviews since then, and the optimise advice waits for 400 of them. The Planner's lapse
+rate also stays near FSRS's prediction until there are enough lapses to go on.
+
 ## Structure
 
 - `server/`: local API
-  - `app.ts`: request handling (`GET /api/stats`, `GET /api/status`, `POST /api/refresh`, Host-header check); `index.ts` starts it
+  - `app.ts`: request handling (`GET /api/stats`, `GET /api/status`, `POST /api/refresh`, the built app via `staticFiles.ts`, Host-header check); `index.ts` starts it
   - `anki.ts`: daily totals and card counts
   - `deckGroups.ts`: which dashboard deck each Anki deck belongs to, and the optional config file
   - `fsrsData.ts`: FSRS states, presets (decoded with `protobuf.ts`), review-log replay, measured behaviour
   - `collection.ts`: the safe copy (refuses while Anki is open); `copy-collection.ts` is its CLI
 - `src/data/`: `types.ts` (data contract shared with the API), `useAnkiData.ts`, `useSimulation.ts`, `mockData.ts`
 - `src/lib/`: pure, tested logic: `fsrs.ts` (FSRS-6, shared with the server), `simulator.ts` (+ Web Worker),
-  `fsrsStats.ts`, `insights.ts`, `stats.ts`, `heatmap.ts`, `dates.ts`
+  `fsrsStats.ts`, `gradingShift.ts`, `plan.ts`, `deckPace.ts`, `insights.ts`, `stats.ts`, `heatmap.ts`, `dates.ts`
 - `src/app/`: shell (header, navigation, banners), theme and route hooks, error boundary
 - `src/pages/`: one file per section (Home, Activity, Planner, Advanced)
 - `src/components/`: charts and shared UI (`ui.tsx`, `Panel.tsx`, `icons.tsx`)
@@ -96,7 +105,8 @@ Forecast assumptions and limits are listed in the app under "How the forecast wo
 
 ## Privacy
 
-Everything stays local; the API only answers requests addressed to this machine.
+Everything stays local; the API only answers requests addressed to this machine. Trouble cards show the text of
+a few of your notes, read from the local copy and shown only in your browser.
 Personal Anki data (`/data/`, `*.anki2`, `*.colpkg`, …) and your deck config (`anki-analytics.config.json`)
 are git-ignored and must never be committed.
 

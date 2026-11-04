@@ -161,12 +161,13 @@ test('the Planner result stays in view while scrolling on small screens', async 
   await expect(summary).toBeInViewport()
 })
 
-test('offers an update once Anki has closed with newer reviews', async ({ page }) => {
+test('fetches new stats by itself once Anki has closed with newer reviews', async ({ page }) => {
   await useRealShapedData(page)
   await page.route('**/api/status', (route) => route.fulfill({ json: { ankiRunning: false, updateAvailable: true, sourceModified: 1 } }))
+  const refreshed = page.waitForRequest('**/api/refresh')
   await page.route('**/api/refresh', (route) => route.fulfill({ json: realShapedData() }))
   await page.goto('#/')
-  await expect(page.getByText(messages.data.update.reviews)).toBeVisible()
-  await page.getByRole('button', { name: messages.data.updateNow }).click()
+  await refreshed
   await expect(page.getByRole('alert')).toHaveCount(0)
+  await expect(page.getByText(messages.data.update.reviews)).toHaveCount(0)
 })

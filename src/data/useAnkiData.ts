@@ -79,8 +79,10 @@ export function useAnkiData() {
     try {
       const data = await request('/api/refresh', REFRESH_TIMEOUT_MS, { method: 'POST', headers: { 'X-Requested-By': 'anki-analytics' } })
       setState({ status: 'ready', data })
+      return true
     } catch (err) {
       setRefreshError((err as Error).message)
+      return false
     } finally {
       setRefreshing(false)
     }

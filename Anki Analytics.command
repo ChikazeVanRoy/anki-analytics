@@ -1,9 +1,12 @@
 #!/bin/zsh
 # Double-click in Finder to start the dashboard and open it in the browser.
-# Keep this window open while you use it; close it (or press Ctrl+C) to stop.
+# It keeps running in the background, so this window can be closed. To stop it, double-click
+# "Stop Anki Analytics.command".
 
 cd "${0:A:h}" || exit 1
-URL=http://localhost:5173
+PORT=${PORT:-5174}
+URL=http://localhost:$PORT
+STAMP=data/.server-started
 
 fail() {
   echo "\n$1"
@@ -11,11 +14,7 @@ fail() {
   exit 1
 }
 
-# Already running (e.g. double-clicked twice): just show it
-if curl -sf -o /dev/null $URL; then
-  open $URL
-  exit 0
-fi
+running() { curl -sf -o /dev/null $URL/api/status }
 
 # Node installed with nvm isn't on PATH in a window opened from Finder
 [[ -s "$HOME/.nvm/nvm.sh" ]] && source "$HOME/.nvm/nvm.sh"
@@ -29,11 +28,28 @@ if [[ ! -d node_modules || package-lock.json -nt node_modules/.package-lock.json
   npm install || fail "Installing dependencies failed (see above)."
 fi
 
-# Stop the API and the app together when this window closes
-trap 'trap - EXIT INT TERM HUP; kill 0' EXIT INT TERM HUP
+# The app needs building the first time, and again whenever its code changes
+if [[ ! -f dist/index.html || -n $(find src public index.html package-lock.json vite.config.ts -newer dist/index.html -print -quit) ]]; then
+  echo "Building the app..."
+  npx vite build --logLevel warn || fail "Building the app failed (see above)."
+fi
 
-# Open the browser once the app answers
-( for _ in {1..120}; do curl -sf -o /dev/null $URL && { open $URL; exit }; sleep 0.5; done ) &
+# Already running on older server code (e.g. after a git pull): restart it
+if running && [[ ! -f $STAMP || -n $(find server src/lib src/data -newer $STAMP -print -quit) ]]; then
+  echo "Restarting with the latest code..."
+  lsof -ti tcp:$PORT -sTCP:LISTEN | xargs kill
+  for _ in {1..40}; do running || break; sleep 0.25; done
+fi
 
-echo "Starting Anki Analytics at $URL ..."
-npm run dev
+if ! running; then
+  mkdir -p data
+  touch $STAMP
+  # nohup and disown: the app outlives this window
+  PORT=$PORT nohup node server/index.ts >> data/server.log 2>&1 &
+  disown
+  for _ in {1..120}; do running && break; sleep 0.25; done
+  running || fail "The app didn't start. See data/server.log."
+fi
+
+open $URL
+echo "Anki Analytics is running at $URL. You can close this window."

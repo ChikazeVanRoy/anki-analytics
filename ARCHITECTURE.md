@@ -77,6 +77,7 @@ flowchart LR
 
 | Method & path | What it does | Responses |
 |---|---|---|
+| `GET` anything else | The built app from `dist/`, when there is one (`server/staticFiles.ts`). The launcher runs the app this way, with no dev server, on port 5174 | 200, 404 |
 | `GET /api/stats` | Reads `data/collection.anki2` and returns one `AnkiData` JSON document (`src/data/types.ts`) | 200, 503 (no copy yet), 500 |
 | `GET /api/status` | Whether Anki is open and whether a refresh would bring in new reviews. Compares file dates only and never opens Anki's collection | 200 |
 | `POST /api/refresh` | Requires header `X-Requested-By: anki-analytics`; re-copies the collection from Anki, then returns fresh `AnkiData` | 200, 403, 409 (Anki open / bad profile), 500 |

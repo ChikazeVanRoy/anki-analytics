@@ -20,6 +20,52 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+describe('fresh data when Anki closes', () => {
+  const live = () => JSON.stringify({ ...mockData, source: 'anki', generatedAt: new Date().toISOString() })
+  const updates = { ankiRunning: false, updateAvailable: true, sourceModified: 100 }
+  const server = (refresh: () => Response) =>
+    vi.fn(async (url: string) => {
+      if (url === '/api/status') return new Response(JSON.stringify(updates))
+      return url === '/api/refresh' ? refresh() : new Response(live())
+    })
+
+  it('refreshes by itself, once, with no offer to press', async () => {
+    const refresh = vi.fn(() => new Response(live()))
+    const fetchMock = server(refresh)
+    vi.stubGlobal('fetch', fetchMock)
+    render(<App />)
+    await waitFor(() => expect(refresh).toHaveBeenCalledOnce())
+    await act(async () => {})
+    expect(screen.queryByRole('button', { name: new RegExp(messages.data.updateNow) })).toBeNull()
+  })
+
+  it('refreshes again when a new day arrives, even if the collection hasn’t changed since', async () => {
+    const yesterday = JSON.stringify({ ...mockData, source: 'anki', generatedAt: new Date(Date.now() - 2 * 86_400_000).toISOString() })
+    let status = updates
+    const refresh = vi.fn(() => new Response(yesterday))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (url === '/api/status') return new Response(JSON.stringify(status))
+        return url === '/api/refresh' ? refresh() : new Response(yesterday)
+      }),
+    )
+    render(<App />)
+    await waitFor(() => expect(refresh).toHaveBeenCalledOnce())
+    status = { ...updates, updateAvailable: false }
+    await act(async () => void window.dispatchEvent(new Event('focus')))
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(2))
+  })
+
+  it('falls back to the offer if that refresh fails, without trying again', async () => {
+    const refresh = vi.fn(() => new Response(JSON.stringify({ error: 'Anki is running.' }), { status: 409 }))
+    vi.stubGlobal('fetch', server(refresh))
+    render(<App />)
+    expect(await screen.findByRole('button', { name: new RegExp(messages.data.updateNow) })).toBeTruthy()
+    expect(refresh).toHaveBeenCalledOnce()
+  })
+})
+
 describe('App data states', () => {
   it('shows a loading status first', () => {
     respondWith(() => new Promise(() => {}))

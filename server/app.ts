@@ -2,6 +2,7 @@
 //   GET  /api/stats    -> AnkiData from the current copy
 //   GET  /api/status   -> whether Anki is open, and whether a refresh would bring in new reviews
 //   POST /api/refresh  -> re-copy the collection from Anki, then return fresh AnkiData
+//   GET  anything else -> the built app from dist/, when there is one (the launcher runs the app this way)
 
 import { existsSync } from 'node:fs'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
@@ -9,6 +10,7 @@ import type { AnkiData } from '../src/data/types.ts'
 import { readAnkiData } from './anki.ts'
 import { DeckConfigError, loadDeckColors, loadDeckConfig, saveDeckColors } from './deckGroups.ts'
 import { ankiStatus, COLLECTION_COPY, copyCollection, CopyError, type AnkiStatus } from './collection.ts'
+import { DIST_DIR, serveFile } from './staticFiles.ts'
 
 const ALLOWED_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]'])
 
@@ -32,6 +34,7 @@ export interface ApiDeps {
   copy: () => { profile: string; bytes: number }
   status: () => AnkiStatus
   log: (message: string) => void
+  distDir: string
 }
 
 const defaults: ApiDeps = {
@@ -47,6 +50,7 @@ const defaults: ApiDeps = {
   copy: copyCollection,
   status: ankiStatus,
   log: console.log,
+  distDir: DIST_DIR,
 }
 
 function send(res: ServerResponse, status: number, body: unknown) {
@@ -87,6 +91,8 @@ export function createApiServer(overrides: Partial<ApiDeps> = {}): Server {
       }
       return sendStats(res)
     }
+
+    if (req.method === 'GET' && serveFile(req.url ?? '/', deps.distDir, res)) return
 
     send(res, 404, { error: 'Not found' })
   }

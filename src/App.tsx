@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { AppShell, LoadingScreen, PageSkeleton } from './app/AppShell'
 import { ErrorBoundary } from './app/ErrorBoundary'
 import { useRoute } from './app/useRoute'
@@ -29,7 +29,19 @@ export default function App() {
   const now = useNow()
   const real = state.status === 'ready' && state.data.source === 'anki' ? state.data : null
   const newDay = !!real && copiedOnEarlierDay(real, ankiToday(real))
-  const { update, dismissUpdate } = useUpdateOffer(state.status === 'ready' ? state.data.generatedAt : undefined, newDay)
+  const { update, version, dismissUpdate } = useUpdateOffer(state.status === 'ready' ? state.data.generatedAt : undefined, newDay)
+  // Anki closed with something new, so fetch it without being asked. Each reason for each version is tried once, and the offer
+  // only appears if that fails, so a refresh that can't work isn't retried every few seconds
+  const attempt = update && version !== null ? `${update}:${version}` : null
+  const autoTried = useRef<string | null>(null)
+  const [autoFailed, setAutoFailed] = useState<string | null>(null)
+  useEffect(() => {
+    if (attempt === null || attempt === autoTried.current || refreshing) return
+    autoTried.current = attempt
+    void refresh().then((ok) => {
+      if (!ok) setAutoFailed(attempt)
+    })
+  }, [attempt, refreshing, refresh])
   const decks = state.status === 'ready' ? state.data.decks : undefined
   const deckColors = useMemo(() => deckColorMap(decks ?? []), [decks])
 
@@ -48,7 +60,7 @@ export default function App() {
       onRefresh={refresh}
       refreshing={refreshing}
       refreshError={refreshError}
-      update={update}
+      update={attempt !== null && attempt === autoFailed ? update : null}
       onDismissUpdate={dismissUpdate}
       onDismissError={clearRefreshError}
       theme={theme.choice}

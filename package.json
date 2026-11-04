@@ -7,6 +7,7 @@
     "dev": "npm run api & vite",
     "dev:web": "vite",
     "api": "node --watch server/index.ts",
+    "start": "node server/index.ts",
     "copy-collection": "node server/copy-collection.ts",
     "build": "tsc -b && vite build",
     "lint": "oxlint",

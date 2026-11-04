@@ -1,6 +1,6 @@
 // HTTP tests for the local API, using fakes instead of the real collection and Anki folder.
 
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { request, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
@@ -83,6 +83,72 @@ describe('local API', () => {
   it('returns 404 for anything else, including GET /api/refresh', async () => {
     expect((await call(port, '/api/refresh')).status).toBe(404)
     expect((await call(port, '/etc/passwd')).status).toBe(404)
+  })
+})
+
+describe('the built app', () => {
+  const dist = join(dir, 'dist')
+  let port: number
+  let server: Server
+  const raw = (path: string, host = `127.0.0.1:${port}`) =>
+    new Promise<{ status: number; type?: string; body: string }>((resolve, reject) => {
+      // Node's own client, as fetch would tidy a path like /../ before sending it
+      request({ port, host: '127.0.0.1', path, headers: { host } }, (res) => {
+        let body = ''
+        res.on('data', (c) => (body += c))
+        res.on('end', () => resolve({ status: res.statusCode!, type: res.headers['content-type'], body }))
+      })
+        .on('error', reject)
+        .end()
+    })
+
+  beforeAll(async () => {
+    mkdirSync(join(dist, 'assets'), { recursive: true })
+    writeFileSync(join(dist, 'index.html'), '<title>app</title>')
+    writeFileSync(join(dist, 'assets', 'a.js'), 'x')
+    writeFileSync(join(dir, 'secret.txt'), 'private')
+    ;({ server, port } = await start({ collectionPath: existing, read: () => fakeData, distDir: dist }))
+  })
+  afterAll(() => server.close())
+
+  it('serves the page and its files with the right types', async () => {
+    expect(await raw('/')).toMatchObject({ status: 200, type: 'text/html; charset=utf-8', body: '<title>app</title>' })
+    expect(await raw('/assets/a.js?v=1')).toMatchObject({ status: 200, type: 'text/javascript; charset=utf-8' })
+  })
+
+  it('only caches hashed files for long, wherever the project lives', async () => {
+    const nested = join(dir, 'assets', 'dist')
+    mkdirSync(join(nested, 'assets'), { recursive: true })
+    writeFileSync(join(nested, 'index.html'), 'page')
+    writeFileSync(join(nested, 'assets', 'a.js'), 'x')
+    const { server: inner, port: innerPort } = await start({ collectionPath: existing, distDir: nested })
+    const cache = async (path: string) => (await fetch(`http://127.0.0.1:${innerPort}${path}`)).headers.get('cache-control')
+    expect(await cache('/')).toBe('no-cache')
+    expect(await cache('/assets/a.js')).toContain('immutable')
+    inner.close()
+  })
+
+  it('never reaches outside the build, however the path is written', async () => {
+    for (const path of ['/../secret.txt', '/assets/../../secret.txt', '/%2e%2e/secret.txt', '/..%2fsecret.txt']) {
+      expect((await raw(path)).body).not.toContain('private')
+    }
+  })
+
+  it('answers 404 for a missing file or a broken path, and leaves the API alone', async () => {
+    expect((await raw('/nope.js')).status).toBe(404)
+    expect((await raw('/%E0%A4%A')).status).toBe(404)
+    expect((await raw('/assets')).status).toBe(404)
+    expect(JSON.parse((await raw('/api/stats')).body)).toEqual(fakeData)
+  })
+
+  it('refuses other domains here too', async () => {
+    expect((await raw('/', `evil.example:${port}`)).status).toBe(403)
+  })
+
+  it('has nothing to serve before a build', async () => {
+    const { server: bare, port: barePort } = await start({ collectionPath: existing, distDir: join(dir, 'never-built') })
+    expect((await call(barePort, '/')).status).toBe(404)
+    bare.close()
   })
 })
 
