@@ -24,7 +24,8 @@ needed, starts it in the background on http://localhost:5174 and opens it in you
 Terminal window straight away. To stop the app, double-click **`Stop Anki Analytics.command`**. Drag the launcher
 to the right-hand side of the Dock for one-click launching. If macOS says it can't be opened (it does for files
 downloaded as a ZIP), right-click it and choose **Open** once. Its log is `data/server.log`. Stop it before
-running `npm run dev`, which needs the same API port.
+running `npm run dev`, which needs the same API port. If `npm run dev` is already running, the launcher opens that
+server's API and leaves it alone.
 
 While the dashboard is open it fetches fresh stats by itself once you quit Anki. You can also quit Anki and press
 **Refresh** (or re-run `copy-collection`).

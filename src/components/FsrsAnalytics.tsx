@@ -185,7 +185,7 @@ function VerdictCard({ verdict }: { verdict: FsrsVerdict }) {
             {kind === 'thin' ? m.thin(reviews) : m.summary(formatRate(actual), formatRate(predicted), reviews)}
             {shift && ` ${m.counted(shiftDate)}`}
           </p>
-          {shift && (
+          {shift && !shift.settled && (
             <p className="mt-2 text-sm leading-relaxed text-ink-2">
               {m.shiftChange(shiftDate, formatRate(forgotRate(shift.before)), formatRate(forgotRate(shift.after)))}
             </p>
@@ -358,7 +358,7 @@ export function FsrsAnalytics({ fsrs, decks: allDecks, todayKey }: Props) {
         subtitle="What you actually remembered, compared with what FSRS expected and your target."
         actions={<SourceBadge kind="mixed" />}
       >
-        {verdict.shift && (
+        {verdict.shift && !verdict.shift.settled && (
           <div className="mb-4">
             <Notice>{messages.advanced.verdict.tableMixes(formatShortDate(verdict.shift.date))}</Notice>
           </div>

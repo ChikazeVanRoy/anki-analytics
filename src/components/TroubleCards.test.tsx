@@ -17,7 +17,7 @@ describe('TroubleCards', () => {
   it('lists the cards with their answers', () => {
     show()
     expect(screen.getByText('A synthetic card')).toBeTruthy()
-    expect(screen.getByText(m.troubleCounts(3, 2, 7))).toBeTruthy()
+    expect(screen.getByText(m.troubleCounts('Language', 3, 2, 7))).toBeTruthy()
   })
 
   it('copies a search Anki’s Browser understands', async () => {

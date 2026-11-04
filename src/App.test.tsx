@@ -57,6 +57,27 @@ describe('fresh data when Anki closes', () => {
     await waitFor(() => expect(refresh).toHaveBeenCalledTimes(2))
   })
 
+  it('lets a refresh already running bring the update in, rather than copying twice', async () => {
+    let status = { ...updates, updateAvailable: false, sourceModified: null as number | null }
+    let finish = () => {}
+    const refresh = vi.fn(() => new Promise<Response>((resolve) => (finish = () => resolve(new Response(live())))))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (url === '/api/status') return new Response(JSON.stringify(status))
+        return url === '/api/refresh' ? refresh() : new Response(live())
+      }),
+    )
+    render(<App />)
+    fireEvent.click(await screen.findByRole('button', { name: new RegExp(messages.data.refresh) }))
+    await waitFor(() => expect(refresh).toHaveBeenCalledOnce())
+    status = updates
+    await act(async () => void window.dispatchEvent(new Event('focus')))
+    await act(async () => finish())
+    await act(async () => {})
+    expect(refresh).toHaveBeenCalledOnce()
+  })
+
   it('falls back to the offer if that refresh fails, without trying again', async () => {
     const refresh = vi.fn(() => new Response(JSON.stringify({ error: 'Anki is running.' }), { status: 409 }))
     vi.stubGlobal('fetch', server(refresh))

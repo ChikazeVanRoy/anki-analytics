@@ -4,7 +4,7 @@ import { toDateKey } from '../lib/dates'
 import { currentPace, finishAt } from '../lib/deckPace'
 import { maxSustainableNewPerDay } from '../lib/insights'
 import { measuredDefaults } from '../lib/measured'
-import { defaultBudget, minutesAt, planSettings, standardSweep, type SweepPoint } from '../lib/plan'
+import { defaultBudget, minutesAt, pilesUpAt, planSettings, standardSweep, type SweepPoint } from '../lib/plan'
 import { buildSimDecks } from '../lib/simulator'
 import { useSimulation } from './useSimulation'
 
@@ -17,7 +17,7 @@ export type TodayPlan =
       /** The same limit with the other recall model, so the answer can show how far it depends on that choice. */
       altMax?: { value: number; capped: boolean } | null
       /** The new cards you've actually been starting, and the heaviest month they'd lead to (both recall models). */
-      current?: { newPerDay: number; minutes: [number, number] } | null
+      current?: { newPerDay: number; minutes: [number, number]; pilesUp: boolean } | null
       /** When the last new card would be started at the suggested limit. */
       finish?: string | null
     }
@@ -59,7 +59,11 @@ export function useTodayPlan(data: AnkiData, today: Date): TodayPlan | null {
       altMax: alt.length ? maxSustainableNewPerDay(alt, budget, seconds) : undefined,
       current:
         newPerDay !== null && minutes?.[0] != null && minutes[1] != null
-          ? { newPerDay, minutes: [Math.min(minutes[0], minutes[1]), Math.max(minutes[0], minutes[1])] as [number, number] }
+          ? {
+              newPerDay,
+              minutes: [Math.min(minutes[0], minutes[1]), Math.max(minutes[0], minutes[1])] as [number, number],
+              pilesUp: pilesUpAt(sweep, newPerDay) || pilesUpAt(alt, newPerDay),
+            }
           : null,
       finish: max && max.value > 0 ? finishAt(remaining, max.value, measured.studyDaysPerWeek, today) : null,
     } as const

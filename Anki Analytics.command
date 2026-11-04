@@ -4,9 +4,9 @@
 # "Stop Anki Analytics.command".
 
 cd "${0:A:h}" || exit 1
-PORT=${PORT:-5174}
-URL=http://localhost:$PORT
-STAMP=data/.server-started
+export ANKI_ANALYTICS_PORT=${ANKI_ANALYTICS_PORT:-5174}
+URL=http://localhost:$ANKI_ANALYTICS_PORT
+PIDFILE=data/.server.pid # says which server is the launcher's; its date says when that server started
 
 fail() {
   echo "\n$1"
@@ -15,6 +15,9 @@ fail() {
 }
 
 running() { curl -sf -o /dev/null $URL/api/status }
+# Only the launcher's own server: a dev API on this port (npm run dev) isn't ours to stop
+listener() { lsof -ti tcp:$ANKI_ANALYTICS_PORT -sTCP:LISTEN }
+ours() { [[ -f $PIDFILE && $(listener) == $(<$PIDFILE) ]] }
 
 # Node installed with nvm isn't on PATH in a window opened from Finder
 [[ -s "$HOME/.nvm/nvm.sh" ]] && source "$HOME/.nvm/nvm.sh"
@@ -35,17 +38,17 @@ if [[ ! -f dist/index.html || -n $(find src public index.html package-lock.json 
 fi
 
 # Already running on older server code (e.g. after a git pull): restart it
-if running && [[ ! -f $STAMP || -n $(find server src/lib src/data -newer $STAMP -print -quit) ]]; then
+if ours && [[ -n $(find server src/lib src/data -newer $PIDFILE -print -quit) ]]; then
   echo "Restarting with the latest code..."
-  lsof -ti tcp:$PORT -sTCP:LISTEN | xargs kill
+  kill $(<$PIDFILE)
   for _ in {1..40}; do running || break; sleep 0.25; done
 fi
 
 if ! running; then
   mkdir -p data
-  touch $STAMP
   # nohup and disown: the app outlives this window
-  PORT=$PORT nohup node server/index.ts >> data/server.log 2>&1 &
+  nohup node server/index.ts >> data/server.log 2>&1 &
+  echo $! > $PIDFILE
   disown
   for _ in {1..120}; do running && break; sleep 0.25; done
   running || fail "The app didn't start. See data/server.log."

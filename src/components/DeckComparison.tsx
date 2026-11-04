@@ -3,12 +3,13 @@ import { useDeckColor } from '../data/deckColors'
 import type { Deck } from '../data/types'
 import { messages } from '../i18n'
 import { MIN_MATURE_SAMPLE, type Bucket, type DeckSummary } from '../lib/stats'
-import { formatBucketTick, formatBucketTitle, formatInt, formatMinutes, formatPct, formatRate } from '../lib/format'
+import { formatBucketTick, formatBucketTitle, formatInt, formatMinutes, formatPct, formatRate, formatShortDate } from '../lib/format'
 import { chart } from '../lib/theme'
 import { ChartTooltip } from './ChartTooltip'
 import { LegendItem, Panel } from './Panel'
+import { Notice } from './ui'
 
-function DeckCard({ summary }: { summary: DeckSummary }) {
+function DeckCard({ summary, sinceChange }: { summary: DeckSummary; sinceChange?: number }) {
   const deckColor = useDeckColor()
   const { deck } = summary
   const color = deckColor(deck.id)
@@ -16,7 +17,7 @@ function DeckCard({ summary }: { summary: DeckSummary }) {
   const segments = [
     { label: 'Not started', value: deck.newCards, opacity: 0.3 },
     { label: 'Learning', value: deck.youngCards, opacity: 0.65 },
-    { label: 'Known well', value: deck.matureCards, opacity: 1 },
+    { label: messages.home.garden.stage.flower, value: deck.matureCards, opacity: 1 },
   ]
 
   return (
@@ -38,6 +39,8 @@ function DeckCard({ summary }: { summary: DeckSummary }) {
         <RetentionMetric label="Remembered" {...summary.retention.reviewCards} />
         <RetentionMetric label="Remembered, known-well cards" minReviews={MIN_MATURE_SAMPLE} {...summary.retention.mature} />
       </dl>
+
+      {sinceChange !== undefined && <p className="mt-2 text-xs font-semibold text-ink-2">{messages.activity.deckShiftRate(formatRate(sinceChange))}</p>}
 
       <div className="mt-4">
         <div className="flex h-2.5 gap-0.5 overflow-hidden rounded-full" aria-hidden>
@@ -74,6 +77,10 @@ function RetentionMetric({ label, reviews, rate, minReviews = 1 }: { label: stri
 
 interface DeckComparisonProps {
   summaries: DeckSummary[]
+  /** The day a grading change falls inside this period, if one does. */
+  shiftDate?: string
+  /** Each deck's Remembered rate since that change. */
+  sinceChange?: Record<string, number>
   againRows: Record<string, number | string | null>[]
   decks: Deck[]
   bucket: Bucket
@@ -81,13 +88,18 @@ interface DeckComparisonProps {
   period: string
 }
 
-export function DeckComparison({ summaries, againRows, decks, bucket, period }: DeckComparisonProps) {
+export function DeckComparison({ summaries, againRows, decks, bucket, period, shiftDate, sinceChange = {} }: DeckComparisonProps) {
   const deckColor = useDeckColor()
   return (
     <Panel title="How do my decks compare?" eyebrow="Decks" subtitle={`Each deck, ${period}. “Remembered” counts scheduled reviews not answered Again; Hard counts as remembered.`}>
+      {shiftDate && (
+        <div className="mb-4">
+          <Notice>{messages.activity.deckShift(formatShortDate(shiftDate))}</Notice>
+        </div>
+      )}
       <div className={`grid gap-4 ${summaries.length === 2 ? 'md:grid-cols-2' : 'md:grid-cols-3'}`}>
         {summaries.map((s) => (
-          <DeckCard key={s.deck.id} summary={s} />
+          <DeckCard key={s.deck.id} summary={s} sinceChange={sinceChange[s.deck.id]} />
         ))}
       </div>
 

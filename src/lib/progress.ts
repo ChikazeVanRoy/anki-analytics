@@ -5,6 +5,7 @@
 import type { AnkiData } from '../data/types'
 import { ankiDayKey, dayNumber, toDateKey } from './dates'
 import { formatInt, formatPct, formatRate } from './format'
+import { shiftWithin } from './gradingShift'
 import { deckSummaries, lastNDays, MIN_RATE_SAMPLE, ratio, retentionSplit, type DayTotal } from './stats'
 
 const studied = (byDate: Map<string, DayTotal>, key: string) => (byDate.get(key)?.reviews ?? 0) > 0
@@ -225,7 +226,9 @@ export function homeInsight(data: AnkiData, byDate: Map<string, DayTotal>, today
     }
   }
 
-  const decks = deckSummaries(data, 30, today).filter(
+  // A month that mixes two grading habits can't rank decks, as each deck's rate depends on how much it has of each
+  const mixed = !!shiftWithin(data, lastNDays(30, 0, today)[0])
+  const decks = (mixed ? [] : deckSummaries(data, 30, today)).filter(
     // A deck of mostly young cards recalls easily, so ranking it "strongest" would mislead
     (d) => d.retention.reviewCards.reviews >= MIN_RATE_SAMPLE * 3 && !retentionSplit(d.retention).matureThin,
   )

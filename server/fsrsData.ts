@@ -35,6 +35,7 @@ interface Context {
   dayStartHour: number
   groupIds: string[]
   now: number // ms
+  copiedAt: number // ms, when the copy being read was made
 }
 
 interface RevlogRow {
@@ -429,8 +430,10 @@ export function readFsrsData(ctx: Context): FsrsData {
   }
 
   // --- Knowledge curve: each card's recall probability on sampled past days, from its replayed states ---
-  const firstDay = replayed.reduce((min, c) => Math.min(min, c.days[0]), today)
-  const samples = sampleDays(firstDay, today)
+  // It stops on the copy's day: reviews since then aren't in it, so later days would read as pure forgetting
+  const lastDay = Math.min(today, dayNumber(dayKey(ctx.copiedAt)))
+  const firstDay = replayed.reduce((min, c) => Math.min(min, c.days[0]), lastDay)
+  const samples = sampleDays(firstDay, lastDay)
   const knowledge = new Map<string, KnowledgePoint>()
   for (const c of replayed) {
     let i = -1

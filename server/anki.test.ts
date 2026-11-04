@@ -2,7 +2,7 @@
 // The tables only have the columns the reader uses; settings blobs use Anki's real protobuf format.
 
 import { createHash } from 'node:crypto'
-import { copyFileSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { copyFileSync, mkdtempSync, readFileSync, rmSync, utimesSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
@@ -289,6 +289,13 @@ describe('FSRS data', () => {
     expect(today[0].recalled).toBeLessThan(3)
     const first = f.knowledge!.find((p) => p.deckId === 'spanish')!
     expect(first.started).toBeLessThan(today[0].started)
+  })
+
+  it('stops the knowledge curve on the day of the copy', () => {
+    const old = join(dir, 'old-copy.anki2')
+    copyFileSync(path, old)
+    utimesSync(old, new Date(at(2026, 3, 12, 12)), new Date(at(2026, 3, 12, 12)))
+    expect(readAnkiData(old, NOW, { deckConfig: DECKS }).fsrs!.knowledge!.at(-1)!.date).toBe('2026-03-12')
   })
 
   it('counts a card as proven only once it has passed a review at a long interval', () => {

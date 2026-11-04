@@ -22,7 +22,7 @@ import { buildInsights } from '../lib/insights'
 import type { MeasuredDefaults } from '../lib/measured'
 import { lapseEvidence } from '../lib/fsrsStats'
 import { gradingShift, lapseBasis } from '../lib/gradingShift'
-import { deckLimits, defaultBudget, minutesAt, PLAN_PRESETS, planPresets, planSettings, standardSweep, type PlanPreset, type PlanPresetKey } from '../lib/plan'
+import { deckLimits, defaultBudget, minutesAt, pilesUpAt, PLAN_PRESETS, planPresets, planSettings, standardSweep, type PlanPreset, type PlanPresetKey } from '../lib/plan'
 import { buildSimDecks, HORIZONS, presetRetentionLabel, type SimDay, type SimSettings } from '../lib/simulator'
 import { chart, forecast } from '../lib/theme'
 import { ChartTooltip } from './ChartTooltip'
@@ -203,6 +203,7 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
               : {
                   newPerDay: currentNewPerDay,
                   minutes: scenarios?.newPerDay ? minutesAt(standardSweep(scenarios.newPerDay), currentNewPerDay, secs) : null,
+                  pilesUp: !!scenarios?.newPerDay && pilesUpAt(standardSweep(scenarios.newPerDay), currentNewPerDay),
                 }
           }
         />
@@ -305,8 +306,7 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
               />
               <p className="mt-2 text-xs leading-relaxed text-muted">
                 <span className="font-bold text-ink-2">FSRS prediction</span> draws lapses from FSRS’s recall probability.{' '}
-                <span className="font-bold text-ink-2">Your lapse rate</span> scales them to how often you actually pressed
-                Again, staying close to FSRS’s prediction until there are enough lapses to go on.
+                <span className="font-bold text-ink-2">Your lapse rate</span> {messages.planner.lapse.scales}
               </p>
             </div>
           </div>
@@ -411,7 +411,7 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
                   />
                   <Metric label="Minutes per study day" value={formatInt(minutesPerStudyDay)} sub={`at ${secs} s per review`} />
                   <Metric
-                    label="Cards at 21+ days"
+                    label={messages.planner.longInterval}
                     value={formatInt(summary.matureEnd)}
                     sub={`${formatInt(mature0(fsrs, settings.deckIds))} today → end of period`}
                     tip="Cards with a scheduled interval of 21 days or more at the end of the period (Anki’s “mature”)."
@@ -469,6 +469,8 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
 
           {/* Timeline */}
           <GoalPlanner
+            key={deckSel}
+            selection={deckSel}
             started={decks.filter((d) => deckIds.includes(d.id)).reduce((n, d) => n + d.youngCards + d.matureCards, 0)}
             available={pool}
             todayKey={todayKey}
@@ -757,10 +759,10 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
                 schedule.
               </li>
               <li>
-                The “Your lapse rate” model uses about{' '}
+                {messages.planner.lapse.uses}{' '}
                 {selectedSimDecks.map((d) => `${Math.round(d.failRatio * 100)}% of FSRS’s expectation for ${deckNames[d.deckId]}`).join(' and ')}
-                , based on {formatInt(observedLapses)} {observedLapses === 1 ? 'lapse' : 'lapses'} in {formatInt(calibrationReviews)} review-card reviews
-                {shiftDate && messages.planner.sinceChange(formatShortDate(shiftDate))}. It stays near FSRS’s prediction until there are enough lapses to go on.
+                , {messages.planner.lapse.basis(observedLapses, calibrationReviews)}
+                {shiftDate && messages.planner.sinceChange(formatShortDate(shiftDate))}. {messages.planner.lapse.near}
                 {observedLapses < 20 && ' With this few lapses, the “Your lapse rate” model rests on limited evidence.'}
               </li>
             </ul>
@@ -783,7 +785,7 @@ function PacePicker({
   pace: Pace
   newPerDay: number
   onPick: (pace: PlanPresetKey | 'current') => void
-  current: { newPerDay: number; minutes: number | null } | null
+  current: { newPerDay: number; minutes: number | null; pilesUp: boolean } | null
 }) {
   const m = messages.planner.pace
   return (
@@ -805,7 +807,7 @@ function PacePicker({
           >
             <span className="block text-sm font-extrabold text-ink">{m.current}</span>
             <span className="mt-0.5 block text-sm font-bold text-ink tabular-nums">{m.newCards(current.newPerDay)}</span>
-            {current.minutes !== null ? <span className="block text-xs text-muted">{m.heaviest(current.minutes)}</span> : <span className="skeleton mx-auto mt-1.5 block h-3 w-14" aria-hidden />}
+            {current.minutes !== null ? <span className="block text-xs text-muted">{current.pilesUp ? m.pilesUp : m.heaviest(current.minutes)}</span> : <span className="skeleton mx-auto mt-1.5 block h-3 w-14" aria-hidden />}
           </button>
         )}
         {PLAN_PRESETS.map(({ key }) => {

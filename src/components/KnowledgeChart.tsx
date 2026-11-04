@@ -14,7 +14,7 @@ import { SourceBadge } from './ui'
 const m = messages.activity
 
 /** Cards you'd expect to remember on each past day. A model's estimate, so its lines are dashed. */
-export function KnowledgeChart({ fsrs, decks }: { fsrs: FsrsData; decks: Deck[] }) {
+export function KnowledgeChart({ fsrs, decks, todayKey }: { fsrs: FsrsData; decks: Deck[]; todayKey: string }) {
   const deckColor = useDeckColor()
   const curve = useMemo(() => knowledgeCurve(fsrs.knowledge ?? []), [fsrs])
   if (curve.rows.length < 2) return null
@@ -26,7 +26,7 @@ export function KnowledgeChart({ fsrs, decks }: { fsrs: FsrsData; decks: Deck[] 
     <Panel
       title={m.knowledgeTitle}
       eyebrow={m.knowledgeEyebrow}
-      subtitle={`${m.knowledgeSub(curve.recalled, curve.started)}${paramsSourceOf(fsrs) === 'default' ? ` ${m.knowledgeDefault}` : ''}`}
+      subtitle={`${last < todayKey ? m.knowledgeSubOn(formatLongDate(last), curve.recalled, curve.started) : m.knowledgeSub(curve.recalled, curve.started)}${paramsSourceOf(fsrs) === 'default' ? ` ${m.knowledgeDefault}` : ''}`}
       actions={
         <div className="flex flex-wrap items-center gap-3">
           {shown.map((d) => (

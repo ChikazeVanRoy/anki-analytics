@@ -71,6 +71,9 @@ export function minutesAt(sweep: SweepPoint[], newPerDay: number, secondsPerRevi
   return Math.max(0, load(a) + ((load(b) - load(a)) * (newPerDay - a.value)) / (b.value - a.value))
 }
 
+/** Whether a new-card limit ends the year with reviews held back by a daily limit: no minutes figure can show that. */
+export const pilesUpAt = (sweep: SweepPoint[], newPerDay: number) => sweep.some((p) => p.value <= newPerDay && p.year.backlogEnd > 1)
+
 type Limit = { value: number } | null | undefined
 
 /**

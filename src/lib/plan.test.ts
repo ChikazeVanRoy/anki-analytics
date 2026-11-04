@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { deckLimits, defaultBudget, goalPlan, limitRange, minutesAt, planPresets, planSettings, standardSweep, type SweepPoint } from './plan'
+import { deckLimits, defaultBudget, goalPlan, limitRange, minutesAt, pilesUpAt, planPresets, planSettings, standardSweep, type SweepPoint } from './plan'
 import type { HorizonSummary } from './simulator'
 
 const year = (maxWindowPerStudyDay: number, backlogEnd = 0) => ({ maxWindowPerStudyDay, backlogEnd }) as HorizonSummary
@@ -110,4 +110,12 @@ describe('limitRange', () => {
     expect(limitRange({ value: 10 }, null)).toEqual([0, 10])
   })
   it('has no range without a second answer', () => expect(limitRange({ value: 10 }, undefined)).toBeNull())
+})
+
+describe('pilesUpAt', () => {
+  it('holds from the first scenario with a backlog upwards', () => {
+    expect(pilesUpAt(sweep, 39)).toBe(false)
+    expect(pilesUpAt(sweep, 40)).toBe(true)
+    expect(pilesUpAt(sweep, 60)).toBe(true)
+  })
 })

@@ -31,10 +31,10 @@ export function TroubleCards({ fsrs, decks }: { fsrs: FsrsData; decks: Deck[] })
           <ul className="max-h-96 divide-y divide-line overflow-y-auto">
             {cards.map((c) => (
               <li key={c.cardId} className="flex items-baseline gap-2.5 py-2.5">
-                <span className="size-2 shrink-0 translate-y-[-1px] rounded-full" style={{ background: deckColor(c.deckId) }} title={decks.find((d) => d.id === c.deckId)?.name} aria-hidden />
+                <span className="size-2 shrink-0 translate-y-[-1px] rounded-full" style={{ background: deckColor(c.deckId) }} aria-hidden />
                 <div className="min-w-0 flex-1 sm:flex sm:items-baseline sm:justify-between sm:gap-4">
                   <p className="truncate text-sm font-bold text-ink">{c.front || m.troubleNoText}</p>
-                  <p className="shrink-0 text-xs text-muted tabular-nums">{m.troubleCounts(c.again, c.hard, c.reviews)}</p>
+                  <p className="shrink-0 text-xs text-muted tabular-nums">{m.troubleCounts(decks.find((d) => d.id === c.deckId)?.name ?? c.deckId, c.again, c.hard, c.reviews)}</p>
                 </div>
               </li>
             ))}

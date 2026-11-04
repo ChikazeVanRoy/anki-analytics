@@ -34,13 +34,11 @@ export default function App() {
   // only appears if that fails, so a refresh that can't work isn't retried every few seconds
   const attempt = update && version !== null ? `${update}:${version}` : null
   const autoTried = useRef<string | null>(null)
-  const [autoFailed, setAutoFailed] = useState<string | null>(null)
   useEffect(() => {
-    if (attempt === null || attempt === autoTried.current || refreshing) return
+    if (attempt === null || attempt === autoTried.current) return
     autoTried.current = attempt
-    void refresh().then((ok) => {
-      if (!ok) setAutoFailed(attempt)
-    })
+    // A refresh already running will bring this in, or report why it can't
+    if (!refreshing) void refresh()
   }, [attempt, refreshing, refresh])
   const decks = state.status === 'ready' ? state.data.decks : undefined
   const deckColors = useMemo(() => deckColorMap(decks ?? []), [decks])
@@ -60,7 +58,7 @@ export default function App() {
       onRefresh={refresh}
       refreshing={refreshing}
       refreshError={refreshError}
-      update={attempt !== null && attempt === autoFailed ? update : null}
+      update={attempt !== null && refreshError ? update : null}
       onDismissUpdate={dismissUpdate}
       onDismissError={clearRefreshError}
       theme={theme.choice}

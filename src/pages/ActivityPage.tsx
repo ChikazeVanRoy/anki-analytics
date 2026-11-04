@@ -12,6 +12,7 @@ import { WorkSplitChart } from '../components/WorkSplitChart'
 import { SourceBadge } from '../components/ui'
 import type { AnkiData } from '../data/types'
 import { messages } from '../i18n'
+import { toDateKey } from '../lib/dates'
 import { changeDelta, formatInt, formatMinutes, formatPct, formatRate, formatShortDate, SAME_POINTS, SAME_RELATIVE } from '../lib/format'
 import { shiftWithin } from '../lib/gradingShift'
 import {
@@ -65,7 +66,14 @@ export function ActivityPage({ data, range, onRangeChange }: Props) {
   const { matureThin } = retentionSplit(summary.retention)
   const minutes = decks.reduce((n, d) => n + d.minutes, 0)
   const work = useMemo(() => workSplit(data, days), [data, days])
-  const shift = shiftWithin(data, lastNDays(days, 0, today)[0])
+  const firstDay = lastNDays(days, 0, today)[0]
+  const shift = shiftWithin(data, firstDay)
+  const sinceChange = Object.fromEntries(
+    data.decks.flatMap((d) => {
+      const own = shiftWithin(data, firstDay, d.id)
+      return own ? [[d.id, own.rate]] : []
+    }),
+  )
 
   return (
     <div className="space-y-6">
@@ -135,7 +143,7 @@ export function ActivityPage({ data, range, onRangeChange }: Props) {
       {compareNote && <p className="-mt-3 text-xs text-muted">{compareNote}</p>}
 
       <ActivityHeatmap byDate={byDate} today={today} years={years} />
-      {data.fsrs?.enabled && <KnowledgeChart fsrs={data.fsrs} decks={data.decks} />}
+      {data.fsrs?.enabled && <KnowledgeChart fsrs={data.fsrs} decks={data.decks} todayKey={toDateKey(today)} />}
       <DailyReviewsChart rows={periodRows} decks={data.decks} bucket={bucket} period={period} />
       <WorkSplitChart split={work} bucket={bucket} period={period} sample={data.source === 'mock'} />
       <HardTrend
@@ -145,7 +153,7 @@ export function ActivityPage({ data, range, onRangeChange }: Props) {
         period={period}
         sample={data.source === 'mock'}
       />
-      <DeckComparison summaries={decks} againRows={againRows} decks={data.decks} bucket={bucket} period={period} />
+      <DeckComparison summaries={decks} againRows={againRows} decks={data.decks} bucket={bucket} period={period} shiftDate={shift?.date} sinceChange={sinceChange} />
       {data.fsrs?.enabled && <TroubleCards fsrs={data.fsrs} decks={data.decks} />}
     </div>
   )

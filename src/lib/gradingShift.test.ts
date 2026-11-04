@@ -86,6 +86,13 @@ describe('shiftWithin', () => {
     expect(shiftWithin(d, '2026-03-02')?.date).toBe('2026-03-11')
   })
 
+  it('gives one deck’s rate on request, and nothing for a deck with no reviews since', () => {
+    const d = data([...run(1, 10, 40, 0), day(11, 60, 6, 0.9, 'a'), day(12, 60, 12, 0.9, 'b')])
+    expect(shiftWithin(d, '2026-03-02', 'a')?.rate).toBeCloseTo(0.9)
+    expect(shiftWithin(d, '2026-03-02', 'b')?.rate).toBeCloseTo(0.8)
+    expect(shiftWithin(d, '2026-03-02', 'c')).toBeNull()
+  })
+
   it('stays out of a period that starts after the change, or with no FSRS data', () => {
     expect(shiftWithin(data([...run(1, 10, 40, 0), ...run(11, 12, 60, 6)]), '2026-03-11')).toBeNull()
     expect(shiftWithin({} as AnkiData, '2026-03-02')).toBeNull()

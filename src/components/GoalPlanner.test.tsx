@@ -9,9 +9,10 @@ import { GoalPlanner } from './GoalPlanner'
 const m = messages.planner.goal
 const point = (value: number, reviews: number): SweepPoint => ({ value, year: { maxWindowPerStudyDay: reviews, backlogEnd: 0 } as HorizonSummary })
 
-const show = (onUse = vi.fn()) => {
+const show = (onUse = vi.fn(), selection = 'all') => {
   render(
     <GoalPlanner
+      selection={selection}
       started={300}
       available={5000}
       todayKey="2026-03-01"
@@ -31,6 +32,21 @@ beforeEach(() => localStorage.clear())
 afterEach(cleanup)
 
 describe('GoalPlanner', () => {
+  it('keeps a separate goal for each deck selection', () => {
+    show()
+    fireEvent.change(target(), { target: { value: '1200' } })
+    cleanup()
+    show(vi.fn(), 'mandarin')
+    expect((target() as HTMLInputElement).value).toBe('1000')
+  })
+
+  it('ignores a stored goal it can’t use', () => {
+    localStorage.setItem('anki-analytics:goal:all', JSON.stringify({ target: 'lots', date: 'soon' }))
+    show()
+    expect((target() as HTMLInputElement).value).toBe('1000')
+    expect((date() as HTMLInputElement).value).toBe('2027-03-01')
+  })
+
   it('works out the pace and what it costs, and hands it to the plan', () => {
     const onUse = show()
     fireEvent.change(target(), { target: { value: '1000' } })

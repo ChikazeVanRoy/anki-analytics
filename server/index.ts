@@ -4,7 +4,7 @@
 import { createApiServer } from './app.ts'
 
 const HOST = '127.0.0.1'
-const PORT = Number(process.env.PORT) || 5174
+const PORT = Number(process.env.ANKI_ANALYTICS_PORT) || 5174
 
 createApiServer().listen(PORT, HOST, () => {
   console.log(`Anki API on http://${HOST}:${PORT}  (GET /api/stats, POST /api/refresh)`)

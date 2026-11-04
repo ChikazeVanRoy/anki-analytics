@@ -62,7 +62,8 @@ export function HomePage({ data }: { data: AnkiData }) {
   const todayMinutes = (byDate.get(toDateKey(today))?.seconds ?? 0) / 60
   const { reviewCards } = month.retention
   const split = retentionSplit(month.retention)
-  const shift = shiftWithin(data, lastNDays(30, 0, asOf)[0])
+  const firstOfMonth = lastNDays(30, 0, asOf)[0]
+  const shift = shiftWithin(data, firstOfMonth)
   const fsrsOn = !!data.fsrs?.enabled
   const sample = data.source === 'mock'
   const shownDecks = data.decks.filter((d) => d.totalCards + d.suspendedCards > 0)
@@ -178,6 +179,7 @@ export function HomePage({ data }: { data: AnkiData }) {
                 bed={gardenBed(d, plantsPer)}
                 finish={deckFinish(data, d.id, today)}
                 proven={data.fsrs?.proven ? (data.fsrs.proven[d.id] ?? 0) : null}
+                sinceChange={shiftWithin(data, firstOfMonth, d.id)?.rate ?? null}
               />
             ))}
           </div>
@@ -333,7 +335,7 @@ function PlanSuggestion({ plan }: { plan: TodayPlan }) {
               ? t.suggestCapped(max.value, budget)
               : t.suggest(max.value, budget)}
       {max && max.value > 0 && finishMonth && ` ${t.suggestFinish(max.value, finishMonth)}`}
-      {ahead && ` ${t.suggestCurrent(current.newPerDay, minutes)}`}
+      {ahead && ` ${current.pilesUp ? t.suggestCurrentPiles(current.newPerDay) : t.suggestCurrent(current.newPerDay, minutes)}`}
       <InfoTip label={t.suggestTipLabel}>{t.suggestTip(budget)}</InfoTip>
     </p>
   )
@@ -463,7 +465,21 @@ function InsightCard({ text, tone, link, sample }: { text: string; tone: 'good' 
   )
 }
 
-function DeckCard({ week, month, bed, finish, proven }: { week: DeckSummary; month: DeckSummary; bed: GardenBed; finish: DeckFinish | null; proven: number | null }) {
+function DeckCard({
+  week,
+  month,
+  bed,
+  finish,
+  proven,
+  sinceChange,
+}: {
+  week: DeckSummary
+  month: DeckSummary
+  bed: GardenBed
+  finish: DeckFinish | null
+  proven: number | null
+  sinceChange: number | null
+}) {
   const deckColor = useDeckColor()
   const { deck } = week
   const color = deckColor(deck.id)
@@ -526,6 +542,7 @@ function DeckCard({ week, month, bed, finish, proven }: { week: DeckSummary; mon
           <dt className="text-xs font-bold text-muted">{m.decks.remembered}</dt>
           <dd className="text-xl font-extrabold text-ink tabular-nums">{rc.reviews > 0 ? formatRate(rc.rate) : '—'}</dd>
           {rcThin && <dd className="text-xs text-muted">{m.decks.rememberedYoung}</dd>}
+          {sinceChange !== null && <dd className="text-xs font-semibold text-ink-2">{m.decks.rememberedShift(formatRate(sinceChange))}</dd>}
         </div>
       </dl>
     </article>

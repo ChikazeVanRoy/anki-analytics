@@ -93,9 +93,14 @@ export function lapseBasis(fsrs: FsrsData): { deckId: string; reviews: number; p
   return shift ? fsrs.calibrationDaily!.filter((d) => d.date >= shift.date) : fsrs.calibration
 }
 
-/** A change inside a period that starts on `firstDay`, so a rate over that period can say it mixes two habits. */
-export function shiftWithin(data: AnkiData, firstDay: string): { date: string; rate: number; reviews: number } | null {
-  const shift = gradingShift(data.fsrs?.calibrationDaily ?? [])
+/**
+ * A change inside a period that starts on `firstDay`, so a rate over that period can say it mixes two habits. With
+ * `deckId`, the rate since the change is that deck's; null if the deck has no reviews since.
+ */
+export function shiftWithin(data: AnkiData, firstDay: string, deckId?: string): { date: string; rate: number; reviews: number } | null {
+  const days = data.fsrs?.calibrationDaily ?? []
+  const shift = gradingShift(days)
   if (!shift || shift.date <= firstDay) return null
-  return { date: shift.date, rate: shift.after.reviews ? shift.after.passed / shift.after.reviews : 0, reviews: shift.after.reviews }
+  const since = sum(days.filter((d) => d.date >= shift.date && (!deckId || d.deckId === deckId)))
+  return since.reviews ? { date: shift.date, rate: since.passed / since.reviews, reviews: since.reviews } : null
 }

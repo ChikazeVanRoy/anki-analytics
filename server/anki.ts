@@ -170,6 +170,7 @@ export function readAnkiData(path: string, now = Date.now(), { deckConfig = {}, 
         dayStartHour,
         groupIds: plan.groups.map((g) => g.id),
         now,
+        copiedAt: statSync(path).mtimeMs,
       })
     } catch (err) {
       console.error('FSRS data could not be read:', err)
