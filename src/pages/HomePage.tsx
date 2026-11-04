@@ -561,7 +561,7 @@ function DeckCard({
     <article className="rounded-3xl border border-line bg-surface p-5 shadow-card">
       <div className="flex items-center gap-3">
         <span className="grid size-10 place-items-center rounded-2xl text-base font-black text-white" style={{ background: color }} aria-hidden>
-          {deck.name.slice(0, 1)}
+          {[...new Intl.Segmenter(LOCALE).segment(deck.name)][0]?.segment}
         </span>
         <div className="min-w-0">
           <h3 className="truncate font-extrabold text-ink">{deck.name}</h3>

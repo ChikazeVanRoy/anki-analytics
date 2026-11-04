@@ -80,6 +80,18 @@ describe('cardTextReader', () => {
     expect(textOf({ mid: 9, ord: 0, sfld: 'Unknown type', flds: 'x' })).toBe('Unknown type')
   })
 
+  it('reads the templates of one copy once, however many reads it serves', () => {
+    const db = new DatabaseSync(path, { readOnly: true })
+    const serialize = vi.spyOn(db, 'serialize')
+    const card = { mid: 2, ord: 0, sfld: '574', flds: '574\x1fpalabra\x1fword' }
+    expect(cardTextReader(db, 1)(card)).toBe('palabra')
+    expect(cardTextReader(db, 1)(card)).toBe('palabra')
+    expect(serialize).toHaveBeenCalledOnce()
+    cardTextReader(db, 2)(card)
+    expect(serialize).toHaveBeenCalledTimes(2)
+    db.close()
+  })
+
   it('falls back to the sort field for every card when templates cannot be read', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const db = new DatabaseSync(':memory:')
@@ -120,6 +132,14 @@ describe('plainFront', () => {
   it('removes furigana readings but keeps other brackets', () => {
     expect(plainFront('食[た]べる 日本語[にほんご]')).toBe('食べる 日本語')
     expect(plainFront('see [note 2]')).toBe('see [note 2]')
+  })
+
+  it('never cuts an emoji in half', () => {
+    expect(plainFront(`${'x'.repeat(78)}😀${'y'.repeat(9)}`)).toBe(`${'x'.repeat(78)}😀…`)
+  })
+
+  it('has no text for an Image Occlusion mask', () => {
+    expect(plainFront('{{c1::image-occlusion:rect:left=.2:top=.3:width=.1:height=.1}}')).toBe('')
   })
 
   it('shows the answer inside cloze markup', () => {

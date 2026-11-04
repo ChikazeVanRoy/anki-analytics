@@ -12,6 +12,7 @@ export function plainFront(value: unknown): string {
   const text = String(value ?? '')
     .replace(/\[sound:[^\]]*\]/g, ' ')
     .replace(/<[^>]*>/g, ' ')
+    .replace(/\{\{c\d+::image-occlusion:[^}]*\}\}/g, ' ') // where a mask sits on an image, not text
     .replace(/\{\{c\d+::(.*?)(?:::[^}]*)?\}\}/g, '$1') // {{c1::answer::hint}}
     .replace(/(?<=[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]) ?\[[\p{Script=Hiragana}\p{Script=Katakana}][^\]]*\]/gu, '') // 食[た]べる
     .replace(/&nbsp;/g, ' ')
@@ -22,7 +23,8 @@ export function plainFront(value: unknown): string {
     .replace(/&amp;/g, '&')
     .replace(/\s+/g, ' ')
     .trim()
-  return text.length > 80 ? `${text.slice(0, 79)}…` : text
+  const characters = Array.from(text) // by character, so an emoji is never cut in half
+  return characters.length > 80 ? `${characters.slice(0, 79).join('')}…` : text
 }
 
 /** The field names a template shows, in order: `{{Hanzi}}` or `{{furigana:Word}}`, but not `{{#Word}}`, `{{FrontSide}}` or what `{{^Word}}` hides. */
@@ -81,16 +83,22 @@ function readFieldsShown(db: DatabaseSync): Map<string, number[]> {
   return shown
 }
 
+/** The last templates read, as they only change with a new copy and reading them means copying the whole collection. */
+let latest: { copy: string; shown: Map<string, number[]> } | null = null
+
 /**
  * Returns a function giving a card's text from a row with its `ord` and its note's `mid`, `flds` and `sfld`.
  * Templates are read on the first call. If they can't be, every card falls back to its sort field.
+ * `copiedAt` identifies this copy of the collection, so that a later read of it needn't read them again.
  */
-export function cardTextReader(db: DatabaseSync) {
-  let shown: Map<string, number[]> | undefined
+export function cardTextReader(db: DatabaseSync, copiedAt?: number) {
+  const copy = copiedAt === undefined ? null : `${db.location()}:${copiedAt}`
+  let shown = copy !== null && latest?.copy === copy ? latest.shown : undefined
   return (card: Record<string, unknown>): string => {
     if (!shown) {
       try {
         shown = readFieldsShown(db)
+        if (copy !== null) latest = { copy, shown }
       } catch (err) {
         console.warn('Could not read card templates; showing sort fields instead.', err)
         shown = new Map()
