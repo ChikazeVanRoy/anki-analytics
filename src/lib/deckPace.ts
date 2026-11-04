@@ -1,5 +1,5 @@
-// When a deck's last new card would be started, at the pace you've actually been introducing them (pure, tested).
-// A projection from measured data. Without real FSRS data there's no measured pace, so nothing is shown.
+// When a deck's last new card would be started, at the pace you've actually been introducing them or at a daily
+// number of new cards (pure, tested). Projections from real data: without FSRS data nothing is shown.
 
 import type { AnkiData } from '../data/types'
 import { dayNumber, keyFromDayNumber, toDateKey } from './dates'
@@ -36,6 +36,25 @@ export function deckFinish(data: AnkiData, deckId: string, today: Date): DeckFin
   return { kind: 'date', date: keyFromDayNumber(todayNumber + Math.ceil(remaining / perDay)), perDay, remaining, introduced, days }
 }
 
+export interface DeckNewCards {
+  remaining: number
+  /** The deck's daily limit in Anki (0 without a preset). */
+  limit: number
+  startedToday: number
+}
+
+/** A deck's new cards. `staleCopy`: the copy is from an earlier day, so nothing in it was started today. */
+export function deckNewCards(data: AnkiData, deckId: string, staleCopy = false): DeckNewCards | null {
+  const fsrs = data.fsrs?.enabled ? data.fsrs : null
+  const remaining = fsrs?.newCards[deckId]
+  if (remaining === undefined) return null
+  return {
+    remaining,
+    limit: fsrs?.presets.find((p) => p.deckId === deckId)?.newPerDay ?? 0,
+    startedToday: staleCopy ? 0 : (fsrs?.newToday?.[deckId] ?? 0),
+  }
+}
+
 /**
  * New cards you've actually been starting: per calendar day, and per study day as the simulator counts them, in
  * total and by deck. Sums the decks' own paces, so it's the pace behind their finish dates. Null when no deck has
@@ -57,4 +76,10 @@ export function currentPace(data: AnkiData, today: Date, studyDaysPerWeek: numbe
 export function finishAt(remaining: number, perStudyDay: number, studyDaysPerWeek: number, today: Date): string | null {
   if (perStudyDay <= 0) return null
   return keyFromDayNumber(dayNumber(toDateKey(today)) + Math.ceil((remaining / perStudyDay) * (7 / studyDaysPerWeek)))
+}
+
+/** The day the last new card would be started at `perDay`, with what's left of today's number starting today. */
+export function finishAtDailyNumber(cards: DeckNewCards, perDay: number, studyDaysPerWeek: number, today: Date): string | null {
+  const roomToday = Math.max(0, perDay - cards.startedToday)
+  return finishAt(Math.max(0, cards.remaining - roomToday), perDay, studyDaysPerWeek, today)
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { AnkiData, DailyDeckStat } from '../data/types'
 import { realShapedData } from '../test/fsrsFixture'
-import { currentPace, deckFinish, finishAt } from './deckPace'
+import { currentPace, deckFinish, deckNewCards, finishAt, finishAtDailyNumber } from './deckPace'
 
 const TODAY = new Date(2026, 10, 4)
 
@@ -62,6 +62,27 @@ describe('deckFinish', () => {
   })
 })
 
+describe('deckNewCards', () => {
+  it('gives the cards left and the daily limit set in Anki', () => {
+    expect(deckNewCards(realShapedData(), 'language')).toEqual({ remaining: 100, limit: 20, startedToday: 5 })
+  })
+
+  it('counts nothing as started today on a copy from an earlier day', () => {
+    expect(deckNewCards(realShapedData(), 'language', true)?.startedToday).toBe(0)
+  })
+
+  it('has no limit for a deck without a preset', () => {
+    const base = realShapedData()
+    const d = { ...base, fsrs: { ...base.fsrs!, presets: [] } }
+    expect(deckNewCards(d, 'language')).toEqual({ remaining: 100, limit: 0, startedToday: 5 })
+  })
+
+  it('says nothing without a new-card count or real FSRS data', () => {
+    expect(deckNewCards(realShapedData(), 'nope')).toBeNull()
+    expect(deckNewCards({ ...realShapedData(), fsrs: undefined }, 'language')).toBeNull()
+  })
+})
+
 describe('currentPace', () => {
   const today = new Date(2026, 2, 31)
   const data = (introduced: number) =>
@@ -88,4 +109,22 @@ describe('finishAt', () => {
     expect(finishAt(50, 10, 5, today)).toBe('2026-03-08')
   })
   it('has no date at no pace', () => expect(finishAt(70, 0, 7, today)).toBeNull())
+})
+
+describe('finishAtDailyNumber', () => {
+  const today = new Date(2026, 2, 1)
+  const cards = (remaining: number, startedToday: number) => ({ remaining, limit: 20, startedToday })
+
+  it('starts today when today’s number has room', () => {
+    expect(finishAtDailyNumber(cards(20, 0), 20, 7, today)).toBe('2026-03-01')
+    expect(finishAtDailyNumber(cards(21, 0), 20, 7, today)).toBe('2026-03-02')
+  })
+  it('counts only what’s left of today’s number', () => {
+    expect(finishAtDailyNumber(cards(5, 15), 20, 7, today)).toBe('2026-03-01')
+    expect(finishAtDailyNumber(cards(6, 15), 20, 7, today)).toBe('2026-03-02')
+  })
+  it('moves to tomorrow once today’s number is used, even past it', () => {
+    expect(finishAtDailyNumber(cards(20, 30), 20, 7, today)).toBe('2026-03-02')
+  })
+  it('has no date at no number', () => expect(finishAtDailyNumber(cards(20, 0), 0, 7, today)).toBeNull())
 })

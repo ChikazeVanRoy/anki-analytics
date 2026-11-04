@@ -69,7 +69,7 @@ monthly `#/wrapped`:
 
 | Section | What it answers | Source |
 |---|---|---|
-| **Home** | What should I do today? Next step, Sprig the mascot, streak with rest days, daily quests, living garden, journey map, milestones, badges, and the detailed numbers behind "Your numbers" | **Measured** from your review log and card counts; the suggested new-card limit, your current pace's cost and deck finish dates are labelled **projections** |
+| **Home** | What should I do today? Next step, Sprig the mascot, streak with rest days, daily quests, living garden, journey map, milestones, badges, and the detailed numbers behind "Your numbers" | **Measured** from your review log and card counts; the suggested new-card limit, your current pace's cost and deck finish dates (from each deck's new cards a day, adjustable on the card) are labelled **projections** |
 | **Activity** | When and how much did I study, am I forgetting less, and which cards keep tripping me up? Heatmap, knowledge curve, review charts, new cards vs reviews, deck comparison, trouble cards | **Measured** from your review log; the knowledge curve is **FSRS's estimate**, replayed from that log |
 | **Planner** | How much work is coming, how many new cards can I sustain, and what would a goal take? | **Projection**: Monte Carlo simulation with FSRS-6 scheduling on your real cards, opening on your current pace |
 | **Advanced** | How strong are my memories, and does FSRS predict me well? Stability, difficulty, recall, risk, calibration | **Measured** card states (as Anki stored them) + the FSRS-6 forgetting curve; past predictions replayed from the review log |

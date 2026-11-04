@@ -14,7 +14,7 @@ import type { AnkiData } from '../data/types'
 import { LOCALE, messages } from '../i18n'
 import { earnedBadges } from '../lib/badges'
 import { parseDateKey, toDateKey } from '../lib/dates'
-import { deckFinish } from '../lib/deckPace'
+import { deckNewCards } from '../lib/deckPace'
 import { changeDelta, formatCopiedAt, formatInt, formatMinutes, formatPct, formatRate, formatShortDate, SAME_RELATIVE } from '../lib/format'
 import { shiftWithin } from '../lib/gradingShift'
 import {
@@ -143,7 +143,14 @@ export function HomePage({ data, fromSnapshot = false }: { data: AnkiData; fromS
         </section>
       )}
 
-      {shownDecks.length > 0 && <JourneyMap trips={shownDecks.map((deck) => ({ deck, finish: deckFinish(data, deck.id, today) }))} sample={sample} />}
+      {shownDecks.length > 0 && (
+        <JourneyMap
+          trips={shownDecks.map((deck) => ({ deck, cards: deckNewCards(data, deck.id, stale) }))}
+          studyDays={measured.studyDaysPerWeek}
+          today={today}
+          sample={sample}
+        />
+      )}
 
       <section aria-labelledby="home-milestones" className="animate-rise rounded-3xl border border-line bg-surface p-5 shadow-card sm:p-6">
         <SectionHeading id="home-milestones" title={m.milestones.title} question={m.milestones.question} />

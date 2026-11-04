@@ -1,9 +1,9 @@
-import { useId } from 'react'
+import { useId, useState } from 'react'
 import { useDeckColor } from '../data/deckColors'
 import type { Deck } from '../data/types'
 import { LOCALE, messages } from '../i18n'
 import { parseDateKey } from '../lib/dates'
-import type { DeckFinish } from '../lib/deckPace'
+import { finishAtDailyNumber, type DeckNewCards } from '../lib/deckPace'
 import { formatInt, formatPct } from '../lib/format'
 import { journey, pointOnRoad, roadPath, shownProgress } from '../lib/journey'
 import { Mascot } from './Mascot'
@@ -14,22 +14,80 @@ const m = messages.home.journey
 /** Stops sit high and low in turn, so the road winds. */
 const stopY = (i: number) => (i % 2 ? 72 : 28)
 
-function FinishLine({ finish }: { finish: DeckFinish }) {
-  if (finish.kind !== 'date') return finish.kind === 'done' ? null : <p className="mt-3 text-sm text-ink-2">{m.finishThin}</p>
-  const month = parseDateKey(finish.date).toLocaleDateString(LOCALE, { month: 'short', year: 'numeric' })
-  const pace = finish.perDay < 10 ? finish.perDay.toFixed(1) : formatInt(finish.perDay)
+const storeKey = (deckId: string) => `anki-analytics:new-per-day:${deckId}`
+
+/** Only a convenience: without storage the number simply isn't remembered, and anything unusable is ignored. */
+function remembered(deckId: string): string | null {
+  try {
+    const saved = localStorage.getItem(storeKey(deckId))
+    return saved && validPerDay(saved) ? saved : null
+  } catch {
+    return null
+  }
+}
+function remember(deckId: string, perDay: string | null) {
+  try {
+    if (perDay === null) localStorage.removeItem(storeKey(deckId))
+    else localStorage.setItem(storeKey(deckId), perDay)
+  } catch {
+    // storage unavailable: nothing to do
+  }
+}
+
+const validPerDay = (value: string) => /^\d+$/.test(value) && Number(value) > 0
+
+function FinishLine({ deckId, cards, studyDays, today }: { deckId: string; cards: DeckNewCards; studyDays: number; today: Date }) {
+  const field = useId()
+  // Null follows Anki's limit, so a later change there shows up here
+  const [chosen, setChosen] = useState(() => remembered(deckId))
+  const shown = chosen ?? (cards.limit > 0 ? String(cards.limit) : '')
+  const perDay = validPerDay(shown) ? Number(shown) : 0
+  const date = finishAtDailyNumber(cards, perDay, studyDays, today)
+  const change = (value: string) => {
+    const next = cards.limit > 0 && Number(value) === cards.limit ? null : value
+    setChosen(next)
+    if (next === null || validPerDay(next)) remember(deckId, next)
+  }
   return (
     <div className="mt-3 rounded-2xl border border-dashed border-line p-3">
-      <SourceBadge kind="projection" />
-      <p className="mt-1.5 text-sm font-semibold text-ink-2">
-        {m.finish(pace, month)}
-        <InfoTip label={m.finishTipLabel}>{m.finishTip(finish.introduced, finish.days, finish.remaining)}</InfoTip>
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <SourceBadge kind="projection" />
+        <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
+          {chosen !== null && cards.limit > 0 && Number(chosen) !== cards.limit && (
+            <button type="button" onClick={() => change(String(cards.limit))} className="text-xs font-bold text-ink-2 underline">
+              {m.useAnki(cards.limit)}
+            </button>
+          )}
+          <label htmlFor={field} className="text-xs font-bold text-ink-2">
+            {m.perDay}
+          </label>
+          <input
+            id={field}
+            type="number"
+            inputMode="numeric"
+            min={1}
+            step={1}
+            value={shown}
+            onChange={(e) => change(e.target.value)}
+            className="w-20 rounded-xl border border-line bg-surface-2 px-2 py-1 text-right text-base font-bold text-ink tabular-nums"
+          />
+        </div>
+      </div>
+      <div role="status" className="mt-1.5 text-sm text-ink-2">
+        {date ? (
+          <p className="font-semibold">
+            {m.finish(parseDateKey(date).toLocaleDateString(LOCALE, { day: 'numeric', month: 'short', year: 'numeric' }))}
+            <InfoTip label={m.finishTipLabel}>{m.finishTip(perDay, cards.remaining, studyDays)}</InfoTip>
+          </p>
+        ) : (
+          <p>{m.finishNeedsPace}</p>
+        )}
+      </div>
     </div>
   )
 }
 
-function Road({ deck, finish }: { deck: Deck; finish: DeckFinish | null }) {
+function Road({ deck, cards, studyDays, today }: { deck: Deck; cards: DeckNewCards | null; studyDays: number; today: Date }) {
   const deckColor = useDeckColor()
   const clip = useId()
   const j = journey(deck)
@@ -79,12 +137,19 @@ function Road({ deck, finish }: { deck: Deck; finish: DeckFinish | null }) {
           <dd className="text-xl font-extrabold text-ink tabular-nums">{formatInt(j.toGo)}</dd>
         </div>
       </dl>
-      {finish && <FinishLine finish={finish} />}
+      {cards && cards.remaining > 0 && <FinishLine deckId={deck.id} cards={cards} studyDays={studyDays} today={today} />}
     </article>
   )
 }
 
-export function JourneyMap({ trips, sample }: { trips: { deck: Deck; finish: DeckFinish | null }[]; sample: boolean }) {
+interface Props {
+  trips: { deck: Deck; cards: DeckNewCards | null }[]
+  studyDays: number
+  today: Date
+  sample: boolean
+}
+
+export function JourneyMap({ trips, studyDays, today, sample }: Props) {
   return (
     <section aria-labelledby="home-journey" className="animate-rise">
       <div className="mb-3 flex flex-wrap items-baseline gap-x-3">
@@ -96,7 +161,7 @@ export function JourneyMap({ trips, sample }: { trips: { deck: Deck; finish: Dec
       </div>
       <div className={`grid gap-4 ${trips.length >= 2 ? 'md:grid-cols-2' : ''}`}>
         {trips.map((t) => (
-          <Road key={t.deck.id} deck={t.deck} finish={t.finish} />
+          <Road key={t.deck.id} deck={t.deck} cards={t.cards} studyDays={studyDays} today={today} />
         ))}
       </div>
     </section>

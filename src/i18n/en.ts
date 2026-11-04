@@ -150,11 +150,13 @@ export const en = {
       finished: 'You’ve started every card in this deck.',
       noCards: 'No cards to start in this deck.',
       label: (deck: string, started: number, total: number, toGo: number) => `${deck}: ${int(started)} of ${int(total)} cards started, ${int(toGo)} to go.`,
-      finish: (perDay: string, month: string) => `At about ${perDay} new cards a day, you’d start the last card around ${month}.`,
-      finishThin: 'Too few new cards lately to project a finish.',
+      perDay: 'New cards a day',
+      useAnki: (limit: number) => `Use Anki’s ${int(limit)}`,
+      finish: (date: string) => `Estimated finish: ${date}.`,
+      finishNeedsPace: 'Enter how many new cards a day to see when you’d finish.',
       finishTipLabel: 'About this projection',
-      finishTip: (introduced: number, days: number, remaining: number) =>
-        `A projection from your own pace: ${int(introduced)} new cards in the last ${int(days)} days, rest days included, with ${int(remaining)} left. It assumes that pace holds and says when you’d start the last card, not when you’d know it well.`,
+      finishTip: (perDay: number, remaining: number, studyDays: number) =>
+        `${int(remaining)} new ${plural(remaining, 'card', 'cards')} left at ${int(perDay)} a day, ${int(studyDays)} study ${plural(studyDays, 'day', 'days')} a week as you’ve been doing. The number starts at the deck’s limit in Anki; changing it here changes nothing in Anki. This counts new cards only: it says when you’d start the last one, and leaves out reviews.`,
     },
     badges: {
       title: 'Badges',

@@ -167,7 +167,7 @@ describe('Home decks', () => {
     const journey = document.querySelector('[aria-labelledby="home-journey"]') as HTMLElement
     const card = within(journey).getByRole('heading', { name: 'Language' }).closest('article') as HTMLElement
     expect(card.textContent).toContain(messages.badges.projection)
-    expect(card.textContent).toMatch(/you’d start the last card around/)
+    expect(card.textContent).toMatch(/Estimated finish: \d{1,2} \w+ \d{4}\./)
   })
 
   it('tells how far through the whole deck you are, once, in the journey', () => {
