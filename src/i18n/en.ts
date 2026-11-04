@@ -187,12 +187,21 @@ export const en = {
         `A projection from your own pace: ${int(introduced)} new cards in the last ${int(days)} days, rest days included, with ${int(remaining)} left. It assumes that pace holds and says when you’d start the last card, not when you’d know it well.`,
     },
     garden: {
-      stage: { flower: 'Long interval', sprout: 'Learning' },
+      stage: { flower: 'Long interval', sprout: 'Learning', bud: 'Not yet tested', wilt: 'Needs water' },
+      living: { flower: 'Known well', sprout: 'Growing', bud: 'Not yet tested', wilt: 'Needs water' },
+      hint: 'Tap a plant to see its card.',
+      plant: (front: string, stage: string, recall: string, due: string) => `${front}: ${stage.toLowerCase()}, ${recall} chance of recall, ${due}`,
+      plantNoText: 'A card',
+      plantGroup: (shown: string, unit: number) => (unit > 1 ? `${shown} One of about ${int(unit)} like it.` : shown),
+      dueNow: 'due now',
+      dueIn: (n: number) => `due in ${int(n)} ${plural(n, 'day', 'days')}`,
+      thirsty: (n: number) => `${int(n)} ${plural(n, 'card needs', 'cards need')} watering. Review ${plural(n, 'it', 'them')} in Anki to perk ${plural(n, 'it', 'them')} up.`,
       empty: 'Nothing planted yet. Study a card to grow the first sprout.',
       unit: (n: number) => (n === 1 ? '1 plant = 1 card' : `1 plant ≈ ${int(n)} cards`),
-      bedLabel: (deck: string, flower: number, sprout: number, seed: number, unit: number) =>
-        `${deck}: ${int(flower)} with a long interval, ${int(sprout)} learning, ${int(seed)} not started. Each plant is ${unit === 1 ? 'one card' : `about ${int(unit)} cards`}.`,
+      bedLabel: (deck: string, counts: { flower: number; bud: number; sprout: number; wilt: number; seed: number }, unit: number) =>
+        `${deck}: ${int(counts.flower)} in flower, ${int(counts.bud)} in bud, ${int(counts.sprout)} growing, ${int(counts.wilt)} needing water, ${int(counts.seed)} not started. Each plant is ${unit === 1 ? 'one card' : `about ${int(unit)} cards`}. Arrow keys or tap to read a plant.`,
       note: 'Grown from Anki’s card counts: a card blooms once its interval reaches 21 days. Suspended cards aren’t planted.',
+      noteLiving: 'Grown from your cards’ memory states. A card droops when it’s overdue or at risk, buds at a 21-day interval and opens once you’ve remembered it at that interval. Suspended cards aren’t planted.',
     },
     insight: { title: 'Insight', basis: 'Based on your review history', basisSample: 'Based on the generated sample data', more: 'See the detail' },
     milestones: {

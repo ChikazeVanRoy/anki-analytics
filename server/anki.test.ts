@@ -301,6 +301,7 @@ describe('FSRS data', () => {
   it('counts a card as proven only once it has passed a review at a long interval', () => {
     // Card 12 passed one with a previous interval of 25 days. Card 41 is excluded, and 98 is suspended
     expect(fsrs().proven).toEqual({ spanish: 1 })
+    expect(fsrs().cards.filter((c) => c.proven)).toHaveLength(1)
   })
 
   it('calibrates only review-card reviews with a prior state and at least a day’s gap', () => {
@@ -457,6 +458,16 @@ describe('readPreset on blobs written by Anki', () => {
 })
 
 describe('trouble cards', () => {
+  it('gives studied cards their text for the garden', () => {
+    const copy = join(dir, 'garden.anki2')
+    copyFileSync(path, copy)
+    const db = new DatabaseSync(copy)
+    db.exec(`INSERT INTO notes VALUES (8, '<i>bom</i> dia'); UPDATE cards SET nid = 8 WHERE id = 12`)
+    db.close()
+    const cards = readAnkiData(copy, NOW, { deckConfig: DECKS }).fsrs!.cards
+    expect(cards.filter((c) => c.front).map((c) => c.front)).toEqual(['bom dia'])
+  })
+
   it('lists cards you keep struggling with, as plain text, and only those', () => {
     const copy = join(dir, 'trouble.anki2')
     copyFileSync(path, copy)
@@ -517,7 +528,8 @@ describe('FSRS data with mixed presets and incomplete histories', () => {
       CREATE TABLE decks (id INTEGER PRIMARY KEY, name TEXT, kind BLOB);
       CREATE TABLE deck_config (id INTEGER PRIMARY KEY, name TEXT, config BLOB);
       CREATE TABLE config (key TEXT PRIMARY KEY, val BLOB);
-      CREATE TABLE cards (id INTEGER PRIMARY KEY, did INTEGER, odid INTEGER DEFAULT 0, type INTEGER, queue INTEGER, due INTEGER, odue INTEGER DEFAULT 0, ivl INTEGER, mod INTEGER DEFAULT 0, data TEXT);
+      CREATE TABLE cards (id INTEGER PRIMARY KEY, did INTEGER, odid INTEGER DEFAULT 0, type INTEGER, queue INTEGER, due INTEGER, odue INTEGER DEFAULT 0, ivl INTEGER, mod INTEGER DEFAULT 0, data TEXT, nid INTEGER DEFAULT 0);
+      CREATE TABLE notes (id INTEGER PRIMARY KEY, sfld TEXT);
       CREATE TABLE revlog (id INTEGER PRIMARY KEY, cid INTEGER, ease INTEGER, time INTEGER, type INTEGER, lastIvl INTEGER, factor INTEGER);
       INSERT INTO config VALUES ('rollover', CAST('${ROLLOVER}' AS BLOB)), ('fsrs', CAST('true' AS BLOB));
     `)

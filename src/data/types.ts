@@ -60,6 +60,10 @@ export interface FsrsCard {
   buried?: boolean
   /** In a learning step of a day or more. Unlike same-day steps, these count towards the review limit. */
   interday?: boolean
+  /** Passed a review at an interval of 21+ days. Absent: not yet. */
+  proven?: boolean
+  /** The note's sort field as plain text, stays on this computer. Absent in very large collections. */
+  front?: string
 }
 
 /** Scheduler settings of the preset a deck group uses (the one most of its cards use). */

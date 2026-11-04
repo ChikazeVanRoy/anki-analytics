@@ -1,12 +1,23 @@
 // The Home "memory garden": each deck's studied cards drawn as plants (sprout = learning, flower = known
 // well); cards not started yet are seeds, shown as a count beside the bed so a large unstarted deck doesn't
-// bury the plants. Pure and deterministic, so the garden looks the same on every visit until the counts
+// bury the plants. With FSRS data the plants are alive: a card droops when it needs reviewing, and buds once
+// its interval is long, opening when it's proven. Pure and deterministic, so the garden looks the same on every visit until the counts
 // change. Counts come straight from the deck; one plant stands for `unit` studied cards, the same in every
 // bed so beds can be compared by eye.
 
 import type { Deck } from '../data/types'
+import { dayNumber } from './dates'
+import { RISK_MARGIN, type CardNow } from './fsrsStats'
 
-export type PlantStage = 'sprout' | 'flower'
+/** `bud` and `wilt` need FSRS data. Without it, `flower` means a long interval rather than a proven card. */
+export type PlantStage = 'sprout' | 'bud' | 'flower' | 'wilt'
+
+/** The card a plant stands for, to show when it's tapped. */
+export interface PlantCard {
+  front?: string
+  recall: number
+  dueIn: number // days; 0 or less means due now
+}
 
 export interface Plant {
   stage: PlantStage
@@ -14,6 +25,7 @@ export interface Plant {
   lift: number // px, -2..2
   tilt: number // degrees, -8..8
   scale: number // 0.85..1.1
+  card?: PlantCard
 }
 
 export interface GardenBed {
@@ -27,6 +39,15 @@ const UNITS = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1_000, 2_000, 2_500,
 
 /** Plants for one stage: rounded, but a stage with any cards always gets at least one plant. */
 const plantsFor = (cards: number, unit: number) => (cards > 0 ? Math.max(1, Math.round(cards / unit)) : 0)
+
+const MATURE_DAYS = 21
+
+/** A card's place in the garden. Needing water comes first: a proven card still needs its next review. */
+export function stageOf(c: CardNow): PlantStage {
+  if (c.overdue || c.r < c.desired - RISK_MARGIN) return 'wilt'
+  if (c.proven) return 'flower'
+  return c.interval >= MATURE_DAYS ? 'bud' : 'sprout'
+}
 
 const plantCount = (deck: Deck, unit: number) => plantsFor(deck.youngCards, unit) + plantsFor(deck.matureCards, unit)
 
@@ -47,22 +68,45 @@ function random(seed: string) {
   }
 }
 
-export function gardenBed(deck: Deck, unit: number): GardenBed {
-  const counts = { seed: deck.newCards, sprout: deck.youngCards, flower: deck.matureCards }
-  const rand = random(deck.id)
-  const stages: PlantStage[] = (['flower', 'sprout'] as const).flatMap((s) =>
-    Array<PlantStage>(plantsFor(counts[s], unit)).fill(s),
-  )
+const STAGES: PlantStage[] = ['flower', 'bud', 'wilt', 'sprout']
+
+function arrange(deckId: string, unit: number, counts: GardenBed['counts'], cards: Record<PlantStage, CardNow[]> | null, today: number): GardenBed {
+  const rand = random(deckId)
+  const plants = STAGES.flatMap((stage) => {
+    const n = plantsFor(counts[stage], unit)
+    return Array.from({ length: n }, (_, i): { stage: PlantStage; card?: PlantCard } => {
+      // Spread over the stage's cards, so the same few aren't always the ones shown
+      const c = cards?.[stage][Math.floor((i * counts[stage]) / n)]
+      return { stage, ...(c && { card: { front: c.front, recall: c.r, dueIn: dayNumber(c.due) - today } }) }
+    })
+  })
   // Mix the bed (Fisher-Yates with the seeded generator)
-  for (let i = stages.length - 1; i > 0; i--) {
+  for (let i = plants.length - 1; i > 0; i--) {
     const j = Math.floor(rand() * (i + 1))
-    ;[stages[i], stages[j]] = [stages[j], stages[i]]
+    ;[plants[i], plants[j]] = [plants[j], plants[i]]
   }
-  const plants = stages.map((stage) => ({
-    stage,
-    lift: Math.round((rand() * 4 - 2) * 10) / 10,
-    tilt: Math.round((rand() * 16 - 8) * 10) / 10,
-    scale: Math.round((0.85 + rand() * 0.25) * 100) / 100,
-  }))
-  return { deckId: deck.id, unit, counts, plants }
+  return {
+    deckId,
+    unit,
+    counts,
+    plants: plants.map((p) => ({
+      ...p,
+      lift: Math.round((rand() * 4 - 2) * 10) / 10,
+      tilt: Math.round((rand() * 16 - 8) * 10) / 10,
+      scale: Math.round((0.85 + rand() * 0.25) * 100) / 100,
+    })),
+  }
+}
+
+/** A bed from the deck's counts alone, for data without FSRS memory states. */
+export function gardenBed(deck: Deck, unit: number): GardenBed {
+  return arrange(deck.id, unit, { seed: deck.newCards, sprout: deck.youngCards, bud: 0, flower: deck.matureCards, wilt: 0 }, null, 0)
+}
+
+/** A bed from each card's memory state. */
+export function livingBed(deck: Deck, cards: CardNow[], unit: number, todayKey: string): GardenBed {
+  const byStage: Record<PlantStage, CardNow[]> = { sprout: [], bud: [], flower: [], wilt: [] }
+  for (const c of cards) if (c.deckId === deck.id) byStage[stageOf(c)].push(c)
+  const counts = { seed: deck.newCards, sprout: byStage.sprout.length, bud: byStage.bud.length, flower: byStage.flower.length, wilt: byStage.wilt.length }
+  return arrange(deck.id, unit, counts, byStage, dayNumber(todayKey))
 }

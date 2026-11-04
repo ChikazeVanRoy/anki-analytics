@@ -32,7 +32,8 @@ import {
   type NextStep,
   type TodayWork,
 } from '../lib/progress'
-import { gardenBed, plantUnit, type GardenBed } from '../lib/garden'
+import { cardsNow } from '../lib/fsrsStats'
+import { gardenBed, livingBed, plantUnit, type GardenBed } from '../lib/garden'
 import { measuredDefaults } from '../lib/measured'
 import { limitRange } from '../lib/plan'
 import { routeHref, type Route } from '../lib/route'
@@ -75,6 +76,8 @@ export function HomePage({ data }: { data: AnkiData }) {
   const sample = data.source === 'mock'
   const shownDecks = data.decks.filter((d) => d.totalCards + d.suspendedCards > 0)
   const plantsPer = plantUnit(shownDecks, 60)
+  const asOfKey = toDateKey(asOf)
+  const living = useMemo(() => (data.fsrs ? cardsNow(data.fsrs, asOfKey) : null), [data, asOfKey])
 
   return (
     <div className="space-y-6">
@@ -110,21 +113,21 @@ export function HomePage({ data }: { data: AnkiData }) {
             <SectionHeading id="home-decks" title={m.decks.title} question={m.decks.question} />
             <SourceBadge kind={sample ? 'sample' : 'measured'} />
           </div>
-          <GardenLegend unit={plantsPer} />
+          <GardenLegend unit={plantsPer} living={!!living} />
           <div className={`mt-3 grid gap-4 ${shownDecks.length >= 3 ? 'md:grid-cols-3' : shownDecks.length === 2 ? 'md:grid-cols-2' : ''}`}>
             {shownDecks.map((d) => (
               <DeckCard
                 key={d.id}
                 week={decksWeek.find((s) => s.deck.id === d.id)!}
                 month={decksMonth.find((s) => s.deck.id === d.id)!}
-                bed={gardenBed(d, plantsPer)}
+                bed={living ? livingBed(d, living, plantsPer, asOfKey) : gardenBed(d, plantsPer)}
                 finish={deckFinish(data, d.id, today)}
                 proven={data.fsrs?.proven ? (data.fsrs.proven[d.id] ?? 0) : null}
                 sinceChange={shiftWithin(data, firstOfMonth, d.id)?.rate ?? null}
               />
             ))}
           </div>
-          <p className="mt-3 text-xs text-muted">{m.garden.note}</p>
+          <p className="mt-3 text-xs text-muted">{living ? m.garden.noteLiving : m.garden.note}</p>
         </section>
       )}
 

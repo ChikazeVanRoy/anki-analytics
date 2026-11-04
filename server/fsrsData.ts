@@ -27,6 +27,7 @@ const KNOWLEDGE_POINTS = 60 // most days the knowledge curve is sampled on, per 
 const TROUBLE_WINDOW_DAYS = 90
 const TROUBLE_MIN_ANSWERS = 3 // Again or Hard answers in the window that make a card worth listing
 const TROUBLE_MAX_CARDS = 30
+const GARDEN_TEXT_CARDS = 5_000 // above this, the garden goes without card text to keep the answer small
 
 interface Context {
   db: DatabaseSync
@@ -190,6 +191,7 @@ export function readFsrsData(ctx: Context): FsrsData {
   const cardGroup = new Map<number, string>() // card id -> deck group, for the review log below
   const cardPresetId = new Map<number, number>() // card id -> preset of its home deck
   const cards: FsrsCard[] = []
+  const cardById = new Map<number, FsrsCard>()
   const newCards: Record<string, number> = {}
   const buriedNew: Record<string, number> = {}
   const suspended: Record<string, number> = {}
@@ -244,7 +246,7 @@ export function readFsrsData(ctx: Context): FsrsData {
     }
     storedState.set(Number(r.id), { stability: data.s, difficulty: data.d })
     const presetIndex = cardPresetId.has(Number(r.id)) ? cardPresetIndex(cardPresetId.get(Number(r.id))!) : undefined
-    cards.push({
+    const stored: FsrsCard = {
       deckId: group,
       stability: data.s,
       difficulty: data.d,
@@ -255,7 +257,16 @@ export function readFsrsData(ctx: Context): FsrsData {
       ...(presetIndex !== undefined && { preset: presetIndex }),
       ...(isBuried(queue, Number(r.mod)) && { buried: true }),
       ...(queue === 3 && { interday: true }),
-    })
+    }
+    cards.push(stored)
+    cardById.set(Number(r.id), stored)
+  }
+  if (cards.length <= GARDEN_TEXT_CARDS) {
+    for (const r of db.prepare('SELECT c.id AS id, n.sfld AS sfld FROM cards c JOIN notes n ON n.id = c.nid WHERE c.type != 0').all()) {
+      const card = cardById.get(Number(r.id))
+      const front = card && plainFront(r.sfld)
+      if (front) card.front = front
+    }
   }
 
   const presets: DeckPreset[] = []
@@ -359,7 +370,11 @@ export function readFsrsData(ctx: Context): FsrsData {
     }
 
     // Reaching a long interval is a promise; passing a review at that interval is the evidence for it
-    if (matureNow.has(cid) && history.some((e) => e.type === 1 && e.ease > 1 && e.lastIvl >= MATURE_DAYS)) add(proven, group)
+    if (matureNow.has(cid) && history.some((e) => e.type === 1 && e.ease > 1 && e.lastIvl >= MATURE_DAYS)) {
+      add(proven, group)
+      const card = cardById.get(cid)
+      if (card) card.proven = true
+    }
 
     const b = behaviour.get(group)!
     history.forEach((e, i) => {

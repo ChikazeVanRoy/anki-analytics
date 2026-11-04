@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Deck } from '../data/types'
-import { gardenBed as bedAt, plantUnit } from './garden'
+import type { CardNow } from './fsrsStats'
+import { gardenBed as bedAt, plantUnit, livingBed, stageOf } from './garden'
 
 const deck = (newCards: number, youngCards: number, matureCards: number, id = 'alpha'): Deck => ({
   id,
@@ -43,7 +44,7 @@ describe('gardenBed', () => {
   it('plants studied cards only, one plant per unit, keeping exact counts including seeds', () => {
     const bed = gardenBed(deck(7_000, 200, 400))
     expect(bed.unit).toBe(10) // scaled to the 600 studied cards, not the 7,600 in the deck
-    expect(bed.counts).toEqual({ seed: 7_000, sprout: 200, flower: 400 })
+    expect(bed.counts).toEqual({ seed: 7_000, sprout: 200, bud: 0, flower: 400, wilt: 0 })
     expect([stageCount(bed, 'sprout'), stageCount(bed, 'flower')]).toEqual([20, 40])
     expect(bed.plants).toHaveLength(60)
   })
@@ -69,5 +70,35 @@ describe('gardenBed', () => {
       expect(p.scale).toBeGreaterThanOrEqual(0.85)
       expect(p.scale).toBeLessThanOrEqual(1.1)
     }
+  })
+})
+
+describe('the living garden', () => {
+  const card = (over: Partial<CardNow>) =>
+    ({ deckId: 'a', r: 0.95, desired: 0.9, overdue: false, interval: 5, due: '2026-03-05', ...over }) as CardNow
+  const deck = { id: 'a', newCards: 3 } as Deck
+
+  it('droops a card that needs reviewing, whatever else is true of it', () => {
+    expect(stageOf(card({ overdue: true, proven: true }))).toBe('wilt')
+    expect(stageOf(card({ r: 0.8 }))).toBe('wilt')
+    expect(stageOf(card({ r: 0.86 }))).toBe('sprout')
+  })
+
+  it('buds at a long interval and opens once proven', () => {
+    expect(stageOf(card({ interval: 21 }))).toBe('bud')
+    expect(stageOf(card({ interval: 21, proven: true }))).toBe('flower')
+  })
+
+  it('counts every card, and each plant remembers a card to show', () => {
+    const cards = [card({ front: 'um' }), card({ interval: 30 }), card({ overdue: true }), card({ deckId: 'b' })]
+    const bed = livingBed(deck, cards, 1, '2026-03-01')
+    expect(bed.counts).toEqual({ seed: 3, sprout: 1, bud: 1, flower: 0, wilt: 1 })
+    expect(bed.plants).toHaveLength(3)
+    expect(bed.plants.find((p) => p.stage === 'sprout')?.card).toEqual({ front: 'um', recall: 0.95, dueIn: 4 })
+  })
+
+  it('looks the same on every visit', () => {
+    const cards = Array.from({ length: 30 }, (_, i) => card({ interval: i }))
+    expect(livingBed(deck, cards, 2, '2026-03-01')).toEqual(livingBed(deck, cards, 2, '2026-03-01'))
   })
 })
