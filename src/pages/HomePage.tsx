@@ -14,7 +14,7 @@ import type { AnkiData } from '../data/types'
 import { LOCALE, messages } from '../i18n'
 import { earnedBadges } from '../lib/badges'
 import { parseDateKey, toDateKey } from '../lib/dates'
-import { deckFinish, type DeckFinish } from '../lib/deckPace'
+import { deckFinish } from '../lib/deckPace'
 import { changeDelta, formatCopiedAt, formatInt, formatMinutes, formatPct, formatRate, formatShortDate, SAME_RELATIVE } from '../lib/format'
 import { shiftWithin } from '../lib/gradingShift'
 import {
@@ -134,7 +134,6 @@ export function HomePage({ data, fromSnapshot = false }: { data: AnkiData; fromS
                 week={decksWeek.find((s) => s.deck.id === d.id)!}
                 month={decksMonth.find((s) => s.deck.id === d.id)!}
                 bed={living ? livingBed(d, living, plantsPer, asOfKey) : gardenBed(d, plantsPer)}
-                finish={deckFinish(data, d.id, today)}
                 proven={data.fsrs?.proven ? (data.fsrs.proven[d.id] ?? 0) : null}
                 sinceChange={shiftWithin(data, firstOfMonth, d.id)?.rate ?? null}
               />
@@ -144,7 +143,7 @@ export function HomePage({ data, fromSnapshot = false }: { data: AnkiData; fromS
         </section>
       )}
 
-      {shownDecks.length > 0 && <JourneyMap decks={shownDecks} sample={sample} />}
+      {shownDecks.length > 0 && <JourneyMap trips={shownDecks.map((deck) => ({ deck, finish: deckFinish(data, deck.id, today) }))} sample={sample} />}
 
       <section aria-labelledby="home-milestones" className="animate-rise rounded-3xl border border-line bg-surface p-5 shadow-card sm:p-6">
         <SectionHeading id="home-milestones" title={m.milestones.title} question={m.milestones.question} />
@@ -533,21 +532,18 @@ function DeckCard({
   week,
   month,
   bed,
-  finish,
   proven,
   sinceChange,
 }: {
   week: DeckSummary
   month: DeckSummary
   bed: GardenBed
-  finish: DeckFinish | null
   proven: number | null
   sinceChange: number | null
 }) {
   const deckColor = useDeckColor()
   const { deck } = week
   const color = deckColor(deck.id)
-  const started = deck.totalCards ? (deck.youngCards + deck.matureCards) / deck.totalCards : 0
   // Without FSRS data there's no review log to test a long interval against, so it stays one group
   const parts = [
     { label: m.decks.notStarted, value: deck.newCards, opacity: 0.25, tip: null },
@@ -571,7 +567,7 @@ function DeckCard({
           <h3 className="truncate font-extrabold text-ink">{deck.name}</h3>
           <p className="text-xs text-muted">
             {m.decks.cards(deck.totalCards)}
-            {deck.suspendedCards > 0 && ` · ${m.decks.suspended(deck.suspendedCards)}`} · {m.decks.started(formatPct(started, started < 0.1 ? 1 : 0))}
+            {deck.suspendedCards > 0 && ` · ${m.decks.suspended(deck.suspendedCards)}`}
           </p>
         </div>
       </div>
@@ -595,8 +591,6 @@ function DeckCard({
         ))}
       </ul>
 
-      {finish && <FinishLine finish={finish} />}
-
       <dl className="mt-4 grid grid-cols-2 gap-3">
         <div className="rounded-2xl bg-surface-2 px-3 py-2.5">
           <dt className="text-xs font-bold text-muted">{m.decks.week}</dt>
@@ -610,23 +604,6 @@ function DeckCard({
         </div>
       </dl>
     </article>
-  )
-}
-
-function FinishLine({ finish }: { finish: DeckFinish }) {
-  if (finish.kind !== 'date') {
-    return <p className="mt-3 text-sm text-ink-2">{finish.kind === 'done' ? m.decks.finishDone : m.decks.finishThin}</p>
-  }
-  const month = parseDateKey(finish.date).toLocaleDateString(LOCALE, { month: 'short', year: 'numeric' })
-  const pace = finish.perDay < 10 ? finish.perDay.toFixed(1) : formatInt(finish.perDay)
-  return (
-    <div className="mt-3 rounded-2xl border border-dashed border-line p-3">
-      <SourceBadge kind="projection" />
-      <p className="mt-1.5 text-sm font-semibold text-ink-2">
-        {m.decks.finish(pace, month)}
-        <InfoTip label={m.decks.finishTipLabel}>{m.decks.finishTip(finish.introduced, finish.days, finish.remaining)}</InfoTip>
-      </p>
-    </div>
   )
 }
 

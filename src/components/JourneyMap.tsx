@@ -1,42 +1,58 @@
+import { useId } from 'react'
 import { useDeckColor } from '../data/deckColors'
 import type { Deck } from '../data/types'
-import { messages } from '../i18n'
-import { formatInt } from '../lib/format'
-import { journey } from '../lib/journey'
+import { LOCALE, messages } from '../i18n'
+import { parseDateKey } from '../lib/dates'
+import type { DeckFinish } from '../lib/deckPace'
+import { formatInt, formatPct } from '../lib/format'
+import { journey, pointOnRoad, roadPath, shownProgress } from '../lib/journey'
 import { Mascot } from './Mascot'
-import { SourceBadge } from './ui'
+import { InfoTip, SourceBadge } from './ui'
 
 const m = messages.home.journey
 
 /** Stops sit high and low in turn, so the road winds. */
 const stopY = (i: number) => (i % 2 ? 72 : 28)
 
-function Road({ deck }: { deck: Deck }) {
+function FinishLine({ finish }: { finish: DeckFinish }) {
+  if (finish.kind !== 'date') return finish.kind === 'done' ? null : <p className="mt-3 text-sm text-ink-2">{m.finishThin}</p>
+  const month = parseDateKey(finish.date).toLocaleDateString(LOCALE, { month: 'short', year: 'numeric' })
+  const pace = finish.perDay < 10 ? finish.perDay.toFixed(1) : formatInt(finish.perDay)
+  return (
+    <div className="mt-3 rounded-2xl border border-dashed border-line p-3">
+      <SourceBadge kind="projection" />
+      <p className="mt-1.5 text-sm font-semibold text-ink-2">
+        {m.finish(pace, month)}
+        <InfoTip label={m.finishTipLabel}>{m.finishTip(finish.introduced, finish.days, finish.remaining)}</InfoTip>
+      </p>
+    </div>
+  )
+}
+
+function Road({ deck, finish }: { deck: Deck; finish: DeckFinish | null }) {
   const deckColor = useDeckColor()
+  const clip = useId()
   const j = journey(deck)
   const color = deckColor(deck.id)
-  const last = j.stops.length - 1
-  const x = (i: number) => (last > 0 ? 6 + (88 * i) / last : 50)
-  const points = j.stops.map((_, i) => ({ x: x(i), y: stopY(i) }))
-  const road = points.reduce((d, p, i) => {
-    if (i === 0) return `M${p.x} ${p.y}`
-    const mid = (points[i - 1].x + p.x) / 2
-    return `${d} C${mid} ${points[i - 1].y} ${mid} ${p.y} ${p.x} ${p.y}`
-  }, '')
-  // The marker stands between the two stops it's between, on the straight line joining them
-  const along = j.position * last
-  const from = Math.min(Math.floor(along), Math.max(last - 1, 0))
-  const t = along - from
-  const here = points[from + 1] ? { x: points[from].x + (points[from + 1].x - points[from].x) * t, y: points[from].y + (points[from + 1].y - points[from].y) * t } : points[from]
+  // Across the road, left to right, so distance on screen is distance through the deck
+  const roadX = (share: number) => (j.stops.length > 1 ? 6 + 88 * share : 50)
+  const points = j.stops.map((s, i) => ({ x: roadX(s.share), y: stopY(i) }))
+  const road = roadPath(points)
+  const here = pointOnRoad(points, roadX(j.progress))
+  const shown = shownProgress(j)
   return (
     <article className="rounded-3xl border border-line bg-surface p-5 shadow-card">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3">
         <h3 className="font-extrabold text-ink">{deck.name}</h3>
-        <p className="text-xs text-ink-2">{j.toNext > 0 ? m.toNext(j.toNext) : m.finished}</p>
+        <p className="text-xs text-ink-2">{j.toGo > 0 ? m.share(formatPct(shown, shown < 0.1 ? 1 : 0)) : j.total > 0 ? m.finished : m.noCards}</p>
       </div>
-      <div className="relative mt-6 h-32" role="img" aria-label={m.label(deck.name, j.started, j.total, j.toNext)}>
+      <div className="relative mt-6 h-32" role="img" aria-label={m.label(deck.name, j.started, j.total, j.toGo)}>
         <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 size-full" aria-hidden>
+          <clipPath id={clip}>
+            <rect width={here.x} height={100} />
+          </clipPath>
           <path d={road} fill="none" stroke="var(--color-surface-3)" strokeWidth={12} strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+          <path d={road} fill="none" stroke={color} strokeWidth={12} strokeLinecap="round" vectorEffect="non-scaling-stroke" clipPath={`url(#${clip})`} />
           <path d={road} fill="none" stroke={color} strokeWidth={3} strokeDasharray="2 8" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
         </svg>
         {j.stops.map((s, i) => (
@@ -53,11 +69,22 @@ function Road({ deck }: { deck: Deck }) {
           <Mascot mood="happy" size={30} />
         </span>
       </div>
+      <dl className="mt-1 grid grid-cols-2 gap-3">
+        <div>
+          <dt className="text-xs font-bold text-muted">{m.started}</dt>
+          <dd className="text-xl font-extrabold text-ink tabular-nums">{formatInt(j.started)}</dd>
+        </div>
+        <div className="text-right">
+          <dt className="text-xs font-bold text-muted">{m.toGo}</dt>
+          <dd className="text-xl font-extrabold text-ink tabular-nums">{formatInt(j.toGo)}</dd>
+        </div>
+      </dl>
+      {finish && <FinishLine finish={finish} />}
     </article>
   )
 }
 
-export function JourneyMap({ decks, sample }: { decks: Deck[]; sample: boolean }) {
+export function JourneyMap({ trips, sample }: { trips: { deck: Deck; finish: DeckFinish | null }[]; sample: boolean }) {
   return (
     <section aria-labelledby="home-journey" className="animate-rise">
       <div className="mb-3 flex flex-wrap items-baseline gap-x-3">
@@ -67,9 +94,9 @@ export function JourneyMap({ decks, sample }: { decks: Deck[]; sample: boolean }
         <p className="text-sm text-muted">{m.question}</p>
         {sample && <SourceBadge kind="sample" />}
       </div>
-      <div className={`grid gap-4 ${decks.length >= 2 ? 'md:grid-cols-2' : ''}`}>
-        {decks.map((d) => (
-          <Road key={d.id} deck={d} />
+      <div className={`grid gap-4 ${trips.length >= 2 ? 'md:grid-cols-2' : ''}`}>
+        {trips.map((t) => (
+          <Road key={t.deck.id} deck={t.deck} finish={t.finish} />
         ))}
       </div>
     </section>

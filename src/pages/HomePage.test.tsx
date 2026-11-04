@@ -164,9 +164,19 @@ describe('Home decks', () => {
 
   it('labels a finish date as a projection', () => {
     render(<HomePage data={realShapedData()} />)
-    const card = screen.getAllByRole('heading', { name: 'Language' })[0].closest('article') as HTMLElement
+    const journey = document.querySelector('[aria-labelledby="home-journey"]') as HTMLElement
+    const card = within(journey).getByRole('heading', { name: 'Language' }).closest('article') as HTMLElement
     expect(card.textContent).toContain(messages.badges.projection)
     expect(card.textContent).toMatch(/you’d start the last card around/)
+  })
+
+  it('tells how far through the whole deck you are, once, in the journey', () => {
+    render(<HomePage data={realShapedData()} />)
+    const journey = document.querySelector('[aria-labelledby="home-journey"]') as HTMLElement
+    const road = within(journey).getAllByRole('img')[0]
+    expect(road.getAttribute('aria-label')).toMatch(/cards started, .* to go\.$/)
+    const decks = document.querySelector('[aria-labelledby="home-decks"]') as HTMLElement
+    expect(decks.textContent).not.toMatch(/% started|start the last card/)
   })
 
   it('gives no finish date for sample data', () => {

@@ -138,10 +138,17 @@ export const en = {
     journey: {
       title: 'Your journey',
       question: 'How far have I come?',
-      toNext: (n: number) => `${int(n)} ${plural(n, 'card', 'cards')} to the next stop`,
-      finished: 'You’ve reached the end of this road.',
-      label: (deck: string, started: number, total: number, toNext: number) =>
-        `${deck}: ${int(started)} of ${int(total)} cards started, ${int(toNext)} to the next stop.`,
+      share: (pct: string) => `${pct} of the deck started`,
+      started: 'Cards started',
+      toGo: 'To go',
+      finished: 'You’ve started every card in this deck.',
+      noCards: 'No cards to start in this deck.',
+      label: (deck: string, started: number, total: number, toGo: number) => `${deck}: ${int(started)} of ${int(total)} cards started, ${int(toGo)} to go.`,
+      finish: (perDay: string, month: string) => `At about ${perDay} new cards a day, you’d start the last card around ${month}.`,
+      finishThin: 'Too few new cards lately to project a finish.',
+      finishTipLabel: 'About this projection',
+      finishTip: (introduced: number, days: number, remaining: number) =>
+        `A projection from your own pace: ${int(introduced)} new cards in the last ${int(days)} days, rest days included, with ${int(remaining)} left. It assumes that pace holds and says when you’d start the last card, not when you’d know it well.`,
     },
     badges: {
       title: 'Badges',
@@ -239,10 +246,9 @@ export const en = {
     },
     decks: {
       title: 'Your decks',
-      question: 'How far along is each deck?',
+      question: 'How is each deck doing?',
       cards: (n: number) => `${int(n)} cards`,
       suspended: (n: number) => `${int(n)} suspended`,
-      started: (pct: string) => `${pct} started`,
       week: 'Reviews, 7 days',
       remembered: 'Remembered, 30 days',
       rememberedYoung: 'few reviews of cards known well',
@@ -255,12 +261,6 @@ export const en = {
       provenTip: 'Cards with an interval of 21 days or more that you’ve also remembered at that interval.',
       untested: 'Not yet tested',
       untestedTip: 'Cards whose interval has reached 21 days but which haven’t yet come up after a gap that long. They’ll count as known well once you remember one at its first long review.',
-      finish: (perDay: string, month: string) => `At about ${perDay} new cards a day, you’d start the last card around ${month}.`,
-      finishDone: 'No new cards left to start.',
-      finishThin: 'Too few new cards lately to project a finish.',
-      finishTipLabel: 'About this projection',
-      finishTip: (introduced: number, days: number, remaining: number) =>
-        `A projection from your own pace: ${int(introduced)} new cards in the last ${int(days)} days, rest days included, with ${int(remaining)} left. It assumes that pace holds and says when you’d start the last card, not when you’d know it well.`,
     },
     garden: {
       stage: { flower: 'Long interval', sprout: 'Learning', bud: 'Not yet tested', wilt: 'Needs water' },
