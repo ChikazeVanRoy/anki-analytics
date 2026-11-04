@@ -11,12 +11,15 @@ const m = messages.recap
 const COLORS = ['var(--color-brand)', 'var(--color-sun)', 'var(--color-good)', 'var(--color-deck-1)', 'var(--color-fc-fresh)']
 
 /** Bits of paper with fixed positions, so the page draws the same each time. */
-const confetti = Array.from({ length: 28 }, (_, i) => ({
-  left: `${(i * 37) % 100}%`,
-  background: COLORS[i % COLORS.length],
-  animationDelay: `${(i * 53) % 700}ms`,
-  animationDuration: `${1400 + ((i * 97) % 900)}ms`,
-}))
+const paper = (length: number, spreadMs: number) =>
+  Array.from({ length }, (_, i) => ({
+    left: `${(i * 37) % 100}%`,
+    background: COLORS[i % COLORS.length],
+    animationDelay: `${(i * 53) % spreadMs}ms`,
+    animationDuration: `${1400 + ((i * 97) % 900)}ms`,
+  }))
+const confetti = paper(28, 700)
+const moreConfetti = paper(84, 2000) // longer as well as thicker, for a finished day
 
 function Tile({ label, value, style }: { label: string; value: number; style?: CSSProperties }) {
   return (
@@ -31,6 +34,8 @@ function Tile({ label, value, style }: { label: string; value: number; style?: C
 
 /** The payoff for a session: Anki can't be watched live, so the celebration comes once it's closed. */
 export function SessionRecap({ recap, onClose }: { recap: Recap; onClose: () => void }) {
+  const { allDone } = recap
+  const text = allDone ? m.allDone : m
   const [sound, setSound] = useState(soundOn)
   const dialog = useRef<HTMLDialogElement>(null)
   const close = useRef<HTMLButtonElement>(null)
@@ -41,18 +46,20 @@ export function SessionRecap({ recap, onClose }: { recap: Recap; onClose: () => 
     if (d && !d.open) {
       if (d.showModal) d.showModal()
       else d.setAttribute('open', '')
+      // Opens at the top, however many badges there are: the celebration is up there, and the button stays in view
+      close.current?.focus({ preventScroll: true })
+      d.scrollTop = 0
     }
-    close.current?.focus()
-    if (soundOn() && !chimed.current) chimed.current = chime()
-  }, [])
+    if (soundOn() && !chimed.current) chimed.current = chime(allDone)
+  }, [allDone])
   const finish = () => {
     // A recap that opens by itself may not be allowed to play: this click is the first chance
-    if (soundOn() && !chimed.current) chime()
+    if (soundOn() && !chimed.current) chime(allDone)
     onClose()
   }
   const toggleSound = () => {
     setSoundOn(!sound)
-    if (!sound) chimed.current = chime()
+    if (!sound) chimed.current = chime(allDone)
     setSound(!sound)
   }
   return (
@@ -66,18 +73,18 @@ export function SessionRecap({ recap, onClose }: { recap: Recap; onClose: () => 
       className="animate-bounce-in m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md overflow-x-hidden overflow-y-auto rounded-3xl bg-surface p-6 text-center shadow-pop backdrop:bg-black/50 backdrop:backdrop-blur-sm"
     >
       <div className="pointer-events-none absolute inset-0" aria-hidden>
-        {confetti.map((style, i) => (
+        {(allDone ? moreConfetti : confetti).map((style, i) => (
           <span key={i} className="confetti" style={style} />
         ))}
       </div>
       <div className="relative">
-        <div className="flex justify-center">
+        <div className={`flex justify-center ${allDone ? 'animate-hop' : ''}`}>
           <Mascot mood="cheer" size={84} />
         </div>
         <h2 id="recap-title" className="mt-2 text-2xl font-black tracking-tight text-ink">
-          {m.title}
+          {text.title}
         </h2>
-        <p className="mt-1 text-sm text-ink-2">{m.sub}</p>
+        <p className="mt-1 text-sm text-ink-2">{text.sub}</p>
         <div className="mt-4 grid grid-cols-2 gap-2">
           <Tile label={m.reviews} value={recap.reviews} />
           <Tile label={m.minutes} value={recap.minutes} style={{ animationDelay: '80ms' }} />
@@ -95,8 +102,8 @@ export function SessionRecap({ recap, onClose }: { recap: Recap; onClose: () => 
             </div>
           </div>
         )}
-        <button ref={close} type="button" onClick={finish} className="btn-3d mt-5 w-full">
-          {m.close}
+        <button ref={close} type="button" onClick={finish} className="btn-3d sticky bottom-0 z-10 mt-5 w-full">
+          {text.close}
         </button>
         <label className="mt-3 inline-flex cursor-pointer items-center gap-2 text-xs text-ink-2">
           <input type="checkbox" checked={sound} onChange={toggleSound} />

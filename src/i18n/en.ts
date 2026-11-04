@@ -99,6 +99,11 @@ export const en = {
   recap: {
     title: 'Nice session!',
     sub: 'Here’s what you’ve done since your last visit.',
+    allDone: {
+      title: 'All done for today!',
+      sub: 'Nothing left in Anki today. Here’s what you’ve done since your last visit.',
+      close: 'See you tomorrow',
+    },
     reviews: 'reviews',
     minutes: 'minutes',
     newCards: 'new cards',

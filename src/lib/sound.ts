@@ -1,4 +1,4 @@
-// An optional two-note chime, off unless you turn it on. Web Audio, so there's no file to load.
+// An optional chime of two notes, or three for a finished day, off unless you turn it on. Web Audio, so there's no file to load.
 
 const KEY = 'anki-analytics:sound'
 
@@ -19,14 +19,14 @@ export function setSoundOn(on: boolean) {
 }
 
 /** False if the browser wouldn't let it play: sound needs a click on the page first. */
-export function chime(): boolean {
+export function chime(finishedDay = false): boolean {
   if (typeof AudioContext === 'undefined') return false
   const audio = new AudioContext()
   if (audio.state !== 'running') {
     void audio.close()
     return false
   }
-  ;[659, 880].forEach((hz, i) => {
+  ;(finishedDay ? [659, 880, 1319] : [659, 880]).forEach((hz, i) => {
     const start = audio.currentTime + i * 0.14
     const tone = audio.createOscillator()
     const gain = audio.createGain()

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ankiToday, totalsByDate } from '../lib/stats'
-import { recapSince, snapshotOf, type Snapshot } from '../lib/recap'
+import { allDoneToday, recapSince, snapshotOf, type Snapshot } from '../lib/recap'
 import type { AnkiData } from './types'
 
 const KEY = 'anki-analytics:last-visit'
@@ -27,8 +27,9 @@ export function useSessionRecap(data: AnkiData | null) {
   const [, redraw] = useState(0)
   const byDate = useMemo(() => (data ? totalsByDate(data.daily) : null), [data])
   const now = useMemo(() => (data && byDate ? snapshotOf(data, byDate, ankiToday(data)) : null), [data, byDate])
+  const allDone = useMemo(() => !!data && !!byDate && allDoneToday(data, byDate, ankiToday(data)), [data, byDate])
   const last = now ? load() : null // read each time, as dismissing changes it
-  const recap = now && byDate ? recapSince(last, now, byDate) : null
+  const recap = now && byDate ? recapSince(last, now, byDate, allDone) : null
 
   useEffect(() => {
     if (now && !recap) save(now)

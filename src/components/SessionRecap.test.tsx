@@ -10,7 +10,7 @@ import { toDateKey } from '../lib/stats'
 import { SessionRecap } from './SessionRecap'
 
 const m = messages.recap
-const recap = { reviews: 84, minutes: 20, newCards: 12, bloomed: 3, streak: 4, badges: ['week' as const] }
+const recap = { reviews: 84, minutes: 20, newCards: 12, bloomed: 3, streak: 4, badges: ['week' as const], allDone: false }
 
 beforeEach(() => localStorage.clear())
 afterEach(cleanup)
@@ -26,6 +26,21 @@ describe('SessionRecap', () => {
     fireEvent(screen.getByRole('dialog'), new Event('cancel', { cancelable: true }))
     fireEvent.click(screen.getByRole('button', { name: m.close }))
     expect(onClose).toHaveBeenCalledTimes(2)
+  })
+
+  it('makes more of a finished day', () => {
+    const { container } = render(<SessionRecap recap={{ ...recap, allDone: true }} onClose={() => {}} />)
+    expect(screen.getByRole('dialog', { name: m.allDone.title })).toBeTruthy()
+    expect(screen.getByText(m.allDone.sub)).toBeTruthy()
+    expect(screen.getByRole('button', { name: m.allDone.close })).toBeTruthy()
+    expect(container.querySelector('.animate-hop')).toBeTruthy()
+    expect(container.querySelectorAll('.confetti').length).toBeGreaterThan(28)
+  })
+
+  it('keeps the usual recap for a day with more to do', () => {
+    const { container } = render(<SessionRecap recap={recap} onClose={() => {}} />)
+    expect(container.querySelector('.animate-hop')).toBeNull()
+    expect(container.querySelectorAll('.confetti').length).toBe(28)
   })
 
   it('keeps sound off until you turn it on', () => {

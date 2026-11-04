@@ -2,7 +2,8 @@
 
 import type { AnkiData } from '../data/types'
 import { earnedBadges, type BadgeId } from './badges'
-import { streakWithRests } from './progress'
+import { toDateKey } from './dates'
+import { streakWithRests, todayWork } from './progress'
 import type { DayTotal } from './stats'
 
 export interface Snapshot {
@@ -24,6 +25,8 @@ export interface Recap {
   bloomed: number
   streak: number
   badges: BadgeId[]
+  /** Nothing left in Anki today, and you studied today. */
+  allDone: boolean
 }
 
 export const reviewsBefore = (byDate: Map<string, DayTotal>, day: string) =>
@@ -44,12 +47,18 @@ export function snapshotOf(data: AnkiData, byDate: Map<string, DayTotal>, today:
   }
 }
 
+/** You studied today and Anki has nothing more for you, as on Home. A quiet day with nothing due doesn't count. */
+export function allDoneToday(data: AnkiData, byDate: Map<string, DayTotal>, today: Date): boolean {
+  const left = todayWork(data, today, 0)
+  return !!left && !left.stale && left.cards + left.newCards === 0 && (byDate.get(toDateKey(today))?.reviews ?? 0) > 0
+}
+
 /**
  * Null until there's a visit to compare with and you've studied since. Reviews only ever join the end of the log,
  * so if earlier days changed, a deck was added or left out or the profile changed, and there's no session to
  * celebrate. Cards can leave a deck, so nothing goes below 0.
  */
-export function recapSince(last: Snapshot | null, now: Snapshot, byDate: Map<string, DayTotal>): Recap | null {
+export function recapSince(last: Snapshot | null, now: Snapshot, byDate: Map<string, DayTotal>, allDone = false): Recap | null {
   if (!last || now.reviews <= last.reviews || reviewsBefore(byDate, last.day) !== last.before) return null
   return {
     reviews: now.reviews - last.reviews,
@@ -58,5 +67,6 @@ export function recapSince(last: Snapshot | null, now: Snapshot, byDate: Map<str
     bloomed: Math.max(0, now.proven - last.proven),
     streak: now.streak,
     badges: now.badges.filter((b) => !last.badges.includes(b)),
+    allDone,
   }
 }

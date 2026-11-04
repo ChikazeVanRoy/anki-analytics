@@ -1,6 +1,8 @@
 import { expect, test, type Page } from '@playwright/test'
 import { messages } from '../src/i18n'
+import { toDateKey } from '../src/lib/dates'
 import { SNAPSHOT_VERSION } from '../src/lib/snapshot'
+import { ankiToday } from '../src/lib/stats'
 import { realShapedData } from '../src/test/fsrsFixture'
 
 const ROUTES = ['#/', '#/activity', '#/planner', '#/advanced', '#/wrapped']
@@ -215,6 +217,29 @@ test('celebrates new reviews since the last visit, then lets you carry on', asyn
   await expect(dialog).toHaveCount(0)
   await page.reload()
   await expect(page.locator('main h1').first()).toBeVisible()
+  await expect(dialog).toHaveCount(0)
+})
+
+test('makes more of a day with nothing left', async ({ page }) => {
+  const data = realShapedData()
+  const day = toDateKey(ankiToday(data))
+  const finished = {
+    ...data,
+    daily: [...data.daily.filter((s) => s.date !== day), { ...data.daily[0], date: day, reviews: 20 }],
+    fsrs: { ...data.fsrs!, cards: [], newCards: { language: 0, science: 0, other: 0 } },
+  }
+  await page.route('**/api/stats', (route) => route.fulfill({ json: finished }))
+  await page.route('**/api/status', (route) => route.fulfill({ json: { ankiRunning: true, updateAvailable: false, sourceModified: null } }))
+  await page.addInitScript(() => {
+    localStorage.setItem('anki-analytics:last-visit', JSON.stringify({ reviews: 1, seconds: 0, started: 0, proven: 0, streak: 0, badges: [], day: '2000-01-01', before: 0 }))
+  })
+  await page.goto('#/')
+  const dialog = page.getByRole('dialog', { name: messages.recap.allDone.title })
+  await expect(dialog.getByRole('heading', { name: messages.recap.allDone.title })).toBeInViewport()
+  await expect(dialog.getByRole('button', { name: messages.recap.allDone.close })).toBeInViewport()
+  const box = (await dialog.boundingBox())!
+  expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize()!.width)
+  await dialog.getByRole('button', { name: messages.recap.allDone.close }).click()
   await expect(dialog).toHaveCount(0)
 })
 
