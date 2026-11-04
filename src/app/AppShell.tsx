@@ -5,10 +5,10 @@ import { ActivityIcon, AdvancedIcon, CloseIcon, HomeIcon, Logo, MoonIcon, Planne
 import type { AnkiData } from '../data/types'
 import { messages as m } from '../i18n'
 import { formatCopiedAt } from '../lib/format'
-import { ROUTES, routeHref, type Route } from '../lib/route'
+import { NAV_ROUTES, routeHref, type Route } from '../lib/route'
 import type { ThemeChoice } from './useTheme'
 
-const NAV_ICONS: Record<Route, (p: { size?: number }) => ReactNode> = {
+const NAV_ICONS: Record<(typeof NAV_ROUTES)[number], (p: { size?: number }) => ReactNode> = {
   home: HomeIcon,
   activity: ActivityIcon,
   planner: PlannerIcon,
@@ -55,7 +55,7 @@ export function AppShell(props: ShellProps) {
 
           <nav aria-label={m.nav.label} className="mx-auto hidden md:block">
             <ul className="flex gap-1 rounded-2xl bg-surface-2 p-1">
-              {ROUTES.map((r) => {
+              {NAV_ROUTES.map((r) => {
                 const Icon = NAV_ICONS[r]
                 const active = r === route
                 return (
@@ -178,7 +178,7 @@ export function AppShell(props: ShellProps) {
         className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-lg md:hidden"
       >
         <ul className="mx-auto grid max-w-md grid-cols-4">
-          {ROUTES.map((r) => {
+          {NAV_ROUTES.map((r) => {
             const Icon = NAV_ICONS[r]
             const active = r === route
             return (

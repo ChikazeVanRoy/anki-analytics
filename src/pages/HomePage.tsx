@@ -155,6 +155,10 @@ export function HomePage({ data }: { data: AnkiData }) {
 
       <Badges earned={badges} />
 
+      <a href={routeHref('wrapped')} className="btn-3d">
+        {messages.wrapped.link} <ArrowRightIcon size={18} />
+      </a>
+
       <Disclosure title={m.numbers.title} subtitle={m.numbers.subtitle}>
         <div className="space-y-6 pt-2">
           <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">

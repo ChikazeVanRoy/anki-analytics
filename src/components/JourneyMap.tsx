@@ -33,7 +33,7 @@ function Road({ deck }: { deck: Deck }) {
         <h3 className="font-extrabold text-ink">{deck.name}</h3>
         <p className="text-xs text-ink-2">{j.toNext > 0 ? m.toNext(j.toNext) : m.finished}</p>
       </div>
-      <div className="relative mt-2 h-32" role="img" aria-label={m.label(deck.name, j.started, j.total, j.toNext)}>
+      <div className="relative mt-6 h-32" role="img" aria-label={m.label(deck.name, j.started, j.total, j.toNext)}>
         <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 size-full" aria-hidden>
           <path d={road} fill="none" stroke="var(--color-surface-3)" strokeWidth={12} strokeLinecap="round" vectorEffect="non-scaling-stroke" />
           <path d={road} fill="none" stroke={color} strokeWidth={3} strokeDasharray="2 8" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
@@ -48,7 +48,7 @@ function Road({ deck }: { deck: Deck }) {
             {s.finish ? '🏁' : formatInt(s.at)}
           </span>
         ))}
-        <span className="absolute -translate-x-1/2 -translate-y-full" style={{ left: `${here.x}%`, top: `${here.y}%` }} aria-hidden>
+        <span className="absolute z-10 -translate-x-1/2 -translate-y-[150%]" style={{ left: `${here.x}%`, top: `${here.y}%` }} aria-hidden>
           <Mascot mood="happy" size={30} />
         </span>
       </div>

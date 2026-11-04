@@ -20,6 +20,7 @@ import { HomePage } from './pages/HomePage'
 // Chart-heavy sections load on demand, so Home appears without downloading the charting library
 const ActivityPage = lazy(() => import('./pages/ActivityPage').then((m) => ({ default: m.ActivityPage })))
 const PlannerPage = lazy(() => import('./pages/PlannerPage').then((m) => ({ default: m.PlannerPage })))
+const WrappedPage = lazy(() => import('./pages/WrappedPage').then((m) => ({ default: m.WrappedPage })))
 const AdvancedPage = lazy(() => import('./pages/AdvancedPage').then((m) => ({ default: m.AdvancedPage })))
 
 export default function App() {
@@ -93,6 +94,8 @@ function Page({ route, data, range, onRangeChange }: { route: string; data: Anki
       return <ActivityPage data={data} range={range} onRangeChange={onRangeChange} />
     case 'planner':
       return <PlannerPage data={data} today={today} />
+    case 'wrapped':
+      return <WrappedPage data={data} />
     case 'advanced':
       return <AdvancedPage data={data} today={today} />
     default:

@@ -61,14 +61,20 @@ A group whose patterns match no deck is left out, and the API terminal warns abo
 
 ## What it shows
 
-Four sections (`#/`, `#/activity`, `#/planner`, `#/advanced`), simple first and technical on request:
+Four sections (`#/`, `#/activity`, `#/planner`, `#/advanced`), simple first and technical on request, plus the
+monthly `#/wrapped`:
 
 | Section | What it answers | Source |
 |---|---|---|
-| **Home** | What should I do today? Today plan, streak, key numbers, last two weeks, one insight, deck progress, milestones | **Measured** from your review log and card counts; the suggested new-card limit, your current pace's cost and deck finish dates are labelled **projections** |
+| **Home** | What should I do today? Next step, Sprig the mascot, streak with rest days, daily quests, living garden, journey map, milestones, badges, and the detailed numbers behind "Your numbers" | **Measured** from your review log and card counts; the suggested new-card limit, your current pace's cost and deck finish dates are labelled **projections** |
 | **Activity** | When and how much did I study, am I forgetting less, and which cards keep tripping me up? Heatmap, knowledge curve, review charts, new cards vs reviews, deck comparison, trouble cards | **Measured** from your review log; the knowledge curve is **FSRS's estimate**, replayed from that log |
 | **Planner** | How much work is coming, how many new cards can I sustain, and what would a goal take? | **Projection**: Monte Carlo simulation with FSRS-6 scheduling on your real cards, opening on your current pace |
 | **Advanced** | How strong are my memories, and does FSRS predict me well? Stability, difficulty, recall, risk, calibration | **Measured** card states (as Anki stored them) + the FSRS-6 forgetting curve; past predictions replayed from the review log |
+
+After you study, a session recap celebrates what changed since your last visit (it needs to see one visit first,
+and the app can only react once Anki is closed). `#/wrapped` is a monthly review to swipe through. The recap's sound
+is off until you turn it on. Quests, badges and recaps reward showing up and proven memory, never volume or a high
+Remembered score, which would pay for grading a forgotten card as remembered. One missed day a week keeps a streak.
 
 Measured, projected and sample data look different (solid badge, dashed badge and edges, amber banner).
 Milestones only count what the data shows (lifetime reviews, days studied, cards proven at 21+ days) and nothing
@@ -98,7 +104,7 @@ rate also stays near FSRS's prediction until there are enough lapses to go on.
 - `src/lib/`: pure, tested logic: `fsrs.ts` (FSRS-6, shared with the server), `simulator.ts` (+ Web Worker),
   `fsrsStats.ts`, `gradingShift.ts`, `plan.ts`, `deckPace.ts`, `insights.ts`, `stats.ts`, `heatmap.ts`, `dates.ts`
 - `src/app/`: shell (header, navigation, banners), theme and route hooks, error boundary
-- `src/pages/`: one file per section (Home, Activity, Planner, Advanced)
+- `src/pages/`: one file per section (Home, Activity, Planner, Advanced, Wrapped)
 - `src/components/`: charts and shared UI (`ui.tsx`, `Panel.tsx`, `icons.tsx`)
 - `src/i18n/`: interface text (`en.ts`) and locale; add a language by writing another `Messages` object
 - `src/index.css`: design tokens (colours as `light-dark()` pairs, type, motion)
@@ -107,7 +113,8 @@ rate also stays near FSRS's prediction until there are enough lapses to go on.
 ## Privacy
 
 Everything stays local; the API only answers requests addressed to this machine. Trouble cards show the text of
-a few of your notes, read from the local copy and shown only in your browser.
+a few of your notes, and the garden shows studied cards' text when you tap a plant. Both are read from the local
+copy and shown only in your browser, which also remembers your last visit's totals for the session recap.
 Personal Anki data (`/data/`, `*.anki2`, `*.colpkg`, …) and your deck config (`anki-analytics.config.json`)
 are git-ignored and must never be committed.
 

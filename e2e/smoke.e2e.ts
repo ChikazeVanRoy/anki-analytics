@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 import { messages } from '../src/i18n'
 import { realShapedData } from '../src/test/fsrsFixture'
 
-const ROUTES = ['#/', '#/activity', '#/planner', '#/advanced']
+const ROUTES = ['#/', '#/activity', '#/planner', '#/advanced', '#/wrapped']
 
 /** Fails on any browser error, apart from the failed requests a test sets up on purpose. */
 function watchErrors(page: Page) {
@@ -45,6 +45,7 @@ for (const route of ['#/', '#/activity', '#/advanced']) {
     await expect(page.locator('main h1').first()).toBeVisible()
     // Home's suggestion adds its tip when the simulation ends, so wait for it to be checked too
     await expect(page.getByText(messages.home.today.suggestPending)).toHaveCount(0, { timeout: 30_000 })
+    if (route === '#/') await page.getByText(messages.home.numbers.title).click()
     const visible = page.locator('main button[aria-describedby]:visible')
     await expect(visible.first()).toBeVisible()
     // Stable ids, not positions: a tip that appears mid-test can't make the loop click the same button twice
@@ -172,4 +173,34 @@ test('fetches new stats by itself once Anki has closed with newer reviews', asyn
   await refreshed
   await expect(page.getByRole('alert')).toHaveCount(0)
   await expect(page.getByText(messages.data.update.reviews)).toHaveCount(0)
+})
+
+test('celebrates new reviews since the last visit, then lets you carry on', async ({ page }) => {
+  await useRealShapedData(page)
+  await page.addInitScript(() => {
+    if (!sessionStorage.getItem('seeded')) {
+      localStorage.setItem('anki-analytics:last-visit', JSON.stringify({ reviews: 1, seconds: 0, started: 0, proven: 0, streak: 0, badges: [] }))
+      sessionStorage.setItem('seeded', 'yes')
+    }
+  })
+  await page.goto('#/')
+  const dialog = page.getByRole('dialog', { name: messages.recap.title })
+  await expect(dialog).toBeVisible()
+  const box = (await dialog.boundingBox())!
+  expect(box.x).toBeGreaterThanOrEqual(0)
+  expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize()!.width)
+  await dialog.getByRole('button', { name: messages.recap.close }).click()
+  await expect(dialog).toHaveCount(0)
+  await page.reload()
+  await expect(page.locator('main h1').first()).toBeVisible()
+  await expect(dialog).toHaveCount(0)
+})
+
+test('a garden plant shows its card when tapped', async ({ page }) => {
+  await useRealShapedData(page)
+  await page.goto('#/')
+  const bed = page.getByRole('group', { name: /^Language: / })
+  await bed.focus()
+  await page.keyboard.press('ArrowRight')
+  await expect(page.locator('p[aria-live="polite"]').first()).toContainText('chance of recall')
 })
