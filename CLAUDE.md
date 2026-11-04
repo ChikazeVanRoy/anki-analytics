@@ -32,6 +32,7 @@ npm run test:e2e  # Playwright smoke tests (installed Chrome, synthetic data, ph
 npx tsc -b        # type-check (app + server configs)
 npm run lint      # oxlint
 npm run build     # production build
+npm run snapshot  # save stats to data/snapshot.json (shown when the API can't answer)
 npm start         # API and built app on http://localhost:5174 (what the launcher runs in the background)
 ```
 

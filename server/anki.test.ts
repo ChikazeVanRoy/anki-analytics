@@ -3,17 +3,22 @@
 
 import { createHash } from 'node:crypto'
 import { copyFileSync, mkdtempSync, readFileSync, rmSync, utimesSync } from 'node:fs'
+import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import type { AnkiData } from '../src/data/types.ts'
 import { ankiDayKey, dayNumber, keyFromDayNumber } from '../src/lib/dates.ts'
 import reference from '../src/lib/fixtures/anki-fsrs-reference.json' with { type: 'json' }
 import { DEFAULT_PARAMS, replay, retrievability, toFsrs6Params } from '../src/lib/fsrs.ts'
+import { parseSnapshot } from '../src/lib/snapshot.ts'
 import { readAnkiData, readDeckTops } from './anki.ts'
+import { createApiServer } from './app.ts'
 import type { DeckConfig } from './deckGroups.ts'
 import { plainFront, readPreset, sampleDays } from './fsrsData.ts'
 import { parseProto } from './protobuf.ts'
+import { makeSnapshot, writeSnapshot } from './snapshot.ts'
 
 const dir = mkdtempSync(join(tmpdir(), 'anki-analytics-test-'))
 const path = join(dir, 'collection.anki2')
@@ -590,5 +595,25 @@ describe('FSRS data with mixed presets and incomplete histories', () => {
     // Card 4 (complete history): reviews on 3 and 12 Feb are calibrated. Card 5 (starts with a review): none.
     const pt = f.calibration.filter((c) => c.deckId === 'german').reduce((n, c) => n + c.reviews, 0)
     expect(pt).toBe(2) // card 4's two reviews; none of card 5's three
+  })
+})
+
+describe('a saved snapshot', () => {
+  it('gives exactly the numbers the live API sends for the same collection', async () => {
+    const snapshotPath = join(dir, 'snapshot.json')
+    const read = (p: string) => readAnkiData(p, NOW, { deckConfig: DECKS })
+    makeSnapshot({ collectionPath: path, copy: () => {}, read, write: (data) => writeSnapshot(data, snapshotPath) })
+    const server = createApiServer({ collectionPath: path, read, snapshotPath, log: () => {} })
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+    const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
+    try {
+      const live = (await (await fetch(`${base}/api/stats`)).json()) as AnkiData
+      const saved = parseSnapshot(await (await fetch(`${base}/snapshot.json`)).json())
+      expect(live.source).toBe('anki')
+      expect(live.fsrs?.cards.length).toBeGreaterThan(0)
+      expect(saved).toEqual(live)
+    } finally {
+      server.close()
+    }
   })
 })

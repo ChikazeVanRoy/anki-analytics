@@ -9,6 +9,7 @@
     "api": "node --watch server/index.ts",
     "start": "node server/index.ts",
     "copy-collection": "node server/copy-collection.ts",
+    "snapshot": "node server/make-snapshot.ts",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",

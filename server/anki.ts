@@ -6,7 +6,7 @@ import { DatabaseSync } from 'node:sqlite'
 import type { AnkiData, DailyDeckStat, Deck } from '../src/data/types.ts'
 import { toDateKey } from '../src/lib/dates.ts'
 import { readConfigJson } from './ankiConfig.ts'
-import { OTHER, planDeckGroups, type DeckConfig } from './deckGroups.ts'
+import { loadDeckColors, loadDeckConfig, OTHER, planDeckGroups, saveDeckColors, type DeckConfig } from './deckGroups.ts'
 import { readFsrsData } from './fsrsData.ts'
 
 const MATURE_DAYS = 21 // Anki's definition: interval of 21+ days
@@ -190,4 +190,15 @@ export function readAnkiData(path: string, now = Date.now(), { deckConfig = {}, 
   } finally {
     db.close()
   }
+}
+
+/**
+ * The stats for a copy of the collection, with the user's deck settings. The deck config is read each time, so edits
+ * apply without a restart. Colour slots are remembered so a deck keeps its colour when other decks come and go.
+ */
+export function readCurrentStats(path: string): AnkiData {
+  const previousColors = loadDeckColors()
+  const data = readAnkiData(path, Date.now(), { deckConfig: loadDeckConfig(), previousColors })
+  saveDeckColors(data.decks, previousColors)
+  return data
 }

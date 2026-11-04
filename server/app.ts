@@ -2,14 +2,16 @@
 //   GET  /api/stats    -> AnkiData from the current copy
 //   GET  /api/status   -> whether Anki is open, and whether a refresh would bring in new reviews
 //   POST /api/refresh  -> re-copy the collection from Anki, then return fresh AnkiData
+//   GET  /snapshot.json -> the stats saved by `npm run snapshot`, if any
 //   GET  anything else -> the built app from dist/, when there is one (the launcher runs the app this way)
 
 import { existsSync } from 'node:fs'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import type { AnkiData } from '../src/data/types.ts'
-import { readAnkiData } from './anki.ts'
-import { DeckConfigError, loadDeckColors, loadDeckConfig, saveDeckColors } from './deckGroups.ts'
+import { readCurrentStats } from './anki.ts'
+import { DeckConfigError } from './deckGroups.ts'
 import { ankiStatus, COLLECTION_COPY, copyCollection, CopyError, type AnkiStatus } from './collection.ts'
+import { readSnapshotFile, SNAPSHOT_FILE } from './snapshot.ts'
 import { DIST_DIR, serveFile } from './staticFiles.ts'
 
 const ALLOWED_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]'])
@@ -31,6 +33,7 @@ export function isAllowedHost(host: string | undefined): boolean {
 export interface ApiDeps {
   collectionPath: string
   read: (path: string) => AnkiData
+  snapshotPath: string
   copy: () => { profile: string; bytes: number }
   status: () => AnkiStatus
   log: (message: string) => void
@@ -39,14 +42,8 @@ export interface ApiDeps {
 
 const defaults: ApiDeps = {
   collectionPath: COLLECTION_COPY,
-  // The deck config is read on every request, so edits apply on the next refresh without a restart.
-  // Colour slots are remembered so a deck keeps its colour when other decks come and go.
-  read: (path) => {
-    const previousColors = loadDeckColors()
-    const data = readAnkiData(path, Date.now(), { deckConfig: loadDeckConfig(), previousColors })
-    saveDeckColors(data.decks, previousColors)
-    return data
-  },
+  read: readCurrentStats,
+  snapshotPath: SNAPSHOT_FILE,
   copy: copyCollection,
   status: ankiStatus,
   log: console.log,
@@ -77,6 +74,14 @@ export function createApiServer(overrides: Partial<ApiDeps> = {}): Server {
     if (req.method === 'GET' && req.url === '/api/stats') return sendStats(res)
 
     if (req.method === 'GET' && req.url === '/api/status') return send(res, 200, deps.status())
+
+    if (req.method === 'GET' && req.url === '/snapshot.json') {
+      const saved = readSnapshotFile(deps.snapshotPath)
+      if (saved === null) return send(res, 404, { error: 'No snapshot saved yet.' })
+      // Always ask again, so a browser can't keep showing an old snapshot as the latest one
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' })
+      return void res.end(saved)
+    }
 
     if (req.method === 'POST' && req.url === '/api/refresh') {
       // A custom header can't be sent cross-site without a CORS preflight, which this server never

@@ -80,6 +80,7 @@ flowchart LR
 | `GET` anything else | The built app from `dist/`, when there is one (`server/staticFiles.ts`). The launcher runs the app this way, with no dev server, on port 5174 | 200, 404 |
 | `GET /api/stats` | Reads `data/collection.anki2` and returns one `AnkiData` JSON document (`src/data/types.ts`) | 200, 503 (no copy yet), 500 |
 | `GET /api/status` | Whether Anki is open and whether a refresh would bring in new reviews. Compares file dates only and never opens Anki's collection | 200 |
+| `GET /snapshot.json` | Returns the file saved by `npm run snapshot`: `{ version, data: AnkiData }` | 200, 404 (none saved) |
 | `POST /api/refresh` | Requires header `X-Requested-By: anki-analytics`; re-copies the collection from Anki, then returns fresh `AnkiData` | 200, 403, 409 (Anki open / bad profile), 500 |
 | anything else | | 404 (403 for a foreign Host) |
 
@@ -103,7 +104,7 @@ flowchart TD
   H["FSRS (fsrsData.ts): stored s/d/lrt per card,<br/>presets from deck_config protobuf,<br/>due dates from col.crt + due"]
   I["Replay revlog through lib/fsrs.ts:<br/>predicted recall per past review,<br/>validation vs stored state"]
   J["AnkiData JSON<br/>decks, daily, fsrs (or fsrsError)"]
-  K["useAnkiData: fetch /api/stats<br/>(mockData if the API is down)"]
+  K["useAnkiData: fetch /api/stats<br/>(saved snapshot, then mockData, if the API is down)"]
   L["lib/stats.ts, heatmap.ts:<br/>cards, heatmap, charts"]
   M["lib/fsrsStats.ts:<br/>recall now, distributions, risk, calibration"]
   N["lib/simulator.ts in a Web Worker:<br/>forecast + scenarios"]
@@ -183,6 +184,7 @@ Notes from the code:
 | `app.ts` | Request routing, Host-header check, refresh header check, error responses; dependencies are injectable for tests |
 | `collection.ts` | Finds the Anki profile, refuses while Anki runs (`pgrep`) or after an unclean exit, copies `collection.anki2` to `data/` |
 | `copy-collection.ts` | `npm run copy-collection` command-line wrapper around `collection.ts` |
+| `snapshot.ts`, `make-snapshot.ts` | Save the stats to `data/snapshot.json` atomically; `npm run snapshot` wrapper |
 | `anki.ts` | Opens the copy read-only; deck grouping/exclusion; daily review totals; card counts; calls `fsrsData.ts` and isolates its failures |
 | `fsrsData.ts` | FSRS data: stored memory states, due dates, presets, reset counts, measured answer behaviour, review-log replay (calibration and validation) |
 | `protobuf.ts` | Minimal, bounds-checked reader for Anki's protobuf settings blobs |
@@ -209,7 +211,7 @@ Notes from the code:
 | `lib/plan.ts` | The Planner's defaults, paces and sweep, shared with the Today plan on Home |
 | `lib/deckPace.ts` | Home: a deck's projected finish from the measured pace of new cards |
 | `lib/route.ts` | Section names and URL hashes |
-| `data/useAnkiData.ts` | Fetches `/api/stats`, falls back to mock data, runs `POST /api/refresh` |
+| `data/useAnkiData.ts` | Fetches `/api/stats`, falls back to `/snapshot.json`, then mock data; runs `POST /api/refresh` |
 | `data/useTodayPlan.ts` | Runs the simulator's scenarios for Home, once per copy of the collection |
 | `data/useUpdateOffer.ts` | Polls `/api/status` and offers a refresh when Anki has closed or a new Anki day has started |
 | `data/useSimulation.ts` | Starts, debounces and cancels Web Worker runs |

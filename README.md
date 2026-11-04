@@ -12,6 +12,7 @@ Requires Node 22.18+ (the API's TypeScript runs directly, no build step) and mac
 ```sh
 npm install
 npm run copy-collection   # quit Anki first; copies collection.anki2 -> data/ (git-ignored)
+npm run snapshot          # saves your stats to data/snapshot.json (git-ignored), shown if the API can't answer
 npm run dev               # API on 127.0.0.1:5174 + app on http://localhost:5173
 npm test                  # unit + integration tests (Vitest); npm run test:watch re-runs on save
 npm run test:e2e          # browser smoke tests (Playwright, installed Chrome, synthetic data only)
@@ -97,11 +98,12 @@ rate also stays near FSRS's prediction until there are enough lapses to go on.
 ## Structure
 
 - `server/`: local API
-  - `app.ts`: request handling (`GET /api/stats`, `GET /api/status`, `POST /api/refresh`, the built app via `staticFiles.ts`, Host-header check); `index.ts` starts it
+  - `app.ts`: request handling (`GET /api/stats`, `GET /api/status`, `POST /api/refresh`, `GET /snapshot.json`, the built app via `staticFiles.ts`, Host-header check); `index.ts` starts it
   - `anki.ts`: daily totals and card counts
   - `deckGroups.ts`: which dashboard deck each Anki deck belongs to, and the optional config file
   - `fsrsData.ts`: FSRS states, presets (decoded with `protobuf.ts`), review-log replay, measured behaviour
   - `collection.ts`: the safe copy (refuses while Anki is open); `copy-collection.ts` is its CLI
+  - `snapshot.ts`: saves the stats to one file; `make-snapshot.ts` is its CLI
 - `src/data/`: `types.ts` (data contract shared with the API), `useAnkiData.ts`, `useSimulation.ts`, `mockData.ts`
 - `src/lib/`: pure, tested logic: `fsrs.ts` (FSRS-6, shared with the server), `simulator.ts` (+ Web Worker),
   `fsrsStats.ts`, `gradingShift.ts`, `plan.ts`, `deckPace.ts`, `insights.ts`, `stats.ts`, `heatmap.ts`, `dates.ts`

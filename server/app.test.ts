@@ -86,6 +86,28 @@ describe('local API', () => {
   })
 })
 
+describe('the saved snapshot', () => {
+  const snapshotPath = join(dir, 'served-snapshot.json')
+  let port: number
+  let server: Server
+  beforeAll(async () => ({ server, port } = await start({ collectionPath: existing, read: () => fakeData, snapshotPath })))
+  afterAll(() => server.close())
+
+  it('answers 404 until one is saved, then serves it', async () => {
+    expect((await call(port, '/snapshot.json')).status).toBe(404)
+    writeFileSync(snapshotPath, '{"version":1}')
+    expect(await call(port, '/snapshot.json')).toEqual({ status: 200, body: { version: 1 } })
+  })
+
+  it('refuses requests addressed to another domain', async () => {
+    expect((await call(port, '/snapshot.json', { host: `evil.example:${port}` })).status).toBe(403)
+  })
+
+  it('is not served with any other method', async () => {
+    expect((await call(port, '/snapshot.json', { method: 'POST' })).status).toBe(404)
+  })
+})
+
 describe('the built app', () => {
   const dist = join(dir, 'dist')
   let port: number
