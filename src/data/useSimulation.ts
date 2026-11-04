@@ -11,9 +11,10 @@ type Scenarios = Extract<SimResponse, { kind: 'scenarios' }>
 /**
  * Runs the simulator in a Web Worker whenever the inputs change (debounced).
  * A new request terminates the previous worker, so stale runs never finish late.
- * With `enabled` false, nothing runs (the caller already has the answer).
+ * With `enabled` false, nothing runs (the caller already has the answer). `retention: false` skips the desired
+ * retention scenarios, for a caller that doesn't show them.
  */
-export function useSimulation(decks: SimDeck[], settings: SimSettings, enabled = true) {
+export function useSimulation(decks: SimDeck[], settings: SimSettings, enabled = true, { retention = true } = {}) {
   const [main, setMain] = useState<Main | null>(null)
   // What the results above were computed from, so old results can't pass for current ones
   const [mainFor, setMainFor] = useState<{ key: string; decks: SimDeck[] } | null>(null)
@@ -66,7 +67,7 @@ export function useSimulation(decks: SimDeck[], settings: SimSettings, enabled =
         decks,
         settings: current,
         scenarioNewPerDay: withCurrent(SCENARIO_NEW_PER_DAY, current.newPerDay),
-        scenarioRetention: retentionScenarioValues(decks, current),
+        scenarioRetention: retention ? retentionScenarioValues(decks, current) : [],
         scenarioRuns: 8,
         otherRecallNewPerDay: otherRecall.current?.key === otherKey && otherRecall.current.decks === decks ? [] : SCENARIO_NEW_PER_DAY,
       } satisfies SimRequest)
@@ -75,7 +76,7 @@ export function useSimulation(decks: SimDeck[], settings: SimSettings, enabled =
       clearTimeout(timer)
       worker?.terminate()
     }
-  }, [decks, key, otherKey, unavailable, enabled])
+  }, [decks, key, otherKey, unavailable, enabled, retention])
 
   // A run cancelled because the selection became empty never reports back, so don't keep showing "updating"
   const current = (run: typeof mainFor) => run?.key === key && run.decks === decks

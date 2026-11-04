@@ -192,6 +192,23 @@ export function reviewsByPeriod(data: AnkiData, days: number) {
   return [...rows.values()]
 }
 
+/** Answers split into scheduled reviews and everything else: new cards and learning or relearning steps. */
+export function workSplit(data: AnkiData, days: number) {
+  const bucket = bucketFor(days)
+  const firstDay = lastNDays(days, 0, ankiToday(data))[0]
+  const rows = new Map([...emptyBuckets(data, days, bucket)].map((key) => [key, { date: key, scheduled: 0, learning: 0 }]))
+  for (const s of data.daily) {
+    const row = s.date >= firstDay ? rows.get(bucketStart(s.date, bucket)) : undefined
+    if (!row) continue
+    row.scheduled += s.reviewCardReviews
+    row.learning += s.reviews - s.reviewCardReviews
+  }
+  const list = [...rows.values()]
+  const scheduled = list.reduce((n, r) => n + r.scheduled, 0)
+  const learning = list.reduce((n, r) => n + r.learning, 0)
+  return { rows: list, scheduled, learning, learningShare: ratio(learning, scheduled + learning) }
+}
+
 export interface DeckSummary {
   deck: Deck
   reviews: number

@@ -85,7 +85,9 @@ export function milestoneTrack(kind: MilestoneKind, current: number): MilestoneT
 
 export function milestones(data: AnkiData, byDate: Map<string, DayTotal>): MilestoneTrack[] {
   const totalReviews = data.daily.reduce((n, s) => n + s.reviews, 0)
-  const known = data.decks.reduce((n, d) => n + d.matureCards, 0)
+  // A long interval alone hasn't been tested, so with real data only cards that passed a review at it count
+  const proven = data.fsrs?.proven
+  const known = proven ? Object.values(proven).reduce((a, b) => a + b, 0) : data.decks.reduce((n, d) => n + d.matureCards, 0)
   return [
     milestoneTrack('reviews', totalReviews),
     milestoneTrack('days', [...byDate.keys()].filter((k) => studied(byDate, k)).length),

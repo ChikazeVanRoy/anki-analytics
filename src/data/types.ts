@@ -152,6 +152,8 @@ export interface FsrsData {
   /** Anki's "New cards ignore review limit" option. Off, new cards stop once the review limit is used up. */
   newCardsIgnoreReviewLimit?: boolean
   suspended: Record<string, number>
+  /** Cards with a 21+ day interval now that have also passed a review at that interval, per deck group. */
+  proven?: Record<string, number>
   missingState: Record<string, number> // studied cards without an FSRS memory state (excluded everywhere)
   invalidDue: Record<string, number> // studied cards with a memory state but an unreadable due date (excluded)
   resetCards: number // cards whose history was cut by a "Forget" reset (Anki ignores reviews before it)

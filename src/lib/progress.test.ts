@@ -108,6 +108,10 @@ describe('milestones', () => {
     expect(known.current).toBe(12)
     expect(known.reached).toBe(10)
   })
+  it('only counts cards proven at a long interval when the review log can show that', () => {
+    const d = { ...data([...on([1], 40)], [8, 4]), fsrs: { proven: { a: 2, b: 1 } } } as unknown as AnkiData
+    expect(milestones(d, totalsByDate(d.daily))[2].current).toBe(3)
+  })
 })
 
 describe('dayStatus and greeting', () => {

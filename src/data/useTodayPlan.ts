@@ -40,7 +40,7 @@ export function useTodayPlan(data: AnkiData, today: Date): TodayPlan | null {
   const settings = { ...planSettings(decks.map((d) => d.deckId), measured.studyDaysPerWeek, (today.getDay() + 6) % 7), runs: 8 }
   const key = `${data.generatedAt}|${budget}|${seconds}|${JSON.stringify(settings)}`
   const known = solved.get(key)
-  const { scenarios, scenariosSettled, error, unavailable } = useSimulation(decks, settings, !known)
+  const { scenarios, scenariosSettled, error, unavailable } = useSimulation(decks, settings, !known, { retention: false })
 
   const pace = useMemo(() => currentPace(data, today, measured.studyDaysPerWeek), [data, today, measured])
   const fresh = useMemo(() => {

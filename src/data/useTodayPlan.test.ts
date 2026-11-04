@@ -61,7 +61,7 @@ describe('useTodayPlan', () => {
   })
 
   it('adds the other recall model, your real pace and when you’d finish', async () => {
-    const data = { ...realShapedData(), generatedAt: new Date(Date.now() + 5).toISOString() }
+    const data = { ...realShapedData(), generatedAt: new Date(Date.now() + 60_000).toISOString() }
     const hook = renderHook(() => useTodayPlan(data, today))
     await act(() => vi.advanceTimersByTimeAsync(300))
     // Reviews per study day of 2 at 0 new, rising to 4000 at 20: a long way over any budget here

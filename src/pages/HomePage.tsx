@@ -177,6 +177,7 @@ export function HomePage({ data }: { data: AnkiData }) {
                 month={decksMonth.find((s) => s.deck.id === d.id)!}
                 bed={gardenBed(d, plantsPer)}
                 finish={deckFinish(data, d.id, today)}
+                proven={data.fsrs?.proven ? (data.fsrs.proven[d.id] ?? 0) : null}
               />
             ))}
           </div>
@@ -188,7 +189,7 @@ export function HomePage({ data }: { data: AnkiData }) {
         <SectionHeading id="home-milestones" title={m.milestones.title} question={m.milestones.question} />
         <div className="grid gap-4 md:grid-cols-3">
           {tracks.map((t) => (
-            <Milestone key={t.kind} track={t} />
+            <Milestone key={t.kind} track={t} proven={!!data.fsrs?.proven} />
           ))}
         </div>
         <p className="mt-3 text-xs text-muted">{m.milestones.note}</p>
@@ -462,15 +463,21 @@ function InsightCard({ text, tone, link, sample }: { text: string; tone: 'good' 
   )
 }
 
-function DeckCard({ week, month, bed, finish }: { week: DeckSummary; month: DeckSummary; bed: GardenBed; finish: DeckFinish | null }) {
+function DeckCard({ week, month, bed, finish, proven }: { week: DeckSummary; month: DeckSummary; bed: GardenBed; finish: DeckFinish | null; proven: number | null }) {
   const deckColor = useDeckColor()
   const { deck } = week
   const color = deckColor(deck.id)
   const started = deck.totalCards ? (deck.youngCards + deck.matureCards) / deck.totalCards : 0
+  // Without FSRS data there's no review log to test a long interval against, so it stays one group
   const parts = [
-    { label: m.decks.notStarted, value: deck.newCards, opacity: 0.25 },
-    { label: m.decks.learning, value: deck.youngCards, opacity: 0.6 },
-    { label: m.decks.known, value: deck.matureCards, opacity: 1 },
+    { label: m.decks.notStarted, value: deck.newCards, opacity: 0.25, tip: null },
+    { label: m.decks.learning, value: deck.youngCards, opacity: 0.5, tip: null },
+    ...(proven === null
+      ? [{ label: m.decks.known, value: deck.matureCards, opacity: 1, tip: m.decks.knownTip }]
+      : [
+          { label: m.decks.untested, value: deck.matureCards - proven, opacity: 0.75, tip: m.decks.untestedTip },
+          { label: m.decks.proven, value: proven, opacity: 1, tip: m.decks.provenTip },
+        ]),
   ]
   const rc = month.retention.reviewCards
   const rcThin = retentionSplit(month.retention).matureThin
@@ -503,7 +510,7 @@ function DeckCard({ week, month, bed, finish }: { week: DeckSummary; month: Deck
           <li key={p.label} className="inline-flex items-center gap-1.5">
             <span className="size-2 rounded-full" style={{ background: color, opacity: p.opacity }} aria-hidden />
             {p.label} <span className="font-bold text-ink tabular-nums">{formatInt(p.value)}</span>
-            {p.label === m.decks.known && <InfoTip label={m.decks.known}>{m.decks.knownTip}</InfoTip>}
+            {p.tip && <InfoTip label={p.label}>{p.tip}</InfoTip>}
           </li>
         ))}
       </ul>
@@ -548,8 +555,9 @@ const MILESTONE_STYLE: Record<MilestoneTrack['kind'], { icon: ReactNode; color: 
   known: { icon: <BrainIcon size={20} />, color: 'var(--color-good)', tint: 'var(--color-good-soft)', title: m.milestones.known },
 }
 
-function Milestone({ track }: { track: MilestoneTrack }) {
+function Milestone({ track, proven }: { track: MilestoneTrack; proven: boolean }) {
   const s = MILESTONE_STYLE[track.kind]
+  const title = track.kind === 'known' && proven ? m.milestones.knownProven : s.title
   const unit = track.kind === 'days' ? (n: number) => `${formatInt(n)} ${n === 1 ? 'day' : 'days'}` : formatInt
   return (
     <article>
@@ -557,13 +565,13 @@ function Milestone({ track }: { track: MilestoneTrack }) {
         <span className="grid size-9 shrink-0 place-items-center rounded-2xl" style={{ background: s.tint, color: s.color }}>
           {s.icon}
         </span>
-        <h3 className="min-w-0 flex-1 text-sm font-bold text-muted">{s.title}</h3>
+        <h3 className="min-w-0 flex-1 text-sm font-bold text-muted">{title}</h3>
         <p className="text-xl font-black tracking-tight text-ink tabular-nums">
           <CountUp value={track.current} format={unit} />
         </p>
       </div>
       <div className="mt-2.5">
-        <ProgressBar value={track.progress} color={s.color} label={`${s.title}: progress to next milestone`} />
+        <ProgressBar value={track.progress} color={s.color} label={`${title}: progress to next milestone`} />
         <p className="mt-1.5 text-xs text-muted">
           {track.next === null ? m.milestones.maxed : m.milestones.next(unit(track.next - track.current), unit(track.next))}
         </p>

@@ -6,6 +6,7 @@ import { DeckComparison } from '../components/DeckComparison'
 import { HardTrend } from '../components/HardTrend'
 import { RangeFilter } from '../components/RangeFilter'
 import { StatCard } from '../components/StatCard'
+import { WorkSplitChart } from '../components/WorkSplitChart'
 import { SourceBadge } from '../components/ui'
 import type { AnkiData } from '../data/types'
 import { messages } from '../i18n'
@@ -26,6 +27,7 @@ import {
   reviewsByPeriod,
   summarize,
   totalsByDate,
+  workSplit,
   type RangeKey,
 } from '../lib/stats'
 import { PageHeader } from './PageHeader'
@@ -60,6 +62,7 @@ export function ActivityPage({ data, range, onRangeChange }: Props) {
   const { reviewCards, mature } = summary.retention
   const { matureThin } = retentionSplit(summary.retention)
   const minutes = decks.reduce((n, d) => n + d.minutes, 0)
+  const work = useMemo(() => workSplit(data, days), [data, days])
   const shift = shiftWithin(data, lastNDays(days, 0, today)[0])
 
   return (
@@ -89,6 +92,7 @@ export function ActivityPage({ data, range, onRangeChange }: Props) {
           label={m.forgot}
           tip={m.forgotTip}
           value={formatPct(summary.againRate)}
+          hint={reviewCards.reviews > 0 ? m.forgotSub(formatRate(1 - reviewCards.rate)) : undefined}
           delta={
             canCompare
               ? changeDelta(againChange, {
@@ -130,6 +134,7 @@ export function ActivityPage({ data, range, onRangeChange }: Props) {
 
       <ActivityHeatmap byDate={byDate} today={today} years={years} />
       <DailyReviewsChart rows={periodRows} decks={data.decks} bucket={bucket} period={period} />
+      <WorkSplitChart split={work} bucket={bucket} period={period} sample={data.source === 'mock'} />
       <HardTrend
         rows={hardRows}
         share={reviewCards.reviews > 0 ? reviewCards.hard / reviewCards.reviews : null}

@@ -12,6 +12,7 @@ import {
   deckSummaries,
   lastNDays,
   rangeDays,
+  workSplit,
   retentionSplit,
   reviewsByPeriod,
   summarize,
@@ -230,4 +231,20 @@ describe('hardShareSeries', () => {
     expect(hardShareSeries(data([]), 30)).toHaveLength(30)
     expect(hardShareSeries(data([]), 365).length).toBeLessThanOrEqual(54)
   })
+})
+
+describe('workSplit', () => {
+  const key = () => toDateKey(new Date())
+  const day = (reviews: number, reviewCardReviews: number) =>
+    ({ date: key(), deckId: 'a', reviews, reviewCardReviews, again: 0, studySeconds: 0, reviewCardPassed: 0, reviewCardHard: 0, matureReviews: 0, maturePassed: 0 })
+  const data = (daily: ReturnType<typeof day>[]) => ({ source: 'mock', dayStartHour: 0, generatedAt: '', decks: [], daily }) as unknown as AnkiData
+
+  it('separates scheduled reviews from learning answers', () => {
+    const split = workSplit(data([day(100, 40), day(50, 20)]), 7)
+    expect(split).toMatchObject({ scheduled: 60, learning: 90, learningShare: 0.6 })
+    expect(split.rows.at(-1)).toEqual({ date: key(), scheduled: 60, learning: 90 })
+    expect(split.rows).toHaveLength(7)
+  })
+
+  it('has a share of 0, not NaN, with no answers', () => expect(workSplit(data([]), 7).learningShare).toBe(0))
 })

@@ -278,6 +278,11 @@ describe('FSRS data', () => {
     expect(fsrs().validation).toEqual({ cards: 3, stabilityMatched: 2, difficultyMatched: 2 })
   })
 
+  it('counts a card as proven only once it has passed a review at a long interval', () => {
+    // Card 12 passed one with a previous interval of 25 days. Card 41 is excluded, and 98 is suspended
+    expect(fsrs().proven).toEqual({ spanish: 1 })
+  })
+
   it('calibrates only review-card reviews with a prior state and at least a day’s gap', () => {
     const cal = fsrs().calibration
     const zh = cal.find((c) => c.deckId === 'spanish')!

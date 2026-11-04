@@ -169,6 +169,8 @@ export function readFsrsData(ctx: Context): FsrsData {
   const suspended: Record<string, number> = {}
   const missingState: Record<string, number> = {}
   const invalidDue: Record<string, number> = {}
+  const proven: Record<string, number> = {}
+  const matureNow = new Set<number>() // cards counted as "known well" today
   const storedState = new Map<number, MemoryState>()
   const add = (rec: Record<string, number>, k: string) => (rec[k] = (rec[k] ?? 0) + 1)
   for (const r of db.prepare('SELECT id, did, odid, type, queue, due, odue, ivl, mod, data FROM cards').all()) {
@@ -186,6 +188,7 @@ export function readFsrsData(ctx: Context): FsrsData {
     }
     const type = Number(r.type)
     const queue = Number(r.queue)
+    if (queue !== -1 && type === 2 && Number(r.ivl) >= MATURE_DAYS) matureNow.add(Number(r.id))
     if (queue === -1) {
       add(suspended, group)
       continue
@@ -317,6 +320,9 @@ export function readFsrsData(ctx: Context): FsrsData {
       if (Math.abs(state.difficulty - stored.difficulty) < 0.01) validation.difficultyMatched++
     }
 
+    // Reaching a long interval is a promise; passing a review at that interval is the evidence for it
+    if (matureNow.has(cid) && history.some((e) => e.type === 1 && e.ease > 1 && e.lastIvl >= MATURE_DAYS)) add(proven, group)
+
     const b = behaviour.get(group)!
     history.forEach((e, i) => {
       const passed = e.ease > 1
@@ -398,6 +404,7 @@ export function readFsrsData(ctx: Context): FsrsData {
     reviewsToday,
     newCardsIgnoreReviewLimit: readConfigJson(db, 'newCardsIgnoreReviewLimit') === true,
     suspended,
+    proven,
     missingState,
     invalidDue,
     resetCards,
