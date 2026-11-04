@@ -11,7 +11,7 @@ import type { AnkiData } from '../src/data/types.ts'
 import { readCurrentStats } from './anki.ts'
 import { DeckConfigError } from './deckGroups.ts'
 import { ankiStatus, COLLECTION_COPY, copyCollection, CopyError, type AnkiStatus } from './collection.ts'
-import { readSnapshotFile, SNAPSHOT_FILE } from './snapshot.ts'
+import { readSnapshotFile, SNAPSHOT_FILE, writeSnapshot } from './snapshot.ts'
 import { DIST_DIR, serveFile } from './staticFiles.ts'
 
 const ALLOWED_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]'])
@@ -34,6 +34,7 @@ export interface ApiDeps {
   collectionPath: string
   read: (path: string) => AnkiData
   snapshotPath: string
+  saveSnapshot: (data: AnkiData) => void
   copy: () => { profile: string; bytes: number }
   status: () => AnkiStatus
   log: (message: string) => void
@@ -44,6 +45,7 @@ const defaults: ApiDeps = {
   collectionPath: COLLECTION_COPY,
   read: readCurrentStats,
   snapshotPath: SNAPSHOT_FILE,
+  saveSnapshot: writeSnapshot,
   copy: copyCollection,
   status: ankiStatus,
   log: console.log,
@@ -58,13 +60,20 @@ function send(res: ServerResponse, status: number, body: unknown) {
 export function createApiServer(overrides: Partial<ApiDeps> = {}): Server {
   const deps = { ...defaults, ...overrides }
 
-  function sendStats(res: ServerResponse) {
+  function sendStats(res: ServerResponse, { save = false } = {}) {
     if (!existsSync(deps.collectionPath)) {
       return send(res, 503, { error: 'No collection copy yet. Quit Anki, then press Refresh.' })
     }
     const started = performance.now()
     const data = deps.read(deps.collectionPath)
     deps.log(`stats: ${data.daily.length} rows in ${Math.round(performance.now() - started)}ms`)
+    if (save) {
+      try {
+        deps.saveSnapshot(data)
+      } catch (err) {
+        console.error('The snapshot could not be saved:', err) // the stats just read are still good
+      }
+    }
     send(res, 200, data)
   }
 
@@ -94,7 +103,7 @@ export function createApiServer(overrides: Partial<ApiDeps> = {}): Server {
         if (err instanceof CopyError) return send(res, 409, { error: err.message })
         throw err
       }
-      return sendStats(res)
+      return sendStats(res, { save: true })
     }
 
     if (req.method === 'GET' && serveFile(req.url ?? '/', deps.distDir, res)) return

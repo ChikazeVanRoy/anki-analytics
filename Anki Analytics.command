@@ -1,7 +1,6 @@
 #!/bin/zsh
-# Double-click in Finder to start the dashboard and open it in the browser.
-# It keeps running in the background, so this window can be closed. To stop it, double-click
-# "Stop Anki Analytics.command".
+# Double-click in Finder to start the dashboard, open it in the browser and sync with AnkiWeb.
+# It runs for as long as this window stays open, so nothing keeps running once you're done.
 
 cd "${0:A:h}" || exit 1
 export ANKI_ANALYTICS_PORT=${ANKI_ANALYTICS_PORT:-5174}
@@ -52,13 +51,23 @@ fi
 
 if ! running; then
   mkdir -p data
-  # nohup and disown: the app outlives this window
-  nohup node server/index.ts >> data/server.log 2>&1 &
-  echo $! > $PIDFILE
-  disown
+  node server/index.ts >> data/server.log 2>&1 &
+  SERVER=$!
+  echo $SERVER > $PIDFILE
+  # Closing the window ends this script, and the server with it
+  trap 'kill $SERVER 2>/dev/null; rm -f $PIDFILE' EXIT
+  trap 'exit 0' HUP INT TERM
   for _ in {1..120}; do running && break; sleep 0.25; done
   running || fail "The app didn't start. See data/server.log."
 fi
 
 open $URL
-echo "Anki Analytics is running at $URL. You can close this window."
+echo "Syncing with AnkiWeb: Anki will open and close by itself, so leave it for a moment..."
+node server/sync-anki.ts
+
+if [[ -n $SERVER ]]; then
+  echo "Anki Analytics is running at $URL. Close this window to stop it."
+  wait $SERVER
+else
+  echo "Anki Analytics was already running at $URL. You can close this window."
+fi

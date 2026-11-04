@@ -22,9 +22,12 @@ export function useUpdateOffer(copiedAt: string | undefined, newDay: boolean) {
       if (document.hidden) return
       try {
         const res = await fetch('/api/status')
-        const body = res.ok ? ((await res.json()) as { ankiRunning: boolean; updateAvailable: boolean; sourceModified: number | null }) : null
-        const reason = body?.updateAvailable ? 'reviews' : newDay && body && !body.ankiRunning ? 'day' : null
-        if (!stopped) setAvailable(reason && body?.sourceModified != null ? { modified: body.sourceModified, reason } : null)
+        const body = res.ok ? ((await res.json()) as { ankiRunning: boolean; updateAvailable: boolean; sourceModified: number | null; copyModified?: number | null }) : null
+        // The launcher's sync replaced the copy since this page read it
+        const copied = !!body?.copyModified && !body.ankiRunning && !!copiedAt && Math.floor(body.copyModified) > Date.parse(copiedAt)
+        const reason = body?.updateAvailable || copied ? 'reviews' : newDay && body && !body.ankiRunning ? 'day' : null
+        const modified = copied ? body?.copyModified : body?.sourceModified
+        if (!stopped) setAvailable(reason && modified != null ? { modified, reason } : null)
       } catch {
         if (!stopped) setAvailable(null) // API not running: there's nothing to offer
       }

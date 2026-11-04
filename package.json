@@ -10,6 +10,7 @@
     "start": "node server/index.ts",
     "copy-collection": "node server/copy-collection.ts",
     "snapshot": "node server/make-snapshot.ts",
+    "sync": "node server/sync-anki.ts",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",

@@ -6,7 +6,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ankiIsRunning, ankiStatus, copyCollection, CopyError, type CopyPlaces } from './collection.ts'
+import { ankiIsRunning, ankiStatus, copyCollection, CopyError, profileProblem, type CopyPlaces } from './collection.ts'
 
 vi.mock('node:child_process', () => ({ execFileSync: vi.fn() }))
 
@@ -139,7 +139,7 @@ describe('ankiStatus', () => {
 
   it('offers an update once Anki is closed and its collection is newer than the copy', () => {
     withDates(2_000, 1_000)
-    expect(ankiStatus(undefined, places())).toEqual({ ankiRunning: false, updateAvailable: true, sourceModified: 2_000_000 })
+    expect(ankiStatus(undefined, places())).toMatchObject({ ankiRunning: false, updateAvailable: true, sourceModified: 2_000_000 })
   })
 
   it('offers nothing with no new reviews, or while Anki is open', () => {
@@ -165,13 +165,13 @@ describe('ankiStatus', () => {
   it('stays quiet when it can’t tell which collection is meant', () => {
     profile('User 1')
     profile('User 2')
-    expect(ankiStatus(undefined, places())).toEqual({ ankiRunning: false, updateAvailable: false, sourceModified: null })
+    expect(ankiStatus(undefined, places())).toMatchObject({ ankiRunning: false, updateAvailable: false, sourceModified: null })
     expect(ankiStatus('../..', places()).sourceModified).toBeNull()
   })
 
   it('copes with no Anki folder at all', () => {
     rmSync(ankiDir, { recursive: true })
-    expect(ankiStatus(undefined, places())).toEqual({ ankiRunning: false, updateAvailable: false, sourceModified: null })
+    expect(ankiStatus(undefined, places())).toMatchObject({ ankiRunning: false, updateAvailable: false, sourceModified: null })
   })
 
   it('never changes anything, and doesn’t create the copy', () => {
@@ -215,5 +215,28 @@ describe('ankiIsRunning', () => {
     ankiIsRunning()
     expect(pgrep.mock.calls.map((c) => c[0])).toEqual(['pgrep', 'pgrep'])
     expect(pgrep.mock.calls.map((c) => c[1])).toEqual([['-x', '-i', 'anki'], ['-f', 'Anki\\.app/Contents/']])
+  })
+})
+
+describe('profileProblem', () => {
+  const dirWith = (...names: string[]) => {
+    const ankiDir = mkdtempSync(join(tmpdir(), 'anki-analytics-profiles-'))
+    for (const name of names) {
+      mkdirSync(join(ankiDir, name))
+      writeFileSync(join(ankiDir, name, 'collection.anki2'), '')
+    }
+    return ankiDir
+  }
+
+  it('allows one profile, as Anki then opens straight into it', () => {
+    expect(profileProblem(dirWith('One'))).toBeNull()
+  })
+
+  it('refuses several, as Anki would wait at its chooser', () => {
+    expect(profileProblem(dirWith('One', 'Two'))).toContain('2 Anki profiles')
+  })
+
+  it('refuses none', () => {
+    expect(profileProblem(dirWith())).toContain('No Anki profile')
   })
 })

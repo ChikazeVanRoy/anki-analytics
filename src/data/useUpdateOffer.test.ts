@@ -74,3 +74,24 @@ describe('useUpdateOffer', () => {
     expect(result.current.update).toBeNull()
   })
 })
+
+describe('when the launcher’s sync replaces the copy', () => {
+  const status = (copyModified: number) => vi.fn(async () => ({ ok: true, json: async () => ({ ankiRunning: false, updateAvailable: false, sourceModified: 100, copyModified }) }))
+  const copiedAt = '2026-11-04T10:00:00.000Z'
+  const copied = Date.parse(copiedAt)
+
+  it('offers the newer copy', async () => {
+    vi.stubGlobal('fetch', status(copied + 60_000))
+    const { result } = renderHook(() => useUpdateOffer(copiedAt, false))
+    await flush()
+    expect(result.current.update).toBe('reviews')
+    expect(result.current.version).toBe(copied + 60_000)
+  })
+
+  it('stays quiet about the copy it already shows, even with a fraction of a millisecond more', async () => {
+    vi.stubGlobal('fetch', status(copied + 0.4))
+    const { result } = renderHook(() => useUpdateOffer(copiedAt, false))
+    await flush()
+    expect(result.current.update).toBeNull()
+  })
+})

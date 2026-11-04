@@ -3,7 +3,7 @@
 // Used by both `npm run copy-collection` and the API's refresh endpoint.
 
 import { execFileSync } from 'node:child_process'
-import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -40,12 +40,22 @@ const REAL_PLACES: CopyPlaces = { ankiDir: ANKI_DIR, copyPath: COLLECTION_COPY, 
 const findProfiles = (ankiDir: string) =>
   existsSync(ankiDir) ? readdirSync(ankiDir).filter((name) => existsSync(join(ankiDir, name, 'collection.anki2'))) : []
 
+/** Why Anki can't be opened unattended, or null. With several profiles it would stop at a chooser nobody is there to answer. */
+export function profileProblem(ankiDir = ANKI_DIR): string | null {
+  const profiles = findProfiles(ankiDir)
+  if (profiles.length === 1) return null
+  if (profiles.length === 0) return 'No Anki profile found.'
+  return `Found ${profiles.length} Anki profiles. Background sync needs a single one.`
+}
+
 export interface AnkiStatus {
   ankiRunning: boolean
   /** Anki is closed and its collection is newer than the copy, so a refresh would bring in new reviews. */
   updateAvailable: boolean
   /** When Anki's collection last changed (ms), or null if it can't be found. */
   sourceModified: number | null
+  /** When the copy was made (ms), or null without one. Newer than the page's stats: a sync replaced it. */
+  copyModified: number | null
 }
 
 /** A refresh only helps once Anki is closed, and only if its collection changed after the copy was made. */
@@ -64,7 +74,8 @@ export function ankiStatus(profileName = process.env.ANKI_PROFILE, places = REAL
   const source = profile && profiles.includes(profile) ? join(places.ankiDir, profile, 'collection.anki2') : null
   const sourceModified = source ? modified(source) : null
   const cleanClose = !!source && !existsSync(`${source}-wal`)
-  return { ankiRunning, sourceModified, updateAvailable: canUpdate(ankiRunning, cleanClose, sourceModified, modified(places.copyPath)) }
+  const copyModified = modified(places.copyPath)
+  return { ankiRunning, sourceModified, copyModified, updateAvailable: canUpdate(ankiRunning, cleanClose, sourceModified, copyModified) }
 }
 
 export function copyCollection(profileName = process.env.ANKI_PROFILE, places = REAL_PLACES): { profile: string; bytes: number } {
@@ -87,6 +98,9 @@ export function copyCollection(profileName = process.env.ANKI_PROFILE, places = 
   mkdirSync(dirname(copyPath), { recursive: true })
   // Remove SQLite side-files left by reading the previous copy, so they can't be replayed onto the new one
   for (const suffix of ['-wal', '-shm']) rmSync(`${copyPath}${suffix}`, { force: true })
-  copyFileSync(source, copyPath)
+  // Swapped in when finished: the launcher's sync and a page's refresh can both copy, and neither may read half a file
+  const unfinished = `${copyPath}.${process.pid}.tmp`
+  copyFileSync(source, unfinished)
+  renameSync(unfinished, copyPath)
   return { profile, bytes: statSync(copyPath).size }
 }

@@ -21,12 +21,12 @@ npm run build             # type-check + production build
 ```
 
 Or double-click **`Anki Analytics.command`** in Finder: it installs the dependencies and builds the app when
-needed, starts it in the background on http://localhost:5174 and opens it in your browser. You can close the
-Terminal window straight away. To stop the app, double-click **`Stop Anki Analytics.command`**. The first
+needed, starts it on http://localhost:5174, opens it in your browser and syncs with AnkiWeb. It runs for as long as the
+Terminal window stays open: close the window to stop it. The first
 double-click also gives the launcher its icon and hides its `.command` extension in Finder (Git can't store either,
 so it sets them on itself, and again if a `git pull` replaces the file). Drag the launcher
 to the right-hand side of the Dock for one-click launching. If macOS says it can't be opened (it does for files
-downloaded as a ZIP), right-click it and choose **Open** once. Its log is `data/server.log`. Stop it before
+downloaded as a ZIP), right-click it and choose **Open** once. Its log is `data/server.log`. Close it before
 running `npm run dev`, which needs the same API port. If `npm run dev` is already running, the launcher opens that
 server's API and leaves it alone.
 
@@ -113,6 +113,15 @@ rate also stays near FSRS's prediction until there are enough lapses to go on.
 - `src/i18n/`: interface text (`en.ts`) and locale; add a language by writing another `Messages` object
 - `src/index.css`: design tokens (colours as `light-dark()` pairs, type, motion)
 - `*.test.ts`: tests next to the code they cover; server tests use a tiny fake collection, never your data
+
+## Background sync
+
+Each time the launcher starts, it opens Anki so it syncs with AnkiWeb, asks it to quit, and saves a new snapshot, so
+reviews from other devices reach it. `npm run sync` does the same by hand. Nothing runs on a schedule: it only happens when
+you launch the app. Anki shows for about 30 seconds and closes by itself, so start studying after that. It leaves Anki alone
+if Anki is already open, and never forces it to close. The
+result goes to `data/sync-status.json`, and a problem that needs you shows a notification. It needs a single Anki profile.
+A Refresh, including the automatic one when you quit Anki, saves a new snapshot too.
 
 ## Installing it
 

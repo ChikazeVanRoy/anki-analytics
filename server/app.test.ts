@@ -19,7 +19,7 @@ writeFileSync(existing, 'not really sqlite') // only its existence matters; `rea
 const fakeData = { source: 'anki', daily: [], decks: [] } as unknown as AnkiData
 
 function start(overrides: Parameters<typeof createApiServer>[0]) {
-  const server = createApiServer({ log: () => {}, ...overrides })
+  const server = createApiServer({ log: () => {}, saveSnapshot: () => {}, ...overrides })
   return new Promise<{ server: Server; port: number }>((resolve) =>
     server.listen(0, '127.0.0.1', () => resolve({ server, port: (server.address() as AddressInfo).port })),
   )
@@ -78,6 +78,19 @@ describe('local API', () => {
     const ok = await call(port, '/api/refresh', { method: 'POST', headers: { 'x-requested-by': 'anki-analytics' } })
     expect(ok.status).toBe(200)
     expect(copy).toHaveBeenCalledOnce()
+  })
+
+  it('saves a snapshot with each refresh, and a failed save doesn’t fail the refresh', async () => {
+    const saveSnapshot = vi.fn(() => {
+      throw new Error('Disk full')
+    })
+    const quiet = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { server: saving, port: savingPort } = await start({ collectionPath: existing, read: () => fakeData, copy, saveSnapshot })
+    const ok = await call(savingPort, '/api/refresh', { method: 'POST', headers: { 'x-requested-by': 'anki-analytics' } })
+    expect(ok.status).toBe(200)
+    expect(saveSnapshot).toHaveBeenCalledWith(fakeData)
+    saving.close()
+    quiet.mockRestore()
   })
 
   it('returns 404 for anything else, including GET /api/refresh', async () => {
@@ -235,7 +248,7 @@ describe('readConfigJson', () => {
 })
 
 describe('GET /api/status', () => {
-  const status = { ankiRunning: false, updateAvailable: true, sourceModified: 1000 }
+  const status = { ankiRunning: false, updateAvailable: true, sourceModified: 1000, copyModified: null }
 
   it('reports whether a refresh is worth offering', async () => {
     const { server, port } = await start({ status: () => status })

@@ -12,6 +12,8 @@ structure and what each section measures or projects.
 
 - **Never write to Anki's own files** (`~/Library/Application Support/Anki2`). Only read them, and only via
   `server/collection.ts`, which refuses while Anki is running. Open SQLite only with `{ readOnly: true }`.
+  The sync at launch (`server/ankiSync.ts`) may open Anki and ask it to quit, so that Anki does its own writing; never
+  force Anki to close.
 - **Never commit personal data**: `/data/`, `*.anki2`, `*.colpkg`, `*.apkg`, databases, `.env*`,
   `anki-analytics.config.json` (it names the user's decks). Check
   `git diff --cached --name-only` before every commit. Tests use synthetic fixtures only.
@@ -32,8 +34,9 @@ npm run test:e2e  # Playwright smoke tests (installed Chrome, synthetic data, ph
 npx tsc -b        # type-check (app + server configs)
 npm run lint      # oxlint
 npm run build     # production build
+npm run sync      # open Anki, let it sync, ask it to quit, save a snapshot
 npm run snapshot  # save stats to data/snapshot.json (shown when the API can't answer)
-npm start         # API and built app on http://localhost:5174 (what the launcher runs in the background)
+npm start         # API and built app on http://localhost:5174 (what the launcher runs while its window is open)
 ```
 
 ## Conventions
