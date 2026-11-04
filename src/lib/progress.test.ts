@@ -169,7 +169,10 @@ describe('dueToday', () => {
     generatedAt: new Date(2026, 10, 3, 9).toISOString(), // copied this morning
     fsrs: {
       enabled: true,
-      behaviour: [{ deckId: 'a', secondsPerReview: 6, answers: 100 }],
+      behaviour: [{ deckId: 'a', secondsPerReview: 6, answers: 100, learningReviewsPerNewCard: 2.5 }],
+      presets: [{ deckId: 'a', newPerDay: 0 }],
+      newCards: {},
+      newToday: {},
       cards: [...dues.map(card), ...buried.map((d) => ({ ...card(d), buried: true }))],
     } as unknown as NonNullable<AnkiData['fsrs']>,
     ...extra,
@@ -177,7 +180,28 @@ describe('dueToday', () => {
 
   it('counts cards due today or overdue, not later ones, and estimates minutes at the measured pace', () => {
     const due = dueToday(withFsrs(['2026-11-01', '2026-11-03', '2026-11-04', '2026-12-01']), TODAY)
-    expect(due).toEqual({ stale: false, cards: 2, minutes: (2 * 6) / 60 })
+    expect(due).toEqual({ stale: false, cards: 2, newCards: 0, minutes: (2 * 6) / 60 })
+  })
+  describe('with new cards', () => {
+    const newDay = (presets: { deckId: string; newPerDay: number }[], newCards: Record<string, number>, newToday: Record<string, number>) => {
+      const d = withFsrs(['2026-11-03'])
+      return dueToday({ ...d, fsrs: { ...d.fsrs!, presets, newCards, newToday } as NonNullable<AnkiData['fsrs']> }, TODAY)
+    }
+    it('takes off what was already started today', () => {
+      expect(newDay([{ deckId: 'a', newPerDay: 15 }], { a: 100 }, { a: 4 })).toMatchObject({ newCards: 11 })
+    })
+    it('adds up the decks, each capped by what it has left', () => {
+      expect(newDay([{ deckId: 'a', newPerDay: 15 }, { deckId: 'b', newPerDay: 30 }], { a: 100, b: 7 }, {})).toMatchObject({ newCards: 22 })
+    })
+    it('never goes below zero when the limit was exceeded', () => {
+      expect(newDay([{ deckId: 'a', newPerDay: 5 }], { a: 100 }, { a: 9 })).toMatchObject({ newCards: 0 })
+    })
+    it('counts a new card’s measured first-day answers in the time', () => {
+      expect(newDay([{ deckId: 'a', newPerDay: 10 }], { a: 100 }, {})).toMatchObject({ minutes: ((1 + 10 * 2.5) * 6) / 60 })
+    })
+    it('counts at least one answer per new card when none are measured', () => {
+      expect(newDay([{ deckId: 'b', newPerDay: 10 }], { b: 100 }, {})).toMatchObject({ minutes: ((1 + 10) * 6) / 60 })
+    })
   })
   it('leaves out buried cards, which Anki won’t show today', () => {
     expect(dueToday(withFsrs(['2026-11-02'], {}, ['2026-11-02', '2026-11-03']), TODAY)).toMatchObject({ cards: 1 })

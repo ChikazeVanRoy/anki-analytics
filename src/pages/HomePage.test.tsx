@@ -139,10 +139,20 @@ describe('Home Today plan', () => {
     expect(screen.queryByText(messages.home.today.newLabel)).toBeNull()
   })
 
+  it('counts today’s new cards from Anki’s limits, and adds them to the total time', () => {
+    const data = realShapedData()
+    render(<HomePage data={data} />)
+    // Three decks with a limit of 20, and 5 already started today
+    const tile = screen.getByText(messages.home.today.newLabel).closest('div') as HTMLElement
+    expect(tile.textContent).toContain('55')
+    expect(screen.getByText(messages.home.today.timeLabel)).toBeTruthy()
+  })
+
   it('asks for a refresh rather than guessing from a copy made on an earlier day', () => {
     const old = new Date(Date.now() - 3 * 86_400_000).toISOString()
     render(<HomePage data={{ ...realShapedData(), generatedAt: old }} />)
-    expect(screen.getByText(messages.home.today.dueStale)).toBeTruthy()
+    expect(screen.getByText(messages.home.today.stale)).toBeTruthy()
+    expect(screen.queryByText(messages.home.today.timeLabel)).toBeNull()
   })
 })
 

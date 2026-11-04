@@ -288,6 +288,12 @@ describe('FSRS data', () => {
     expect(cal.find((c) => c.deckId === 'german')).toBeUndefined() // no prior state for card 21
   })
 
+  it('counts cards first studied today, for the daily new-card limit', () => {
+    expect(fsrs().newToday).toEqual({})
+    const firstDay = readAnkiData(path, card12[0].ms, { deckConfig: DECKS }).fsrs!
+    expect(firstDay.newToday.spanish).toBeGreaterThan(0)
+  })
+
   it('measures answer behaviour within the window', () => {
     const zh = fsrs().behaviour.find((b) => b.deckId === 'spanish')!
     expect(zh.firstRating).toEqual([1, 0, 1, 1]) // 13 Again, 12 Good, 15 Easy

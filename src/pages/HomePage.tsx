@@ -11,7 +11,7 @@ import type { AnkiData } from '../data/types'
 import { LOCALE, messages } from '../i18n'
 import { parseDateKey, toDateKey } from '../lib/dates'
 import { deckFinish, type DeckFinish } from '../lib/deckPace'
-import { changeDelta, formatCopiedAt, formatInt, formatPct, formatRate, SAME_RELATIVE } from '../lib/format'
+import { changeDelta, formatCopiedAt, formatInt, formatMinutes, formatPct, formatRate, SAME_RELATIVE } from '../lib/format'
 import {
   dayStatus,
   dueToday,
@@ -67,7 +67,7 @@ export function HomePage({ data }: { data: AnkiData }) {
         greeting={m.greeting[greetingPart(hour)]}
         status={
           status === 'done'
-            ? due && !due.stale && due.cards > 0
+            ? due && !due.stale && due.cards + due.newCards > 0
               ? m.status.doneMoreDue(week7.reviewsToday)
               : m.status.done(week7.reviewsToday)
             : status === 'met'
@@ -231,7 +231,7 @@ function Hero({
 
 function TodayPlanRow({ due, plan }: { due: DueToday; plan: TodayPlan | null }) {
   const t = m.today
-  const ready = plan?.status === 'ready' ? plan : null
+  const left = !due.stale && due.cards + due.newCards > 0
   return (
     <section aria-labelledby="home-today" className="relative mt-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -240,43 +240,59 @@ function TodayPlanRow({ due, plan }: { due: DueToday; plan: TodayPlan | null }) 
         </h2>
         <SourceBadge kind="mixed" />
       </div>
-      <div className={`mt-2 grid gap-3 ${plan ? 'grid-cols-2' : ''}`}>
-        <div className="rounded-2xl bg-surface/70 p-3">
-          <p className="text-xs font-bold text-ink-2">
-            {t.dueLabel}
-            <InfoTip label={t.dueTipLabel}>{t.dueTip}</InfoTip>
-          </p>
-          <p className="mt-0.5 text-2xl font-black tracking-tight text-ink tabular-nums">{due.stale ? '—' : formatInt(due.cards)}</p>
-          <p className="mt-0.5 text-xs text-ink-2">{due.stale ? t.dueStale : due.cards > 0 ? t.dueSome(due.minutes) : t.dueNone}</p>
+      {due.stale ? (
+        <p className="mt-2 rounded-2xl bg-surface/70 p-3 text-sm font-semibold text-ink-2">{t.stale}</p>
+      ) : (
+        <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <TodayTile label={t.dueLabel} tipLabel={t.dueTipLabel} tip={t.dueTip} value={formatInt(due.cards)} sub={t.dueSub} />
+          <TodayTile label={t.newLabel} tipLabel={t.newTipLabel} tip={t.newTip} value={formatInt(due.newCards)} sub={t.newSub} />
+          <TodayTile
+            label={t.timeLabel}
+            tipLabel={t.timeTipLabel}
+            tip={t.timeTip}
+            value={left ? `≈ ${formatMinutes(Math.max(1, Math.round(due.minutes)))}` : formatMinutes(0)}
+            sub={left ? t.timeSub : t.timeDone}
+            className="col-span-2 sm:col-span-1"
+          />
         </div>
-        {plan && (
-          <div className="rounded-2xl bg-surface/70 p-3">
-            <p className="text-xs font-bold text-ink-2">
-              {t.newLabel}
-              {ready && <InfoTip label={t.newTipLabel}>{t.newTip(ready.budget)}</InfoTip>}
-            </p>
-            {ready ? (
-              <>
-                <p className="mt-0.5 text-2xl font-black tracking-tight text-ink tabular-nums">
-                  {!ready.max ? '0' : ready.max.capped ? t.newCapped(ready.max.value) : `≈ ${ready.max.value}`}
-                </p>
-                <p className="mt-0.5 text-xs text-ink-2">{ready.max ? t.newFits(ready.budget) : t.newNone(ready.budget)}</p>
-              </>
-            ) : (
-              <>
-                <div className="skeleton mt-1.5 h-6 w-14" aria-hidden />
-                <p role="status" className="mt-1 text-xs text-ink-2">
-                  {t.newPending}
-                </p>
-              </>
-            )}
-          </div>
-        )}
-      </div>
-      <a href={routeHref('planner')} className="mt-2 inline-flex items-center gap-1.5 text-sm font-bold text-brand-strong hover:underline">
+      )}
+      {plan && <PlanSuggestion plan={plan} />}
+      <a href={routeHref('planner')} className="mt-1 inline-flex items-center gap-1.5 text-sm font-bold text-brand-strong hover:underline">
         {t.planLink} <ArrowRightIcon size={16} />
       </a>
     </section>
+  )
+}
+
+function TodayTile({ label, tipLabel, tip, value, sub, className = '' }: { label: string; tipLabel: string; tip: string; value: string; sub: string; className?: string }) {
+  return (
+    <div className={`rounded-2xl bg-surface/70 p-3 ${className}`}>
+      <p className="text-xs font-bold text-ink-2">
+        {label}
+        <InfoTip label={tipLabel}>{tip}</InfoTip>
+      </p>
+      <p className="mt-0.5 text-2xl font-black tracking-tight text-ink tabular-nums">{value}</p>
+      <p className="mt-0.5 text-xs text-ink-2">{sub}</p>
+    </div>
+  )
+}
+
+/** The long-term pace, kept apart from today's numbers: it's what fits, not what Anki will show today. */
+function PlanSuggestion({ plan }: { plan: TodayPlan }) {
+  const t = m.today
+  if (plan.status === 'pending') {
+    return (
+      <p role="status" className="mt-2 text-xs text-ink-2">
+        {t.suggestPending}
+      </p>
+    )
+  }
+  const { budget, max } = plan
+  return (
+    <p className="mt-2 text-xs text-ink-2">
+      {!max ? t.suggestNone(budget) : max.capped ? t.suggestCapped(max.value, budget) : t.suggest(max.value, budget)}
+      <InfoTip label={t.suggestTipLabel}>{t.suggestTip(budget)}</InfoTip>
+    </p>
   )
 }
 

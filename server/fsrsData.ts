@@ -255,6 +255,8 @@ export function readFsrsData(ctx: Context): FsrsData {
   let resetCards = 0
   let incompleteHistory = 0
   const windowStart = dayNumber(dayKey(ctx.now)) - WINDOW_DAYS
+  const today = dayNumber(dayKey(ctx.now))
+  const newToday: Record<string, number> = {}
   const behaviour = new Map<string, DeckBehaviour & { timeSum: number; timeN: number; learnN: number }>()
   for (const g of groupIds) {
     behaviour.set(g, {
@@ -345,6 +347,8 @@ export function readFsrsData(ctx: Context): FsrsData {
       bins.set(binKey, bin)
     })
 
+    if (history[0].type === 0 && days[0] === today) add(newToday, group)
+
     // New-card behaviour: first answer, and same-day learning answers on the introduction day
     if (history[0].type === 0 && days[0] >= windowStart) {
       b.firstRating[history[0].ease - 1]++
@@ -361,6 +365,7 @@ export function readFsrsData(ctx: Context): FsrsData {
     presets,
     cards,
     newCards,
+    newToday,
     suspended,
     missingState,
     invalidDue,

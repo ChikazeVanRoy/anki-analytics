@@ -132,6 +132,7 @@ export interface FsrsData {
   /** Presets referenced by FsrsCard.preset. */
   cardPresets?: CardPreset[]
   newCards: Record<string, number> // unsuspended new cards available per deck group
+  newToday: Record<string, number> // cards first studied today, per deck group (counts against Anki's daily limit)
   suspended: Record<string, number>
   missingState: Record<string, number> // studied cards without an FSRS memory state (excluded everywhere)
   invalidDue: Record<string, number> // studied cards with a memory state but an unreadable due date (excluded)

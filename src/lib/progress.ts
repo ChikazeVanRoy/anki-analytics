@@ -148,7 +148,11 @@ export type DueToday =
   | {
       stale: false
       cards: number // studied, unburied cards due today or overdue, from Anki's stored due dates
-      /** Estimate: cards × measured seconds per answer. Anki's daily review limit may show fewer. */
+      newCards: number // new cards left today: each deck's daily limit, less those started, up to what's available
+      /**
+       * Estimate of everything above: answers × measured seconds per answer, where a new card takes its deck's
+       * measured answers on the first day. Anki's daily limits may show fewer.
+       */
       minutes: number
     }
   /** The copy is from an earlier Anki day, so its due dates can't say what's left today. */
@@ -165,8 +169,16 @@ export function dueToday(data: AnkiData, today: Date): DueToday | null {
   if (!data.fsrs?.enabled) return null
   if (copiedOnEarlierDay(data, today)) return { stale: true }
   const day = dayNumber(toDateKey(today))
-  const cards = data.fsrs.cards.filter((c) => !c.buried && dayNumber(c.due) <= day).length
-  return { stale: false, cards, minutes: (cards * measuredDefaults(data, today).secondsPerReview) / 60 }
+  const { fsrs } = data
+  const cards = fsrs.cards.filter((c) => !c.buried && dayNumber(c.due) <= day).length
+  let newCards = 0
+  let answers = cards
+  for (const p of fsrs.presets) {
+    const left = Math.min(Math.max(0, p.newPerDay - (fsrs.newToday[p.deckId] ?? 0)), fsrs.newCards[p.deckId] ?? 0)
+    newCards += left
+    answers += left * Math.max(1, fsrs.behaviour.find((b) => b.deckId === p.deckId)?.learningReviewsPerNewCard ?? 1)
+  }
+  return { stale: false, cards, newCards, minutes: (answers * measuredDefaults(data, today).secondsPerReview) / 60 }
 }
 
 // ---------- One insight ----------

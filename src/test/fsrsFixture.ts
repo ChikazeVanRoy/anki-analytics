@@ -42,6 +42,7 @@ export function fsrsFixture(): FsrsData {
     })),
     cards: cards(),
     newCards: { language: 100, science: 80, other: 20 },
+    newToday: { language: 5 },
     suspended: {},
     missingState: {},
     invalidDue: {},
