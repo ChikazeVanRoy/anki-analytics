@@ -37,7 +37,10 @@ describe('Home "Remembered" card', () => {
     render(<HomePage data={withRetention([796, 795], [1, 1], 132)} />)
     expect(screen.getAllByText('99.9%').length).toBeGreaterThan(0)
     expect(screen.getByText(/of 796 scheduled reviews/)).toBeTruthy()
-    expect(screen.getByText('1 Again · 132 Hard (counted as remembered)')).toBeTruthy()
+    const card = screen.getByText(/of 796 scheduled reviews/).closest('div.animate-rise') as HTMLElement
+    expect(card.textContent).toContain('1 Again')
+    expect(card.textContent).toContain('132 Hard')
+    expect(card.textContent).toContain('663 Good or Easy')
     expect(screen.getByText('Only 1 from cards known well')).toBeTruthy()
   })
 

@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AnkiData, DailyDeckStat } from '../data/types'
 import {
+  answerCounts,
+  hardShareSeries,
   againRateSeries,
   ankiToday,
   bucketFor,
@@ -178,5 +180,33 @@ describe('retentionSplit', () => {
   it('is not flagged when there are no reviews at all', () => {
     const none = { reviews: 0, passed: 0, hard: 0, rate: 0 }
     expect(retentionSplit({ reviewCards: none, mature: none }).matureThin).toBe(false)
+  })
+})
+
+describe('answerCounts', () => {
+  it('splits scheduled reviews so the three parts add up', () => {
+    expect(answerCounts({ reviews: 100, passed: 90, hard: 15, rate: 0.9 })).toEqual({ again: 10, hard: 15, good: 75 })
+  })
+})
+
+describe('hardShareSeries', () => {
+  const withReviews = (date: string, reviewCardReviews: number, reviewCardHard: number) =>
+    ({ date, deckId: 'a', reviews: reviewCardReviews, again: 0, studySeconds: 0, reviewCardReviews, reviewCardPassed: reviewCardReviews, reviewCardHard, matureReviews: 0, maturePassed: 0 })
+  const data = (daily: ReturnType<typeof withReviews>[]) => ({ source: 'mock', generatedAt: '', dayStartHour: 0, decks: [], daily }) as AnkiData
+  const key = (daysAgo: number) => toDateKey(new Date(Date.now() - daysAgo * 86_400_000))
+
+  it('adds up the trailing week on daily ranges', () => {
+    const rows = hardShareSeries(data([withReviews(key(0), 30, 6), withReviews(key(3), 10, 4)]), 7)
+    expect(rows[rows.length - 1]).toEqual({ date: key(0), reviews: 40, share: 0.25 })
+  })
+
+  it('leaves a gap with too few reviews', () => {
+    const rows = hardShareSeries(data([withReviews(key(0), 5, 5)]), 7)
+    expect(rows[rows.length - 1].share).toBeNull()
+  })
+
+  it('covers its range, one point per bucket beyond 90 days', () => {
+    expect(hardShareSeries(data([]), 30)).toHaveLength(30)
+    expect(hardShareSeries(data([]), 365).length).toBeLessThanOrEqual(54)
   })
 })

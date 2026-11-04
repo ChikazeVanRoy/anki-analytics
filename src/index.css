@@ -56,6 +56,12 @@
 
   /* Decks: three colour slots the server assigns per deck (validated, all pairs, both modes), and a neutral
      grey for "Other decks" that is kept apart from them (see src/lib/theme.ts) */
+  /* How a scheduled review was answered. An ordered set with its own dark steps: checked with the dataviz
+     validator (worst CVD ΔE 14.4 light, 9.7 dark); light orange is under 3:1, so the bar always has counts beside it */
+  --color-answer-good: light-dark(#16703f, #1f9a78);
+  --color-answer-hard: light-dark(#f07c12, #c98500);
+  --color-answer-again: light-dark(#c23434, #c8423f);
+
   --color-deck-1: light-dark(#2a78d6, #3987e5);
   --color-deck-2: light-dark(#eb6834, #d95926);
   --color-deck-3: light-dark(#1baf7a, #199e70);

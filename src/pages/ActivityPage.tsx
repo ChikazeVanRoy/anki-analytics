@@ -1,7 +1,9 @@
 import { useMemo } from 'react'
 import { ActivityHeatmap } from '../components/ActivityHeatmap'
+import { AnswerBar } from '../components/AnswerBar'
 import { DailyReviewsChart } from '../components/DailyReviewsChart'
 import { DeckComparison } from '../components/DeckComparison'
+import { HardTrend } from '../components/HardTrend'
 import { RangeFilter } from '../components/RangeFilter'
 import { StatCard } from '../components/StatCard'
 import { SourceBadge } from '../components/ui'
@@ -12,8 +14,10 @@ import {
   activeYears,
   againRateSeries,
   ankiToday,
+  answerCounts,
   bucketFor,
   deckSummaries,
+  hardShareSeries,
   RANGE_OPTIONS,
   rangeDays,
   retentionSplit,
@@ -44,6 +48,7 @@ export function ActivityPage({ data, range, onRangeChange }: Props) {
   const periodRows = useMemo(() => reviewsByPeriod(data, days), [data, days])
   const decks = useMemo(() => deckSummaries(data, days), [data, days])
   const againRows = useMemo(() => againRateSeries(data, days), [data, days])
+  const hardRows = useMemo(() => hardShareSeries(data, days), [data, days])
 
   // Only compare with the previous period if there was one with reviews in it
   const canCompare = range !== 'all' && summary.hasPrevious
@@ -97,12 +102,13 @@ export function ActivityPage({ data, range, onRangeChange }: Props) {
           label={m.remembered}
           tip={m.rememberedTip}
           value={reviewCards.reviews > 0 ? formatRate(reviewCards.rate) : '—'}
+          visual={reviewCards.reviews > 0 && <AnswerBar {...answerCounts(reviewCards)} />}
           hint={
             reviewCards.reviews === 0 ? (
               m.rememberedNone
             ) : (
               <>
-                {m.rememberedSub(reviewCards.reviews, reviewCards.reviews - reviewCards.passed, reviewCards.hard)}
+                {m.rememberedSub(reviewCards.reviews)}
                 <span className="mt-0.5 block">{matureThin ? m.rememberedThin : m.rememberedKnown(formatRate(mature.rate))}</span>
               </>
             )
@@ -120,6 +126,13 @@ export function ActivityPage({ data, range, onRangeChange }: Props) {
 
       <ActivityHeatmap byDate={byDate} today={today} years={years} />
       <DailyReviewsChart rows={periodRows} decks={data.decks} bucket={bucket} period={period} />
+      <HardTrend
+        rows={hardRows}
+        share={reviewCards.reviews > 0 ? reviewCards.hard / reviewCards.reviews : null}
+        bucket={bucket}
+        period={period}
+        sample={data.source === 'mock'}
+      />
       <DeckComparison summaries={decks} againRows={againRows} decks={data.decks} bucket={bucket} period={period} />
     </div>
   )

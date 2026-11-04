@@ -47,7 +47,10 @@ describe('Activity headline cards', () => {
 
   it('shows the Again and Hard counts behind Remembered', () => {
     show(data([100, 95]))
-    expect(screen.getByText(/of 400 reviews · 1 Again · 70 Hard/)).toBeTruthy()
+    const card = screen.getByText(/of 400 scheduled reviews/).closest('div.animate-rise') as HTMLElement
+    expect(card.textContent).toContain('1 Again')
+    expect(card.textContent).toContain('70 Hard')
+    expect(card.textContent).toContain('329 Good or Easy')
   })
 
   it('doesn’t rate cards known well from a thin sample', () => {
@@ -61,7 +64,7 @@ describe('Activity headline cards', () => {
     d.daily[0] = { ...d.daily[0], reviewCardReviews: 0, reviewCardPassed: 0, reviewCardHard: 0 }
     show(d)
     expect(screen.getByText(m.rememberedNone)).toBeTruthy()
-    expect(screen.queryByText(/of 0 reviews/)).toBeNull()
+    expect(screen.queryByText(/of 0 scheduled reviews/)).toBeNull()
   })
 
   it('rates cards known well once there are enough reviews', () => {
@@ -78,6 +81,13 @@ describe('Activity headline cards', () => {
     show(d)
     const card = screen.getAllByText(m.forgot)[0].closest('div.animate-rise') as HTMLElement
     expect(within(card).getByText(m.noChange).className).toContain('bg-good-soft')
+  })
+
+  it('says the Hard trend is too thin to draw, rather than drawing a guess', () => {
+    const d = data([100, 95])
+    d.daily[0] = { ...d.daily[0], reviewCardReviews: 5, reviewCardPassed: 5, reviewCardHard: 1 }
+    show(d)
+    expect(screen.getByText(m.hardThin)).toBeTruthy()
   })
 
   it('explains a missing comparison once, not on every card', () => {

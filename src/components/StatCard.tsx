@@ -11,6 +11,8 @@ interface StatCardProps {
   label: string
   value: ReactNode
   hint?: ReactNode
+  /** A small chart under the number. */
+  visual?: ReactNode
   delta?: Delta
   tip?: ReactNode
   icon?: ReactNode
@@ -21,7 +23,7 @@ interface StatCardProps {
 }
 
 /** Headline number with a label, an optional change and a short explanation. */
-export function StatCard({ label, value, hint, delta, tip, icon, tint, className = '', style }: StatCardProps) {
+export function StatCard({ label, value, hint, visual, delta, tip, icon, tint, className = '', style }: StatCardProps) {
   return (
     <div className={`animate-rise rounded-3xl border border-line bg-surface p-5 shadow-card ${className}`} style={style}>
       <div className="flex items-center gap-2.5">
@@ -36,6 +38,7 @@ export function StatCard({ label, value, hint, delta, tip, icon, tint, className
         </p>
       </div>
       <p className="mt-3 text-3xl font-extrabold tracking-tight text-ink tabular-nums">{value}</p>
+      {visual}
       <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
         {delta && (
           <span

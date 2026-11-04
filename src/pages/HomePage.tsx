@@ -1,5 +1,6 @@
 import { useMemo, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { ActivityIcon, ArrowRightIcon, BrainIcon, CheckIcon, LayersIcon, SparkleIcon, TrophyIcon } from '../components/icons'
+import { AnswerBar } from '../components/AnswerBar'
 import { GardenLegend, GardenPlot } from '../components/MemoryGarden'
 import { StatCard } from '../components/StatCard'
 import { CountUp, InfoTip, ProgressBar, SourceBadge } from '../components/ui'
@@ -27,7 +28,7 @@ import {
 import { gardenBed, plantUnit, type GardenBed } from '../lib/garden'
 import { measuredDefaults } from '../lib/measured'
 import { routeHref, type Route } from '../lib/route'
-import { ankiToday, deckSummaries, retentionSplit, summarize, totalsByDate, type DeckSummary } from '../lib/stats'
+import { ankiToday, answerCounts, deckSummaries, retentionSplit, summarize, totalsByDate, type DeckSummary } from '../lib/stats'
 
 const m = messages.home
 
@@ -114,13 +115,13 @@ export function HomePage({ data }: { data: AnkiData }) {
           icon={<BrainIcon size={18} className="text-sun-ink" />}
           tint="var(--color-sun-soft)"
           value={reviewCards.reviews > 0 ? <CountUp value={reviewCards.rate} format={formatRate} /> : '—'}
+          visual={reviewCards.reviews > 0 && <AnswerBar {...answerCounts(reviewCards)} />}
           hint={
             reviewCards.reviews === 0 ? (
               m.kpi.rememberedNone
             ) : (
               <>
                 {m.kpi.rememberedSub(reviewCards.reviews)}
-                <span className="mt-0.5 block">{m.kpi.rememberedAnswers(reviewCards.reviews - reviewCards.passed, reviewCards.hard)}</span>
                 <span className="mt-0.5 block">
                   {split.matureThin
                     ? m.kpi.rememberedYoungNote(split.mature.reviews)

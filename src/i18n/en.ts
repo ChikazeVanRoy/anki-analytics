@@ -56,6 +56,7 @@ export const en = {
     mixed: 'Measured + model',
     mixedTip: 'Mixes what you actually answered with FSRS’s estimates. The labels say which is which.',
   },
+  answers: { good: 'Good or Easy', hard: 'Hard', again: 'Again' },
   home: {
     greeting: { morning: 'Good morning', afternoon: 'Good afternoon', evening: 'Good evening' },
     status: {
@@ -109,7 +110,6 @@ export const en = {
       weekNoPrev: 'no reviews the 7 days before',
       remembered: 'Remembered',
       rememberedSub: (n: number) => `of ${int(n)} scheduled reviews, last 30 days`,
-      rememberedAnswers: (again: number, hard: number) => `${int(again)} Again · ${int(hard)} Hard (counted as remembered)`,
       rememberedYoungNote: (knownReviews: number) =>
         knownReviews === 0 ? 'None from cards known well yet' : `Only ${int(knownReviews)} from cards known well`,
       rememberedSplit: (learning: string, known: string) => `learning ${learning} · known well ${known}`,
@@ -179,11 +179,19 @@ export const en = {
     remembered: 'Remembered (scheduled reviews)',
     rememberedTip:
       'Scheduled reviews (not new cards or learning steps) not answered Again: Anki’s true retention. Hard counts as remembered. “Known well” means the card’s previous interval was 21 days or more.',
-    rememberedSub: (reviews: number, again: number, hard: number) =>
-      `of ${int(reviews)} reviews · ${int(again)} Again · ${int(hard)} Hard (counted as remembered)`,
+    rememberedSub: (reviews: number) => `of ${int(reviews)} scheduled reviews`,
     rememberedKnown: (rate: string) => `cards known well ${rate}`,
     rememberedThin: 'too few reviews of cards known well to rate them',
     rememberedNone: 'no scheduled reviews in this period',
+    hardTitle: 'Is my use of Hard changing?',
+    hardEyebrow: 'Grading habits',
+    hardLabel: 'Answered Hard',
+    hardSub: (share: string, period: string, basis: string) =>
+      `${share} of scheduled reviews were Hard, ${period} · ${basis}. Hard counts as remembered, so pressing it after forgetting lifts Remembered.`,
+    hardRolling: '7-day rolling average',
+    hardPer: (bucket: string) => `per ${bucket}`,
+    hardNone: 'No scheduled reviews in this period.',
+    hardThin: 'Too few scheduled reviews in this period to draw a trend.',
     noChange: 'no change',
     compareWith: (days: number) => `Changes compare with the previous ${days} days.`,
     compareNone: (days: number) => `No reviews in the previous ${days} days, so there’s nothing to compare with yet.`,

@@ -117,6 +117,13 @@ export function retentionSplit(r: Retention) {
   }
 }
 
+/** Scheduled reviews by answer. Hard is a pass, so it is taken out of the passes to leave Good and Easy. */
+export const answerCounts = ({ reviews, passed, hard }: Retention['reviewCards']) => ({
+  again: reviews - passed,
+  hard,
+  good: passed - hard,
+})
+
 export function summarize(data: AnkiData, days: number) {
   const today = ankiToday(data)
   const byDate = totalsByDate(data.daily)
@@ -212,34 +219,51 @@ const rateOrGap = (t: DayTotal) => (t.reviews >= MIN_RATE_SAMPLE ? t.again / t.r
  * weekly/monthly ranges use each bucket's own rate. Too few reviews gives null, drawn as a gap.
  */
 export function againRateSeries(data: AnkiData, days: number, window = 7) {
-  const bucket = bucketFor(days)
   const perDeck = new Map(
     data.decks.map((d) => [d.id, totalsByDate(data.daily.filter((s) => s.deckId === d.id))] as const),
   )
+  return chartWindows(data, days, window).map(({ date, keys }) => {
+    const row: Record<string, number | string | null> = { date }
+    for (const deck of data.decks) row[deck.id] = rateOrGap(sumDays(perDeck.get(deck.id)!, keys))
+    return row
+  })
+}
 
+/** Each point of a rate chart, with the days behind it: a trailing window for daily ranges, else its bucket's days. */
+function chartWindows(data: AnkiData, days: number, window: number): { date: string; keys: string[] }[] {
+  const bucket = bucketFor(days)
   if (bucket === 'day') {
     const keys = lastNDays(days + window - 1, 0, ankiToday(data))
-    return keys.slice(window - 1).map((date, i) => {
-      const row: Record<string, number | string | null> = { date }
-      for (const deck of data.decks) {
-        row[deck.id] = rateOrGap(sumDays(perDeck.get(deck.id)!, keys.slice(i, i + window)))
-      }
-      return row
-    })
+    return keys.slice(window - 1).map((date, i) => ({ date, keys: keys.slice(i, i + window) }))
   }
-
-  const rangeKeys = lastNDays(days, 0, ankiToday(data))
   const byBucket = new Map<string, string[]>()
-  for (const d of rangeKeys) {
+  for (const d of lastNDays(days, 0, ankiToday(data))) {
     const key = bucketStart(d, bucket)
     byBucket.set(key, [...(byBucket.get(key) ?? []), d])
   }
-  return [...byBucket].map(([date, bucketDays]) => {
-    const row: Record<string, number | string | null> = { date }
-    for (const deck of data.decks) {
-      row[deck.id] = rateOrGap(sumDays(perDeck.get(deck.id)!, bucketDays))
-    }
-    return row
+  return [...byBucket].map(([date, keys]) => ({ date, keys }))
+}
+
+export interface HardShareRow {
+  date: string
+  /** Share of scheduled reviews answered Hard. Null with too few reviews, drawn as a gap. */
+  share: number | null
+  reviews: number
+}
+
+/** How much of the scheduled reviews were answered Hard over time, on the same points as the Again chart. */
+export function hardShareSeries(data: AnkiData, days: number, window = 7): HardShareRow[] {
+  const byDate = new Map<string, { reviews: number; hard: number }>()
+  for (const s of data.daily) {
+    const t = byDate.get(s.date) ?? { reviews: 0, hard: 0 }
+    t.reviews += s.reviewCardReviews
+    t.hard += s.reviewCardHard
+    byDate.set(s.date, t)
+  }
+  return chartWindows(data, days, window).map(({ date, keys }) => {
+    const reviews = keys.reduce((n, k) => n + (byDate.get(k)?.reviews ?? 0), 0)
+    const hard = keys.reduce((n, k) => n + (byDate.get(k)?.hard ?? 0), 0)
+    return { date, reviews, share: reviews >= MIN_RATE_SAMPLE ? hard / reviews : null }
   })
 }
 
