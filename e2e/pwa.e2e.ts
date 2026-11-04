@@ -31,6 +31,7 @@ test.beforeAll(async () => {
       throw new Error('Not in tests')
     },
     status: () => ({ ankiRunning: false, updateAvailable: false, sourceModified: null, copyModified: null }),
+    sync: () => null,
     log: () => {},
   })
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))

@@ -28,14 +28,18 @@ interface ShellProps {
   onDismissError: () => void
   /** Why a refresh is worth offering right now, if it is. */
   update: UpdateReason | null
+  onUpdate: () => void
   onDismissUpdate: () => void
+  /** Why the launcher's last sync needs you, if it does. */
+  syncProblem: string | null
+  onDismissSync: () => void
   theme: ThemeChoice
   onCycleTheme: () => void
   children: ReactNode
 }
 
 export function AppShell(props: ShellProps) {
-  const { route, data, fromSnapshot, fallbackReason, fallbackKind, onRefresh, refreshing, refreshError, onDismissError, update, onDismissUpdate, theme, onCycleTheme, children } = props
+  const { route, data, fromSnapshot, fallbackReason, fallbackKind, onRefresh, refreshing, refreshError, onDismissError, update, onUpdate, onDismissUpdate, syncProblem, onDismissSync, theme, onCycleTheme, children } = props
   const sample = data.source === 'mock'
   const copied = formatCopiedAt(data.generatedAt)
   // Showing a snapshot because the server can't be reached: a refresh would fail, and the reason is only about that
@@ -157,12 +161,29 @@ export function AppShell(props: ShellProps) {
           </div>
         )}
 
+        {syncProblem && (
+          <div role="status" className="animate-rise mt-5 flex items-center gap-3 rounded-3xl border border-warning/30 bg-warning-soft px-5 py-3 text-sm text-ink">
+            <span className="text-warning">
+              <WarningIcon />
+            </span>
+            <span className="min-w-0 flex-1">{m.data.syncProblem(syncProblem)}</span>
+            <button
+              type="button"
+              onClick={onDismissSync}
+              aria-label={m.data.dismiss}
+              className="grid size-8 place-items-center rounded-full text-muted hover:bg-surface hover:text-ink"
+            >
+              <CloseIcon size={16} />
+            </button>
+          </div>
+        )}
+
         {update && !refreshing && (
           <div role="status" className="animate-rise mt-5 flex flex-wrap items-center gap-3 rounded-3xl border border-good/30 bg-good-soft px-5 py-3 text-sm text-ink">
             <span className="min-w-0 flex-1 font-semibold">{m.data.update[update]}</span>
             <button
               type="button"
-              onClick={onRefresh}
+              onClick={onUpdate}
               className="inline-flex h-9 items-center gap-2 rounded-xl bg-brand px-3 font-bold text-brand-ink transition-all active:scale-95"
             >
               <RefreshIcon size={16} /> {m.data.updateNow}

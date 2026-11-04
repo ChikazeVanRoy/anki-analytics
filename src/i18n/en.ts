@@ -53,9 +53,11 @@ export const en = {
     dismiss: 'Dismiss',
     update: {
       reviews: 'Anki is closed and has newer reviews.',
+      copied: 'New stats are ready.',
       day: 'It’s a new day in Anki. Update to see what’s due.',
     },
     updateNow: 'Update now',
+    syncProblem: (message: string) => `The last sync with AnkiWeb didn’t finish: ${message}`,
     footerLive: 'Read locally from a copy of your Anki collection. Nothing leaves this computer.',
     footerSnapshot: 'Saved from your Anki collection and kept on your own devices.',
     footerSample: 'Showing generated sample data. Real statistics are read locally from a copy of your collection.',
@@ -323,7 +325,7 @@ export const en = {
     calendar: {
       title: 'When did I study?',
       eyebrow: 'Study calendar',
-      summary: (reviews: number, period: string, days: number) => `${int(reviews)} reviews ${period} · ${days} active days`,
+      summary: (reviews: number, period: string, days: number) => `${int(reviews)} ${plural(reviews, 'review', 'reviews')} ${period} · ${days} active ${plural(days, 'day', 'days')}`,
       viewLabel: 'Heatmap period',
       gridLabel: (period: string) => `Daily reviews ${period}`,
       less: 'Less',
@@ -334,8 +336,8 @@ export const en = {
       from: (range: string) => `from ${range}`,
       weekdays: ['Mon', '', 'Wed', '', 'Fri', '', ''],
       months: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-      cell: (date: string, reviews: number) => `${date}: ${reviews} reviews`,
-      tip: (reviews: number) => `${int(reviews)} reviews`,
+      cell: (date: string, reviews: number) => `${date}: ${int(reviews)} ${plural(reviews, 'review', 'reviews')}`,
+      tip: (reviews: number) => `${int(reviews)} ${plural(reviews, 'review', 'reviews')}`,
     },
     daily: {
       title: 'How much did I review?',

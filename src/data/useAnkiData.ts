@@ -92,7 +92,7 @@ function afterRecheck(current: State, next: Loaded): State {
 
 /**
  * Loads real stats from the local API, falling back to a saved snapshot, then to clearly labelled mock data.
- * `refresh()` asks the API to re-copy the collection from Anki first. While on a snapshot it looks again each time the
+ * `refresh()` asks the API to re-copy the collection from Anki first; `reread()` reads the copy it already has. While on a snapshot it looks again each time the
  * app comes back into view: a phone keeps an installed app in memory, so reopening one doesn't reload the page.
  */
 export function useAnkiData() {
@@ -130,12 +130,11 @@ export function useAnkiData() {
     }
   }, [onSnapshot])
 
-  const refresh = useCallback(async () => {
+  const fetchFresh = useCallback(async (get: () => Promise<unknown>) => {
     setRefreshing(true)
     setRefreshError(null)
     try {
-      const data = await request('/api/refresh', REFRESH_TIMEOUT_MS, { method: 'POST', headers: { 'X-Requested-By': 'anki-analytics' } })
-      setState({ status: 'ready', data: data as AnkiData })
+      setState({ status: 'ready', data: (await get()) as AnkiData })
     } catch (err) {
       setRefreshError((err as Error).message)
     } finally {
@@ -143,7 +142,14 @@ export function useAnkiData() {
     }
   }, [])
 
+  const refresh = useCallback(
+    () => fetchFresh(() => request('/api/refresh', REFRESH_TIMEOUT_MS, { method: 'POST', headers: { 'X-Requested-By': 'anki-analytics' } })),
+    [fetchFresh],
+  )
+  /** For a copy that's already new, as after the launcher's sync: no need to make another. */
+  const reread = useCallback(() => fetchFresh(() => request('/api/stats', LOAD_TIMEOUT_MS)), [fetchFresh])
+
   const clearRefreshError = useCallback(() => setRefreshError(null), [])
 
-  return { state, refresh, refreshing, refreshError, clearRefreshError }
+  return { state, refresh, reread, refreshing, refreshError, clearRefreshError }
 }

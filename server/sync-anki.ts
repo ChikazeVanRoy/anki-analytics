@@ -1,17 +1,15 @@
 // CLI: npm run sync    One sync (see ankiSync.ts). The launcher runs this each time it starts.
-// Its result goes to data/sync-status.json. A problem only you can fix also shows a macOS notification.
+// Its result goes to data/sync-status.json, which the page reads. A problem only you can fix also shows a macOS notification.
 
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
-import { fileURLToPath } from 'node:url'
 import { readCurrentStats } from './anki.ts'
-import { syncOnce, type SyncOutcome } from './ankiSync.ts'
+import { SYNC_STATUS_FILE, syncOnce, type SyncOutcome } from './ankiSync.ts'
 import { ankiIsRunning, COLLECTION_COPY, copyCollection, profileProblem } from './collection.ts'
 import { makeSnapshot, writeSnapshot } from './snapshot.ts'
 
-const STATUS_FILE = fileURLToPath(new URL('../data/sync-status.json', import.meta.url))
 const NEEDS_YOU: SyncOutcome[] = ['stuck', 'failed']
 
 /** Fixed arguments and no shell. */
@@ -39,8 +37,8 @@ const result = await syncOnce({
   sleep,
 })
 
-mkdirSync(dirname(STATUS_FILE), { recursive: true })
-writeFileSync(STATUS_FILE, JSON.stringify({ ...result, at: new Date().toISOString() }), { mode: 0o600 })
+mkdirSync(dirname(SYNC_STATUS_FILE), { recursive: true })
+writeFileSync(SYNC_STATUS_FILE, JSON.stringify({ ...result, at: new Date().toISOString() }), { mode: 0o600 })
 console.log(`${new Date().toISOString()} ${result.outcome}: ${result.message}`)
 if (NEEDS_YOU.includes(result.outcome)) {
   // Passed as arguments, so a message can't change the script

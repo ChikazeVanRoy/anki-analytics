@@ -1,6 +1,6 @@
 // The local API's request handling, separate from index.ts (which only starts it) so it can be tested.
 //   GET  /api/stats    -> AnkiData from the current copy
-//   GET  /api/status   -> whether Anki is open, and whether a refresh would bring in new reviews
+//   GET  /api/status   -> whether Anki is open, whether a refresh would bring in new reviews, how the last sync went
 //   POST /api/refresh  -> re-copy the collection from Anki, then return fresh AnkiData
 //   GET  /snapshot.json -> the stats saved by `npm run snapshot`, if any
 //   GET  anything else -> the built app from dist/, when there is one (the launcher runs the app this way)
@@ -10,6 +10,7 @@ import { existsSync } from 'node:fs'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import type { AnkiData } from '../src/data/types.ts'
 import { readCurrentStats } from './anki.ts'
+import { readSyncStatus, type SyncStatus } from './ankiSync.ts'
 import { DeckConfigError } from './deckGroups.ts'
 import { ankiStatus, COLLECTION_COPY, copyCollection, CopyError, type AnkiStatus } from './collection.ts'
 import { isForwarded, isPhoneRequest, loadPhoneHost, phoneSnapshot } from './phoneAccess.ts'
@@ -40,6 +41,7 @@ export interface ApiDeps {
   phoneHost: () => string | null
   copy: () => { profile: string; bytes: number }
   status: () => AnkiStatus
+  sync: () => SyncStatus | null
   log: (message: string) => void
   distDir: string
 }
@@ -52,6 +54,7 @@ const defaults: ApiDeps = {
   phoneHost: loadPhoneHost,
   copy: copyCollection,
   status: ankiStatus,
+  sync: readSyncStatus,
   log: console.log,
   distDir: DIST_DIR,
 }
@@ -104,7 +107,7 @@ export function createApiServer(overrides: Partial<ApiDeps> = {}): Server {
 
     if (req.method === 'GET' && req.url === '/api/stats') return sendStats(res)
 
-    if (req.method === 'GET' && req.url === '/api/status') return send(res, 200, deps.status())
+    if (req.method === 'GET' && req.url === '/api/status') return send(res, 200, { ...deps.status(), sync: deps.sync() })
 
     if (req.method === 'GET' && req.url === '/snapshot.json') return sendSnapshot(res)
 

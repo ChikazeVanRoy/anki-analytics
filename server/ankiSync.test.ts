@@ -1,5 +1,8 @@
-import { describe, expect, it, vi } from 'vitest'
-import { syncOnce, TIMING, type SyncDeps } from './ankiSync.ts'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { afterAll, describe, expect, it, vi } from 'vitest'
+import { readSyncStatus, syncOnce, TIMING, type SyncDeps } from './ankiSync.ts'
 
 /** A pretend Anki: opens when asked, and closes when asked unless told it's stuck. */
 function fakes(overrides: Partial<SyncDeps> = {}, { stuck = false, neverStarts = false } = {}) {
@@ -98,5 +101,27 @@ describe('syncOnce', () => {
     expect(old.message).toContain('did not close cleanly')
     const broken = fakes({ snapshot: vi.fn((): { skippedCopy?: string } => { throw new Error('Bad config') }) })
     expect(await syncOnce(broken)).toEqual({ outcome: 'failed', message: 'Bad config' })
+  })
+})
+
+describe('readSyncStatus', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'anki-analytics-sync-'))
+  afterAll(() => rmSync(dir, { recursive: true, force: true }))
+  const saved = (name: string, text: string) => {
+    const path = join(dir, name)
+    writeFileSync(path, text)
+    return path
+  }
+
+  it('reads what the last sync saved', () => {
+    const status = { outcome: 'stuck', message: 'Anki didn’t close.', at: '2026-11-04T08:00:00.000Z' }
+    expect(readSyncStatus(saved('good.json', JSON.stringify(status)))).toEqual(status)
+  })
+
+  it('has nothing to report without a readable file', () => {
+    expect(readSyncStatus(join(dir, 'missing.json'))).toBeNull()
+    expect(readSyncStatus(saved('broken.json', '{ not json'))).toBeNull()
+    expect(readSyncStatus(saved('other.json', '{"outcome":1}'))).toBeNull()
+    expect(readSyncStatus(saved('null.json', 'null'))).toBeNull()
   })
 })

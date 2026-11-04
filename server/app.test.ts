@@ -330,13 +330,14 @@ describe('GET /api/status', () => {
   const status = { ankiRunning: false, updateAvailable: true, sourceModified: 1000, copyModified: null }
 
   it('reports whether a refresh is worth offering', async () => {
-    const { server, port } = await start({ status: () => status })
-    expect(await call(port, '/api/status')).toEqual({ status: 200, body: status })
+    const sync = { outcome: 'stuck' as const, message: 'Anki didn’t close.', at: '2026-11-04T08:00:00.000Z' }
+    const { server, port } = await start({ status: () => status, sync: () => sync })
+    expect(await call(port, '/api/status')).toEqual({ status: 200, body: { ...status, sync } })
     server.close()
   })
 
   it('refuses other hosts, like every other route', async () => {
-    const { server, port } = await start({ status: () => status })
+    const { server, port } = await start({ status: () => status, sync: () => null })
     expect((await call(port, '/api/status', { host: 'evil.example' })).status).toBe(403)
     server.close()
   })

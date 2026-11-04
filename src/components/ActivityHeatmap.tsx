@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { messages } from '../i18n'
 import { formatInt, formatLongDate, formatShortDate } from '../lib/format'
 import { buildWeeks, lastWeekPage, level, replayStarts, revealedAt, runningTotals, thresholds, weeksThatFit, weekWindow, type HeatCell, type HeatmapView } from '../lib/heatmap'
@@ -16,7 +17,7 @@ const REPLAY_MS = 3200
 const m = messages.activity
 const PAGE_BUTTON =
   'inline-flex items-center gap-1 rounded-xl bg-surface-2 px-2.5 py-1.5 text-xs font-bold text-ink-2 transition-colors hover:bg-brand-soft hover:text-brand-strong disabled:opacity-40'
-const c = m.calendar
+const calendar = m.calendar
 
 interface ActivityHeatmapProps {
   byDate: Map<string, DayTotal>
@@ -101,20 +102,20 @@ export function ActivityHeatmap({ byDate, today, years }: ActivityHeatmapProps) 
     const first = week.find((c) => c !== null)
     const month = first ? Number(first.date.slice(5, 7)) - 1 : -1
     if (first && month !== lastMonth) {
-      monthLabels.push({ i, label: c.months[month] })
+      monthLabels.push({ i, label: calendar.months[month] })
       lastMonth = month
     }
   })
 
   const gridWidth = weeks.length * STEP - GAP
   const range = cells.length ? m.calendarRange(formatShortDate(cells[0].date), formatShortDate(cells[cells.length - 1].date)) : ''
-  const period = paged ? c.from(range) : view === 'last12' ? c.overLastYear : c.inYear(view)
+  const period = paged ? calendar.from(range) : view === 'last12' ? calendar.overLastYear : calendar.inYear(view)
   const views: HeatmapView[] = ['last12', ...years]
 
   return (
     <Panel
-      title={c.title}
-      eyebrow={c.eyebrow}
+      title={calendar.title}
+      eyebrow={calendar.eyebrow}
       subtitle={
         replayDay ? (
           <span>
@@ -122,21 +123,21 @@ export function ActivityHeatmap({ byDate, today, years }: ActivityHeatmapProps) 
             {m.replayTotal(dateLabels.get(replayDay.date)!)}
           </span>
         ) : (
-          c.summary(total, period, activeDays)
+          calendar.summary(total, period, activeDays)
         )
       }
       actions={
         <div className="flex items-center gap-1.5 text-xs font-semibold text-muted" aria-hidden>
-          {c.less}
+          {calendar.less}
           {heatmapLevels.map((c) => (
             <span key={c} className="rounded-[4px]" style={{ width: CELL, height: CELL, background: c }} />
           ))}
-          {c.more}
+          {calendar.more}
         </div>
       }
     >
       <div className="-mt-1 mb-4 flex flex-wrap items-center justify-between gap-2">
-        <div role="radiogroup" aria-label={c.viewLabel} className="flex flex-wrap gap-1.5">
+        <div role="radiogroup" aria-label={calendar.viewLabel} className="flex flex-wrap gap-1.5">
           {views.map((v) => (
             <button
               key={v}
@@ -148,7 +149,7 @@ export function ActivityHeatmap({ byDate, today, years }: ActivityHeatmapProps) 
                 v === view ? 'bg-brand-soft text-brand-strong' : 'text-muted hover:bg-surface-2 hover:text-ink'
               }`}
             >
-              {v === 'last12' ? c.last12 : v}
+              {v === 'last12' ? calendar.last12 : v}
             </button>
           ))}
         </div>
@@ -175,7 +176,7 @@ export function ActivityHeatmap({ byDate, today, years }: ActivityHeatmapProps) 
       <div ref={boxRef} className="relative pb-1">
         <div className="relative flex gap-2" style={{ width: gridWidth + LABELS }}>
           <div className="flex flex-col pt-5 text-[10px] text-muted" style={{ gap: GAP, width: 24 }} aria-hidden>
-            {c.weekdays.map((d, i) => (
+            {calendar.weekdays.map((d, i) => (
               <span key={i} style={{ height: CELL, lineHeight: `${CELL}px` }}>
                 {d}
               </span>
@@ -189,7 +190,7 @@ export function ActivityHeatmap({ byDate, today, years }: ActivityHeatmapProps) 
                 </span>
               ))}
             </div>
-            <div className="flex" style={{ gap: GAP }} role="grid" aria-label={c.gridLabel(period)}>
+            <div className="flex" style={{ gap: GAP }} role="grid" aria-label={calendar.gridLabel(period)}>
               {weeks.map((week, w) => (
                 <div key={w} className="flex flex-col" style={{ gap: GAP }} role="row">
                   {week.map((cell, d) =>
@@ -197,7 +198,7 @@ export function ActivityHeatmap({ byDate, today, years }: ActivityHeatmapProps) 
                       <div
                         key={d}
                         role="gridcell"
-                        aria-label={c.cell(dateLabels.get(cell.date)!, cell.reviews)}
+                        aria-label={calendar.cell(dateLabels.get(cell.date)!, cell.reviews)}
                         className="rounded-[4px] outline-offset-1 transition-transform hover:scale-125 hover:outline-2 hover:outline-brand"
                         style={{
                           width: CELL,
@@ -218,15 +219,19 @@ export function ActivityHeatmap({ byDate, today, years }: ActivityHeatmapProps) 
               ))}
             </div>
             {/* No tooltip mid-replay: it would show counts for days the replay hasn't reached */}
-            {hover && !playing && (
-              <div
-                className="pointer-events-none fixed z-10 -translate-x-1/2 -translate-y-full rounded-xl border border-line bg-surface px-3 py-1.5 text-xs whitespace-nowrap shadow-pop"
-                style={{ left: Math.min(Math.max(hover.x, 120), window.innerWidth - 120), top: hover.y - 6 }}
-              >
-                <span className="font-bold text-ink">{c.tip(hover.cell.reviews)}</span>
-                <span className="text-muted"> · {formatLongDate(hover.cell.date)}</span>
-              </div>
-            )}
+            {/* In a portal: the Panel's entrance animation would otherwise take over what `fixed` is measured from */}
+            {hover &&
+              !playing &&
+              createPortal(
+                <div
+                  className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-full rounded-xl border border-line bg-surface px-3 py-1.5 text-xs whitespace-nowrap shadow-pop"
+                  style={{ left: Math.min(Math.max(hover.x, 120), window.innerWidth - 120), top: hover.y - 6 }}
+                >
+                  <span className="font-bold text-ink">{calendar.tip(hover.cell.reviews)}</span>
+                  <span className="text-muted"> · {formatLongDate(hover.cell.date)}</span>
+                </div>,
+                document.body,
+              )}
           </div>
         </div>
       </div>

@@ -2,6 +2,11 @@
 // saves a new snapshot. Anki does all the writing to its own files. Anki is only ever asked to quit, never forced:
 // if it won't close, a sync may be running or a dialog may need an answer, and that isn't this job's to decide.
 
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+
+export const SYNC_STATUS_FILE = fileURLToPath(new URL('../data/sync-status.json', import.meta.url))
+
 export type SyncOutcome =
   | 'updated' // synced, and the snapshot is new
   | 'offline' // no network, so the snapshot only has what this Mac already knew
@@ -12,6 +17,21 @@ export type SyncOutcome =
 export interface SyncResult {
   outcome: SyncOutcome
   message: string
+}
+
+/** What the last sync did, as sync-anki.ts saves it. */
+export interface SyncStatus extends SyncResult {
+  at: string
+}
+
+/** The saved outcome, or null if there isn't a readable one: there's simply nothing to report. */
+export function readSyncStatus(path = SYNC_STATUS_FILE): SyncStatus | null {
+  try {
+    const saved = JSON.parse(readFileSync(path, 'utf8')) as Partial<SyncStatus>
+    return typeof saved?.outcome === 'string' && typeof saved.message === 'string' && typeof saved.at === 'string' ? (saved as SyncStatus) : null
+  } catch {
+    return null
+  }
 }
 
 export interface SyncDeps {

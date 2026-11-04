@@ -100,7 +100,7 @@ describe('when the launcher’s sync replaces the copy', () => {
     vi.stubGlobal('fetch', status(copied + 60_000))
     const { result } = renderHook(() => useUpdateOffer(copiedAt, false))
     await flush()
-    expect(result.current.update).toBe('reviews')
+    expect(result.current.update).toBe('copied')
     expect(result.current.version).toBe(copied + 60_000)
   })
 

@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { AppShell, LoadingScreen, PageSkeleton } from './app/AppShell'
 import { ErrorBoundary } from './app/ErrorBoundary'
 import { useRoute } from './app/useRoute'
-import { useNow } from './app/useNow'
+import { useAnkiDay } from './app/useAnkiDay'
 import { useTheme } from './app/useTheme'
 import { SessionRecap } from './components/SessionRecap'
 import { DeckColors } from './data/deckColors'
@@ -12,7 +12,6 @@ import { useAnkiData } from './data/useAnkiData'
 import { useSessionRecap } from './data/useSessionRecap'
 import { useUpdateOffer } from './data/useUpdateOffer'
 import { messages } from './i18n'
-import { ankiDayKey } from './lib/dates'
 import { ankiToday, type RangeKey } from './lib/stats'
 import { deckColorMap } from './lib/theme'
 import { HomePage } from './pages/HomePage'
@@ -24,25 +23,26 @@ const WrappedPage = lazy(() => import('./pages/WrappedPage').then((m) => ({ defa
 const AdvancedPage = lazy(() => import('./pages/AdvancedPage').then((m) => ({ default: m.AdvancedPage })))
 
 export default function App() {
-  const { state, refresh, refreshing, refreshError, clearRefreshError } = useAnkiData()
+  const { state, refresh, reread, refreshing, refreshError, clearRefreshError } = useAnkiData()
   const theme = useTheme()
   const route = useRoute()
   // Lifted so the Activity range survives switching sections
   const [range, setRange] = useState<RangeKey>('30d')
-  const now = useNow()
+  const ankiDay = useAnkiDay(state.status === 'ready' ? state.data.dayStartHour : 0)
   const real = state.status === 'ready' && state.data.source === 'anki' ? state.data : null
   const newDay = !!real && copiedOnEarlierDay(real, ankiToday(real))
-  const { update, version, dismissUpdate } = useUpdateOffer(state.status === 'ready' ? state.data.generatedAt : undefined, newDay)
+  const { update, version, dismissUpdate, syncProblem, dismissSync } = useUpdateOffer(state.status === 'ready' ? state.data.generatedAt : undefined, newDay)
   // Anki closed with something new, so fetch it without being asked. Each reason for each version is tried once, and the offer
   // only appears if that fails, so a refresh that can't work isn't retried every few seconds
   const attempt = update && version !== null ? `${update}:${version}` : null
+  const fetchUpdate = update === 'copied' ? reread : refresh
   const autoTried = useRef<string | null>(null)
   useEffect(() => {
     if (attempt === null || attempt === autoTried.current) return
     autoTried.current = attempt
     // A refresh already running will bring this in, or report why it can't
-    if (!refreshing) void refresh()
-  }, [attempt, refreshing, refresh])
+    if (!refreshing) void fetchUpdate()
+  }, [attempt, refreshing, fetchUpdate])
   // Not from a snapshot: it can be older than the last visit, which would count those reviews a second time
   const { recap, dismissRecap } = useSessionRecap(state.status === 'ready' && state.fromSnapshot ? null : real)
   const decks = state.status === 'ready' ? state.data.decks : undefined
@@ -65,7 +65,10 @@ export default function App() {
       refreshing={refreshing}
       refreshError={refreshError}
       update={attempt !== null && refreshError ? update : null}
+      onUpdate={fetchUpdate}
       onDismissUpdate={dismissUpdate}
+      syncProblem={syncProblem}
+      onDismissSync={dismissSync}
       onDismissError={clearRefreshError}
       theme={theme.choice}
       onCycleTheme={theme.cycle}
@@ -76,7 +79,7 @@ export default function App() {
           <Suspense fallback={<PageSkeleton />}>
             {/* Keyed by the Anki day, so a page left open past the rollover hour recomputes "today" */}
             <Page
-              key={ankiDayKey(now, state.data.dayStartHour)}
+              key={ankiDay}
               route={route}
               data={state.data}
               fromSnapshot={state.fromSnapshot}

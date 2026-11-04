@@ -2,8 +2,14 @@ import { useCallback, useEffect, useState } from 'react'
 
 const POLL_MS = 15_000
 
-/** Why a refresh is worth offering: Anki has newer reviews, or the copy is from before today's rollover. */
-export type UpdateReason = 'reviews' | 'day'
+/**
+ * Why fresh stats are worth fetching: Anki has newer reviews, the copy is from before today's rollover, or the launcher's
+ * sync already replaced the copy, so reading it again is enough.
+ */
+export type UpdateReason = 'reviews' | 'day' | 'copied'
+
+/** Outcomes of the launcher's sync that need you (see server/ankiSync.ts). */
+const SYNC_PROBLEMS = ['stuck', 'failed']
 
 /**
  * Watches for Anki closing with reviews this copy doesn't have, so the app can refresh by itself instead of a
@@ -15,6 +21,8 @@ export type UpdateReason = 'reviews' | 'day'
 export function useUpdateOffer(copiedAt: string | undefined, newDay: boolean) {
   const [available, setAvailable] = useState<{ modified: number; reason: UpdateReason } | null>(null)
   const [dismissed, setDismissed] = useState<number | null>(null)
+  const [syncProblem, setSyncProblem] = useState<{ at: string; message: string } | null>(null)
+  const [syncDismissed, setSyncDismissed] = useState<string | null>(null)
 
   useEffect(() => {
     let stopped = false
@@ -24,12 +32,14 @@ export function useUpdateOffer(copiedAt: string | undefined, newDay: boolean) {
         const res = await fetch('/api/status')
         // This device has no route to the API, as on your phone, so there will never be anything to offer
         if (res.status === 404) return clearInterval(timer)
-        const body = res.ok ? ((await res.json()) as { ankiRunning: boolean; updateAvailable: boolean; sourceModified: number | null; copyModified?: number | null }) : null
+        const body = res.ok ? ((await res.json()) as { ankiRunning: boolean; updateAvailable: boolean; sourceModified: number | null; copyModified?: number | null; sync?: { outcome: string; message: string; at: string } | null }) : null
         // The launcher's sync replaced the copy since this page read it
-        const copied = !!body?.copyModified && !body.ankiRunning && !!copiedAt && Math.floor(body.copyModified) > Date.parse(copiedAt)
-        const reason = body?.updateAvailable || copied ? 'reviews' : newDay && body && !body.ankiRunning ? 'day' : null
+        const copied = !!body?.copyModified && !!copiedAt && Math.floor(body.copyModified) > Date.parse(copiedAt)
+        const reason = body?.updateAvailable ? 'reviews' : copied ? 'copied' : newDay && body && !body.ankiRunning ? 'day' : null
         const modified = copied ? body?.copyModified : body?.sourceModified
-        if (!stopped) setAvailable(reason && modified != null ? { modified, reason } : null)
+        if (stopped) return
+        setAvailable(reason && modified != null ? { modified, reason } : null)
+        setSyncProblem(body?.sync && SYNC_PROBLEMS.includes(body.sync.outcome) ? body.sync : null)
       } catch {
         if (!stopped) setAvailable(null) // API not running: there's nothing to offer
       }
@@ -46,5 +56,12 @@ export function useUpdateOffer(copiedAt: string | undefined, newDay: boolean) {
 
   const dismiss = useCallback(() => setDismissed(available?.modified ?? null), [available])
   const shown = available && available.modified !== dismissed ? available : null
-  return { update: shown?.reason ?? null, version: shown?.modified ?? null, dismissUpdate: dismiss }
+  const dismissSync = useCallback(() => setSyncDismissed(syncProblem?.at ?? null), [syncProblem])
+  return {
+    update: shown?.reason ?? null,
+    version: shown?.modified ?? null,
+    dismissUpdate: dismiss,
+    syncProblem: syncProblem && syncProblem.at !== syncDismissed ? syncProblem.message : null,
+    dismissSync,
+  }
 }

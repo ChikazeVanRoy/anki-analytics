@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { mockData } from './data/mockData'
@@ -9,7 +9,10 @@ import { SNAPSHOT_VERSION } from './lib/snapshot'
 
 // The clock the page reads, so a test can cross midnight without stepping real intervals
 const clock = vi.hoisted(() => ({ now: null as number | null }))
-vi.mock('./app/useNow', () => ({ useNow: () => clock.now ?? Date.now() }))
+vi.mock('./app/useAnkiDay', async () => {
+  const { ankiDayKey } = await vi.importActual<typeof import('./lib/dates')>('./lib/dates')
+  return { useAnkiDay: (dayStartHour: number) => ankiDayKey(clock.now ?? Date.now(), dayStartHour) }
+})
 
 function respondWith(impl: () => Promise<Response>) {
   vi.stubGlobal('fetch', vi.fn(impl))
@@ -170,6 +173,42 @@ describe('fresh data when Anki closes', () => {
     await waitFor(() => expect(refresh).toHaveBeenCalledOnce())
     await act(async () => {})
     expect(screen.queryByRole('button', { name: new RegExp(messages.data.updateNow) })).toBeNull()
+  })
+
+  it('reads the copy the launcher’s sync made, rather than making another', async () => {
+    const before = new Date(Date.now() - 60_000).toISOString()
+    let stats = JSON.stringify({ ...mockData, source: 'anki', generatedAt: before })
+    const copied = Date.parse(before) + 30_000
+    const refresh = vi.fn(() => new Response(live()))
+    const reads: string[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (url === '/api/status') return new Response(JSON.stringify({ ankiRunning: true, updateAvailable: false, sourceModified: 1, copyModified: copied }))
+        if (url === '/api/refresh') return refresh()
+        reads.push(url)
+        const body = stats
+        stats = JSON.stringify({ ...mockData, source: 'anki', generatedAt: new Date(copied).toISOString() })
+        return new Response(body)
+      }),
+    )
+    render(<App />)
+    await waitFor(() => expect(reads).toEqual(['/api/stats', '/api/stats']))
+    await act(async () => {})
+    expect(refresh).not.toHaveBeenCalled()
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
+  it('says when the last sync needs you, until dismissed', async () => {
+    const sync = { outcome: 'stuck', message: 'Anki didn’t close.', at: '2026-11-04T08:00:00.000Z' }
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => new Response(url === '/api/status' ? JSON.stringify({ ankiRunning: false, updateAvailable: false, sourceModified: null, sync }) : live())),
+    )
+    render(<App />)
+    const notice = await screen.findByText(messages.data.syncProblem(sync.message))
+    fireEvent.click(within(notice.parentElement as HTMLElement).getByRole('button', { name: messages.data.dismiss }))
+    expect(screen.queryByText(messages.data.syncProblem(sync.message))).toBeNull()
   })
 
   it('refreshes again when a new day arrives, even if the collection hasn’t changed since', async () => {
