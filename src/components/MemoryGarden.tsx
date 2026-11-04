@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import type { Deck } from '../data/types'
 import { messages } from '../i18n'
 import { formatRate } from '../lib/format'
@@ -56,8 +56,21 @@ function describe(p: Plant, unit: number) {
 /** A deck's studied cards as a bed of plants. One tab stop: tap, hover or the arrow keys pick the plant to read. */
 export function GardenPlot({ deck, bed, color }: { deck: Deck; bed: GardenBed; color: string }) {
   const [picked, setPicked] = useState<number | null>(null)
+  const plot = useRef<HTMLDivElement>(null)
+  // Letting go of the pointer anywhere but this bed's plants releases the plant. A touch scroll ends in pointercancel
+  // instead, so it doesn't count, and iOS Safari sends this for blank space, where it sends no click
+  useEffect(() => {
+    if (picked === null) return
+    const onRelease = (e: PointerEvent) => {
+      if (window.getSelection()?.isCollapsed === false) return // selecting the card's text to copy it
+      const plant = e.target instanceof Element ? e.target.closest('[data-plant]') : null
+      if (!plant || !plot.current?.contains(plant)) setPicked(null)
+    }
+    document.addEventListener('pointerup', onRelease)
+    return () => document.removeEventListener('pointerup', onRelease)
+  }, [picked])
   const onKey = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') return setPicked(null)
+    if (e.key === 'Escape' || e.key === 'Tab') return setPicked(null)
     const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0
     if (!step || !bed.plants.length) return
     e.preventDefault()
@@ -66,6 +79,7 @@ export function GardenPlot({ deck, bed, color }: { deck: Deck; bed: GardenBed; c
   return (
     <div>
       <div
+        ref={plot}
         role="group"
         tabIndex={bed.plants.length ? 0 : undefined}
         onKeyDown={onKey}
@@ -80,6 +94,7 @@ export function GardenPlot({ deck, bed, color }: { deck: Deck; bed: GardenBed; c
             type="button"
             tabIndex={-1}
             aria-hidden
+            data-plant
             onClick={() => setPicked(i)}
             className={`animate-pop inline-block origin-bottom cursor-pointer rounded-lg transition-transform hover:scale-125 ${picked === i ? 'bg-surface/70 ring-2 ring-brand' : ''}`}
             style={{
