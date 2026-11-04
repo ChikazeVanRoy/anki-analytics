@@ -19,7 +19,8 @@ structure and what each section measures or projects.
   `git diff --cached --name-only` before every commit. Tests use synthetic fixtures only.
 - **Never fabricate statistics.** Mock data must stay labelled as mock; FSRS sections are hidden without
   real data. Label projections as projections and state assumptions in the UI.
-- Keep everything local: no cloud services, telemetry or external APIs.
+- Keep everything local: no cloud services, telemetry or external APIs. The one way in from another device is
+  `server/phoneAccess.ts`: read-only, and it must never send note text or live routes.
 - Don't infer historical FSRS states from current states; reconstruct them by replaying the review log.
 
 ## Commands

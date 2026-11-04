@@ -185,6 +185,7 @@ Notes from the code:
 | `collection.ts` | Finds the Anki profile, refuses while Anki runs (`pgrep`) or after an unclean exit, copies `collection.anki2` to `data/` |
 | `copy-collection.ts` | `npm run copy-collection` command-line wrapper around `collection.ts` |
 | `ankiSync.ts`, `sync-anki.ts` | One sync at launch: open Anki, ask it to quit, save a snapshot; `npm run sync` wrapper |
+| `phoneAccess.ts`, `phone-access.ts` | Read-only access for one Tailscale machine name: the app and a snapshot without note text |
 | `snapshot.ts`, `make-snapshot.ts` | Save the stats to `data/snapshot.json` atomically; `npm run snapshot` wrapper |
 | `anki.ts` | Opens the copy read-only; deck grouping/exclusion; daily review totals; card counts; calls `fsrsData.ts` and isolates its failures |
 | `fsrsData.ts` | FSRS data: stored memory states, due dates, presets, reset counts, measured answer behaviour, review-log replay (calibration and validation) |

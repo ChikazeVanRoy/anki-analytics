@@ -129,9 +129,23 @@ The built app is a PWA: `manifest.webmanifest` lets it be added to a home screen
 to `dist/sw.js`) saves the app and the latest snapshot, so it opens with the server stopped. Live stats are never
 saved by it, and it only runs in the built app, not under `npm run dev`.
 
+## On your phone
+
+Tailscale connects your own devices privately, so nothing has to be exposed to the internet:
+
+1. Install Tailscale on the Mac and iPhone, sign in on both, and turn on HTTPS certificates in its admin console.
+2. `npm run phone-access -- <machine>.<tailnet>.ts.net`, using the Mac's name in Tailscale.
+3. `tailscale serve --bg 5174`. Never use `tailscale funnel`, which is the public internet.
+4. Open `https://<machine>.<tailnet>.ts.net` in Safari on the iPhone, then Share > Add to Home Screen.
+
+The phone reads the latest snapshot and nothing else: no live stats and no refresh, and note text is removed, so trouble
+cards and garden plants show no card text there. It gets new stats only while the launcher's window is open and the Mac
+is awake, and otherwise shows the last snapshot it saved. `npm run phone-access -- off` stops it.
+
 ## Privacy
 
-Everything stays local; the API only answers requests addressed to this machine. Trouble cards show the text of
+Everything stays on your own devices; the API only answers requests addressed to this machine, plus the phone access
+you can turn on above. Trouble cards show the text of
 a few of your notes, and the garden shows studied cards' text when you tap a plant. Both are read from the local
 copy and shown only in your browser, which also remembers your last visit's totals for the session recap. The built
 app's browser storage also keeps the latest snapshot, note text included, so deleting `data/snapshot.json` doesn't

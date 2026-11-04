@@ -11,6 +11,7 @@
     "copy-collection": "node server/copy-collection.ts",
     "snapshot": "node server/make-snapshot.ts",
     "sync": "node server/sync-anki.ts",
+    "phone-access": "node server/phone-access.ts",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",

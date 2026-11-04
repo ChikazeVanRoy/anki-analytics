@@ -121,6 +121,71 @@ describe('the saved snapshot', () => {
   })
 })
 
+describe('your phone', () => {
+  const phone = 'my-mac.my-tailnet.ts.net'
+  const snapshotPath = join(dir, 'phone-snapshot.json')
+  const cards = [{ deckId: 'a', front: 'Private note' }]
+  const troubleCards = [{ cardId: '1', front: 'Private note', again: 3 }]
+  const copy = vi.fn(() => ({ profile: 'Test', bytes: 1 }))
+  let port: number
+  let server: Server
+  const dist = join(dir, 'phone-dist')
+  beforeAll(async () => {
+    mkdirSync(dist, { recursive: true })
+    writeFileSync(join(dist, 'index.html'), '<title>app</title>')
+    writeFileSync(snapshotPath, JSON.stringify({ version: 1, data: { source: 'anki', fsrs: { cards, troubleCards } } }))
+    ;({ server, port } = await start({ collectionPath: existing, read: () => fakeData, snapshotPath, copy, distDir: dist, phoneHost: () => phone, status: () => { throw new Error('Not for the phone') } }))
+  })
+  afterAll(() => server.close())
+  const fromPhone = (path: string, opts: { method?: string; headers?: Record<string, string> } = {}) => call(port, path, { ...opts, host: phone })
+
+  it('gets the snapshot with every piece of note text gone', async () => {
+    const { status, body } = await fromPhone('/snapshot.json')
+    expect(status).toBe(200)
+    expect(JSON.stringify(body)).not.toContain('Private note')
+  })
+
+  it('still gets the note text on this Mac', async () => {
+    expect(JSON.stringify((await call(port, '/snapshot.json')).body)).toContain('Private note')
+  })
+
+  it('can’t read live stats or the status, or refresh', async () => {
+    for (const path of ['/api/stats', '/api/status']) expect((await fromPhone(path)).status).toBe(404)
+    const refresh = await fromPhone('/api/refresh', { method: 'POST', headers: { 'x-requested-by': 'anki-analytics' } })
+    expect(refresh.status).toBe(404)
+    expect(copy).not.toHaveBeenCalled()
+  })
+
+  it('can write nothing, on any path', async () => {
+    expect((await fromPhone('/snapshot.json', { method: 'POST' })).status).toBe(404)
+  })
+
+  it('is refused if it arrives through Tailscale Funnel, the public internet', async () => {
+    const { status } = await fromPhone('/snapshot.json', { headers: { 'tailscale-funnel-request': '?1' } })
+    expect(status).toBe(403)
+  })
+
+  it('gets nothing if a forwarded request claims to be for this Mac', async () => {
+    for (const header of ['x-forwarded-for', 'x-forwarded-host', 'tailscale-user-login']) {
+      for (const path of ['/api/stats', '/snapshot.json']) {
+        expect((await call(port, path, { headers: { [header]: 'someone' } })).status).toBe(403)
+      }
+    }
+  })
+
+  it('doesn’t open the door to any other name', async () => {
+    expect((await call(port, '/snapshot.json', { host: 'other-mac.my-tailnet.ts.net' })).status).toBe(403)
+  })
+})
+
+describe('with phone access off', () => {
+  it('refuses the phone’s name like any other', async () => {
+    const { server, port } = await start({ collectionPath: existing, read: () => fakeData, phoneHost: () => null })
+    expect((await call(port, '/snapshot.json', { host: 'my-mac.my-tailnet.ts.net' })).status).toBe(403)
+    server.close()
+  })
+})
+
 describe('the built app', () => {
   const dist = join(dir, 'dist')
   let port: number

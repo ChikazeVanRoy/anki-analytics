@@ -4,6 +4,7 @@
 //   POST /api/refresh  -> re-copy the collection from Anki, then return fresh AnkiData
 //   GET  /snapshot.json -> the stats saved by `npm run snapshot`, if any
 //   GET  anything else -> the built app from dist/, when there is one (the launcher runs the app this way)
+// A request from your phone (see phoneAccess.ts) only gets the app and a snapshot without note text.
 
 import { existsSync } from 'node:fs'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
@@ -11,6 +12,7 @@ import type { AnkiData } from '../src/data/types.ts'
 import { readCurrentStats } from './anki.ts'
 import { DeckConfigError } from './deckGroups.ts'
 import { ankiStatus, COLLECTION_COPY, copyCollection, CopyError, type AnkiStatus } from './collection.ts'
+import { isForwarded, isPhoneRequest, loadPhoneHost, phoneSnapshot } from './phoneAccess.ts'
 import { readSnapshotFile, SNAPSHOT_FILE, writeSnapshot } from './snapshot.ts'
 import { DIST_DIR, serveFile } from './staticFiles.ts'
 
@@ -35,6 +37,7 @@ export interface ApiDeps {
   read: (path: string) => AnkiData
   snapshotPath: string
   saveSnapshot: (data: AnkiData) => void
+  phoneHost: () => string | null
   copy: () => { profile: string; bytes: number }
   status: () => AnkiStatus
   log: (message: string) => void
@@ -46,6 +49,7 @@ const defaults: ApiDeps = {
   read: readCurrentStats,
   snapshotPath: SNAPSHOT_FILE,
   saveSnapshot: writeSnapshot,
+  phoneHost: loadPhoneHost,
   copy: copyCollection,
   status: ankiStatus,
   log: console.log,
@@ -77,20 +81,30 @@ export function createApiServer(overrides: Partial<ApiDeps> = {}): Server {
     send(res, 200, data)
   }
 
+  function sendSnapshot(res: ServerResponse, prepare: (saved: string) => string = (saved) => saved) {
+    const saved = readSnapshotFile(deps.snapshotPath)
+    if (saved === null) return send(res, 404, { error: 'No snapshot saved yet.' })
+    // Always ask again, so a browser can't keep showing an old snapshot as the latest one
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' })
+    res.end(prepare(saved))
+  }
+
+  /** Your phone: read-only, and no route to live stats, the status or a refresh. */
+  function handlePhone(req: IncomingMessage, res: ServerResponse) {
+    if (req.method === 'GET' && req.url === '/snapshot.json') return sendSnapshot(res, phoneSnapshot)
+    if (req.method === 'GET' && !req.url?.startsWith('/api/') && serveFile(req.url ?? '/', deps.distDir, res)) return
+    send(res, 404, { error: 'Not found' })
+  }
+
   function handle(req: IncomingMessage, res: ServerResponse) {
-    if (!isAllowedHost(req.headers.host)) return send(res, 403, { error: 'Forbidden host' })
+    if (isPhoneRequest(req.headers, deps.phoneHost())) return handlePhone(req, res)
+    if (!isAllowedHost(req.headers.host) || isForwarded(req.headers)) return send(res, 403, { error: 'Forbidden host' })
 
     if (req.method === 'GET' && req.url === '/api/stats') return sendStats(res)
 
     if (req.method === 'GET' && req.url === '/api/status') return send(res, 200, deps.status())
 
-    if (req.method === 'GET' && req.url === '/snapshot.json') {
-      const saved = readSnapshotFile(deps.snapshotPath)
-      if (saved === null) return send(res, 404, { error: 'No snapshot saved yet.' })
-      // Always ask again, so a browser can't keep showing an old snapshot as the latest one
-      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' })
-      return void res.end(saved)
-    }
+    if (req.method === 'GET' && req.url === '/snapshot.json') return sendSnapshot(res)
 
     if (req.method === 'POST' && req.url === '/api/refresh') {
       // A custom header can't be sent cross-site without a CORS preflight, which this server never
