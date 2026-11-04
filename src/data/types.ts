@@ -62,7 +62,7 @@ export interface FsrsCard {
   interday?: boolean
   /** Passed a review at an interval of 21+ days. Absent: not yet. */
   proven?: boolean
-  /** The note's sort field as plain text, stays on this computer. Absent in very large collections. */
+  /** The first text the card's template shows, stays on this computer. Absent in very large collections. */
   front?: string
 }
 
@@ -127,7 +127,7 @@ export interface KnowledgePoint {
 export interface TroubleCard {
   cardId: string // Anki card id, for a Browser search
   deckId: string
-  front: string // the note's sort field, as plain text
+  front: string // the first text the card's template shows, as plain text
   again: number // scheduled reviews answered Again, in the window
   hard: number // scheduled reviews answered Hard, in the window
   reviews: number // all scheduled reviews in the window

@@ -12,6 +12,7 @@ structure and what each section measures or projects.
 
 - **Never write to Anki's own files** (`~/Library/Application Support/Anki2`). Only read them, and only via
   `server/collection.ts`, which refuses while Anki is running. Open SQLite only with `{ readOnly: true }`.
+  The one exception is the throwaway in-memory copy in `server/cardText.ts`, which never touches a file.
   The sync at launch (`server/ankiSync.ts`) may open Anki and ask it to quit, so that Anki does its own writing; never
   force Anki to close.
 - **Never commit personal data**: `/data/`, `*.anki2`, `*.colpkg`, `*.apkg`, databases, `.env*`,

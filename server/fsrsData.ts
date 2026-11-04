@@ -18,6 +18,7 @@ import type {
 import { ankiDayKey, dayNumber, keyFromDayNumber } from '../src/lib/dates.ts'
 import { DEFAULT_PARAMS, replay, retrievability, toFsrs6Params, type MemoryState, type Rating } from '../src/lib/fsrs.ts'
 import { readConfigJson } from './ankiConfig.ts'
+import { cardTextReader } from './cardText.ts'
 import { firstBytes, firstFloat, firstVarint, floats, parseProto } from './protobuf.ts'
 
 const MATURE_DAYS = 21
@@ -28,6 +29,7 @@ const TROUBLE_WINDOW_DAYS = 90
 const TROUBLE_MIN_ANSWERS = 3 // Again or Hard answers in the window that make a card worth listing
 const TROUBLE_MAX_CARDS = 30
 const GARDEN_TEXT_CARDS = 5_000 // above this, the garden goes without card text to keep the answer small
+const CARD_TEXT_COLUMNS = 'c.id AS id, c.ord AS ord, n.mid AS mid, n.flds AS flds, n.sfld AS sfld'
 
 interface Context {
   db: DatabaseSync
@@ -117,17 +119,6 @@ export function fsrsHistory(entries: RevlogRow[]): RevlogRow[] {
     if (isReset(e)) start = i + 1
   })
   return entries.slice(start).filter((e) => e.type <= 3 && e.ease >= 1 && e.ease <= 4)
-}
-
-/** A note's sort field as one short line: Anki has stripped most markup, but sound tags and stray HTML can remain. */
-export function plainFront(sfld: unknown): string {
-  const text = String(sfld ?? '')
-    .replace(/\[sound:[^\]]*\]/g, ' ')
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-  return text.length > 80 ? `${text.slice(0, 79)}…` : text
 }
 
 /** The days to sample, oldest first, always ending today. */
@@ -261,10 +252,11 @@ export function readFsrsData(ctx: Context): FsrsData {
     cards.push(stored)
     cardById.set(Number(r.id), stored)
   }
+  const cardText = cardTextReader(db)
   if (cards.length <= GARDEN_TEXT_CARDS) {
-    for (const r of db.prepare('SELECT c.id AS id, n.sfld AS sfld FROM cards c JOIN notes n ON n.id = c.nid WHERE c.type != 0').all()) {
+    for (const r of db.prepare(`SELECT ${CARD_TEXT_COLUMNS} FROM cards c JOIN notes n ON n.id = c.nid WHERE c.type != 0`).all()) {
       const card = cardById.get(Number(r.id))
-      const front = card && plainFront(r.sfld)
+      const front = card && cardText(r)
       if (front) card.front = front
     }
   }
@@ -468,8 +460,8 @@ export function readFsrsData(ctx: Context): FsrsData {
   const worst = trouble.sort((a, b) => b.again * 2 + b.hard - (a.again * 2 + a.hard) || a.cardId.localeCompare(b.cardId)).slice(0, TROUBLE_MAX_CARDS)
   const fronts = new Map<string, string>()
   if (worst.length) {
-    const rows = db.prepare(`SELECT c.id AS id, n.sfld AS sfld FROM cards c JOIN notes n ON n.id = c.nid WHERE c.id IN (${worst.map(() => '?').join(',')})`)
-    for (const r of rows.all(...worst.map((t) => Number(t.cardId)))) fronts.set(String(r.id), plainFront(r.sfld))
+    const rows = db.prepare(`SELECT ${CARD_TEXT_COLUMNS} FROM cards c JOIN notes n ON n.id = c.nid WHERE c.id IN (${worst.map(() => '?').join(',')})`)
+    for (const r of rows.all(...worst.map((t) => Number(t.cardId)))) fronts.set(String(r.id), cardText(r))
   }
 
   return {

@@ -16,7 +16,7 @@ import { parseSnapshot } from '../src/lib/snapshot.ts'
 import { readAnkiData, readDeckTops } from './anki.ts'
 import { createApiServer } from './app.ts'
 import type { DeckConfig } from './deckGroups.ts'
-import { plainFront, readPreset, sampleDays } from './fsrsData.ts'
+import { readPreset, sampleDays } from './fsrsData.ts'
 import { parseProto } from './protobuf.ts'
 import { makeSnapshot, writeSnapshot } from './snapshot.ts'
 
@@ -82,8 +82,8 @@ beforeAll(() => {
     CREATE TABLE decks (id INTEGER PRIMARY KEY, name TEXT, kind BLOB);
     CREATE TABLE deck_config (id INTEGER PRIMARY KEY, name TEXT, config BLOB);
     CREATE TABLE config (key TEXT PRIMARY KEY, val BLOB);
-    CREATE TABLE cards (id INTEGER PRIMARY KEY, did INTEGER, odid INTEGER DEFAULT 0, type INTEGER, queue INTEGER, due INTEGER, odue INTEGER DEFAULT 0, ivl INTEGER, mod INTEGER DEFAULT 0, data TEXT, nid INTEGER DEFAULT 0);
-    CREATE TABLE notes (id INTEGER PRIMARY KEY, sfld TEXT);
+    CREATE TABLE cards (id INTEGER PRIMARY KEY, did INTEGER, odid INTEGER DEFAULT 0, type INTEGER, queue INTEGER, due INTEGER, odue INTEGER DEFAULT 0, ivl INTEGER, mod INTEGER DEFAULT 0, data TEXT, nid INTEGER DEFAULT 0, ord INTEGER DEFAULT 0);
+    CREATE TABLE notes (id INTEGER PRIMARY KEY, sfld TEXT, mid INTEGER DEFAULT 0, flds TEXT DEFAULT '');
     CREATE TABLE revlog (id INTEGER PRIMARY KEY, cid INTEGER, ease INTEGER, time INTEGER, type INTEGER, lastIvl INTEGER, factor INTEGER);
     INSERT INTO config VALUES ('rollover', CAST('${ROLLOVER}' AS BLOB)), ('fsrs', CAST('true' AS BLOB));
   `)
@@ -467,10 +467,28 @@ describe('trouble cards', () => {
     const copy = join(dir, 'garden.anki2')
     copyFileSync(path, copy)
     const db = new DatabaseSync(copy)
-    db.exec(`INSERT INTO notes VALUES (8, '<i>bom</i> dia'); UPDATE cards SET nid = 8 WHERE id = 12`)
+    db.exec(`INSERT INTO notes (id, sfld) VALUES (8, '<i>bom</i> dia'); UPDATE cards SET nid = 8 WHERE id = 12`)
     db.close()
     const cards = readAnkiData(copy, NOW, { deckConfig: DECKS }).fsrs!.cards
     expect(cards.filter((c) => c.front).map((c) => c.front)).toEqual(['bom dia'])
+  })
+
+  it("uses the field the card's template shows, not the sort field", () => {
+    const copy = join(dir, 'templates.anki2')
+    copyFileSync(path, copy)
+    const db = new DatabaseSync(copy)
+    db.exec(`
+      CREATE TABLE fields (ntid INTEGER, ord INTEGER, name TEXT);
+      CREATE TABLE templates (ntid INTEGER, ord INTEGER, config BLOB);
+      INSERT INTO fields VALUES (5, 0, 'Translation'), (5, 1, 'Target');
+      INSERT INTO notes (id, sfld, mid, flds) VALUES (8, 'Good morning', 5, 'Good morning' || char(31) || 'Bom dia');
+      UPDATE cards SET nid = 8, ord = 0 WHERE id = 12;
+    `)
+    const answer = [...new TextEncoder().encode('{{Target}}')]
+    db.prepare('INSERT INTO templates VALUES (5, 0, ?)').run(Uint8Array.from(bytesField(2, answer)))
+    db.close()
+    const cards = readAnkiData(copy, NOW, { deckConfig: DECKS }).fsrs!.cards
+    expect(cards.filter((c) => c.front).map((c) => c.front)).toEqual(['Bom dia'])
   })
 
   it('lists cards you keep struggling with, as plain text, and only those', () => {
@@ -478,7 +496,7 @@ describe('trouble cards', () => {
     copyFileSync(path, copy)
     const db = new DatabaseSync(copy)
     const rev = db.prepare('INSERT INTO revlog VALUES (?, 70, ?, 1000, ?, ?, 0)')
-    db.prepare('INSERT INTO notes VALUES (7, ?)').run('<b>olá</b> [sound:ola.mp3]  amigo')
+    db.prepare('INSERT INTO notes (id, sfld) VALUES (7, ?)').run('<b>olá</b> [sound:ola.mp3]  amigo')
     db.prepare('INSERT INTO cards (id, did, type, queue, due, ivl, data, nid) VALUES (70, 1, 2, 2, ?, 3, ?, 7)').run(
       dayNumber('2026-03-20') - crtDay,
       JSON.stringify({ s: 3, d: 5, lrt: Math.floor(at(2026, 3, 14, 12) / 1000) }),
@@ -491,15 +509,6 @@ describe('trouble cards', () => {
     expect(readAnkiData(copy, NOW, { deckConfig: DECKS }).fsrs!.troubleCards).toEqual([
       { cardId: '70', deckId: 'spanish', front: 'olá amigo', again: 1, hard: 2, reviews: 3 },
     ])
-  })
-})
-
-describe('plainFront', () => {
-  it('keeps one readable line, however messy the field', () => {
-    expect(plainFront('<div>a&nbsp;b</div>[sound:x.mp3]\n c')).toBe('a b c')
-    expect(plainFront(42)).toBe('42')
-    expect(plainFront(null)).toBe('')
-    expect(plainFront('x'.repeat(100))).toHaveLength(80)
   })
 })
 
@@ -533,8 +542,8 @@ describe('FSRS data with mixed presets and incomplete histories', () => {
       CREATE TABLE decks (id INTEGER PRIMARY KEY, name TEXT, kind BLOB);
       CREATE TABLE deck_config (id INTEGER PRIMARY KEY, name TEXT, config BLOB);
       CREATE TABLE config (key TEXT PRIMARY KEY, val BLOB);
-      CREATE TABLE cards (id INTEGER PRIMARY KEY, did INTEGER, odid INTEGER DEFAULT 0, type INTEGER, queue INTEGER, due INTEGER, odue INTEGER DEFAULT 0, ivl INTEGER, mod INTEGER DEFAULT 0, data TEXT, nid INTEGER DEFAULT 0);
-      CREATE TABLE notes (id INTEGER PRIMARY KEY, sfld TEXT);
+      CREATE TABLE cards (id INTEGER PRIMARY KEY, did INTEGER, odid INTEGER DEFAULT 0, type INTEGER, queue INTEGER, due INTEGER, odue INTEGER DEFAULT 0, ivl INTEGER, mod INTEGER DEFAULT 0, data TEXT, nid INTEGER DEFAULT 0, ord INTEGER DEFAULT 0);
+      CREATE TABLE notes (id INTEGER PRIMARY KEY, sfld TEXT, mid INTEGER DEFAULT 0, flds TEXT DEFAULT '');
       CREATE TABLE revlog (id INTEGER PRIMARY KEY, cid INTEGER, ease INTEGER, time INTEGER, type INTEGER, lastIvl INTEGER, factor INTEGER);
       INSERT INTO config VALUES ('rollover', CAST('${ROLLOVER}' AS BLOB)), ('fsrs', CAST('true' AS BLOB));
     `)
