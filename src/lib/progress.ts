@@ -116,7 +116,7 @@ export type TodayWork =
       stale: false
       cards: number // reviews Anki will show today: unburied cards due or overdue, within the daily review limit
       heldBack: number // cards due beyond the review limit, left for another day
-      newCards: number // estimate of new cards left today, within the daily limits
+      newCards: number // new cards left today, within the daily limits
       /**
        * Estimate of everything above: answers × each deck's measured seconds per answer, where a new card takes
        * its deck's measured answers on the first day.

@@ -142,7 +142,8 @@ describe('Home Today plan', () => {
     render(<HomePage data={data} />)
     // Three decks with a limit of 20, and 5 already started today
     const tile = screen.getByText(messages.home.today.newLabel).closest('div') as HTMLElement
-    expect(tile.textContent).toContain('≈ 55')
+    expect(tile.textContent).toContain('55')
+    expect(tile.textContent).not.toContain('≈')
     expect(screen.getByText(messages.home.today.timeLabel)).toBeTruthy()
   })
 

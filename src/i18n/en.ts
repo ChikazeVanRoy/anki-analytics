@@ -83,7 +83,7 @@ export const en = {
       newSub: 'left under your Anki limits',
       newTipLabel: 'About new cards today',
       newTip:
-        'An estimate: each deck’s “New cards/day” limit, less the new cards started today, up to the unburied new cards it has left. Unless “New cards ignore review limit” is on, reviews come first and new cards get what’s left of the review limit. It uses the preset most of a deck’s cards use, so Anki can show a different number if you’ve grouped decks with different limits, or set a limit on a deck or for today only.',
+        'Each deck’s “New cards/day” limit, less the new cards started today, up to the unburied new cards it has left. Unless “New cards ignore review limit” is on, reviews come first and new cards get what’s left of the review limit. It uses the preset most of a deck’s cards use, so Anki can show a different number if you’ve grouped decks with different limits, or set a limit on a deck or for today only.',
       timeLabel: 'Total time today',
       timeSub: 'to finish due and new cards',
       timeDone: 'nothing left today',

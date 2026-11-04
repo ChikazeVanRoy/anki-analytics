@@ -253,7 +253,7 @@ function TodayPlanRow({ due, plan }: { due: TodayWork; plan: TodayPlan | null })
       ) : (
         <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3">
           <TodayTile label={t.dueLabel} tipLabel={t.dueTipLabel} tip={t.dueTip} value={formatInt(due.cards)} sub={due.heldBack > 0 ? t.dueHeld(due.heldBack) : t.dueSub} />
-          <TodayTile label={t.newLabel} tipLabel={t.newTipLabel} tip={t.newTip} value={`≈ ${formatInt(due.newCards)}`} sub={t.newSub} />
+          <TodayTile label={t.newLabel} tipLabel={t.newTipLabel} tip={t.newTip} value={formatInt(due.newCards)} sub={t.newSub} />
           <TodayTile
             label={t.timeLabel}
             tipLabel={t.timeTipLabel}
