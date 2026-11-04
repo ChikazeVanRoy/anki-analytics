@@ -43,7 +43,10 @@ export const en = {
     refreshHint: 'Copy the latest collection from Anki (Anki must be closed)',
     refreshFailed: (msg: string) => `Couldn’t refresh: ${msg}`,
     dismiss: 'Dismiss',
-    updateReady: 'Anki is closed and has newer reviews.',
+    update: {
+      reviews: 'Anki is closed and has newer reviews.',
+      day: 'It’s a new day in Anki. Update to see what’s due.',
+    },
     updateNow: 'Update now',
     footerLive: 'Read locally from a copy of your Anki collection. Nothing leaves this computer.',
     footerSample: 'Showing generated sample data. Real statistics are read locally from a copy of your collection.',

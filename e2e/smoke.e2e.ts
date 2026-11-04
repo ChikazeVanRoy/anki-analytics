@@ -160,7 +160,7 @@ test('offers an update once Anki has closed with newer reviews', async ({ page }
   await page.route('**/api/status', (route) => route.fulfill({ json: { ankiRunning: false, updateAvailable: true, sourceModified: 1 } }))
   await page.route('**/api/refresh', (route) => route.fulfill({ json: realShapedData() }))
   await page.goto('#/')
-  await expect(page.getByText(messages.data.updateReady)).toBeVisible()
+  await expect(page.getByText(messages.data.update.reviews)).toBeVisible()
   await page.getByRole('button', { name: messages.data.updateNow }).click()
   await expect(page.getByRole('alert')).toHaveCount(0)
 })

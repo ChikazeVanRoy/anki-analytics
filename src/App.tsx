@@ -6,6 +6,7 @@ import { useNow } from './app/useNow'
 import { useTheme } from './app/useTheme'
 import { DeckColors } from './data/deckColors'
 import type { AnkiData } from './data/types'
+import { copiedOnEarlierDay } from './lib/progress'
 import { useAnkiData } from './data/useAnkiData'
 import { useUpdateOffer } from './data/useUpdateOffer'
 import { messages } from './i18n'
@@ -21,12 +22,14 @@ const AdvancedPage = lazy(() => import('./pages/AdvancedPage').then((m) => ({ de
 
 export default function App() {
   const { state, refresh, refreshing, refreshError, clearRefreshError } = useAnkiData()
-  const { updateReady, dismissUpdate } = useUpdateOffer(state.status === 'ready' ? state.data.generatedAt : undefined)
   const theme = useTheme()
   const route = useRoute()
   // Lifted so the Activity range survives switching sections
   const [range, setRange] = useState<RangeKey>('30d')
   const now = useNow()
+  const real = state.status === 'ready' && state.data.source === 'anki' ? state.data : null
+  const newDay = !!real && copiedOnEarlierDay(real, ankiToday(real))
+  const { update, dismissUpdate } = useUpdateOffer(state.status === 'ready' ? state.data.generatedAt : undefined, newDay)
   const decks = state.status === 'ready' ? state.data.decks : undefined
   const deckColors = useMemo(() => deckColorMap(decks ?? []), [decks])
 
@@ -45,7 +48,7 @@ export default function App() {
       onRefresh={refresh}
       refreshing={refreshing}
       refreshError={refreshError}
-      updateReady={updateReady}
+      update={update}
       onDismissUpdate={dismissUpdate}
       onDismissError={clearRefreshError}
       theme={theme.choice}

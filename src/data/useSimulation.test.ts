@@ -68,6 +68,15 @@ describe('useSimulation', () => {
     expect(hook.result.current.main).toBeNull()
   })
 
+  it('says when its results belong to earlier settings', async () => {
+    const { hook, worker } = await started()
+    expect(hook.result.current.settled).toBe(false)
+    act(() => worker.onmessage!({ data: { id: worker.posted!.id, kind: 'main' } }))
+    expect(hook.result.current.settled).toBe(true)
+    hook.rerender()
+    expect(hook.result.current.settled).toBe(true)
+  })
+
   it('finishes when the scenarios arrive', async () => {
     const { hook, worker } = await started()
     act(() => worker.onmessage!({ data: { id: worker.posted!.id, kind: 'scenarios' } }))

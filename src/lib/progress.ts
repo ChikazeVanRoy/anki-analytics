@@ -154,13 +154,17 @@ export type DueToday =
   /** The copy is from an earlier Anki day, so its due dates can't say what's left today. */
   | { stale: true }
 
+/** The copy was made on an earlier Anki day, so its due dates can't say what's left today. */
+export function copiedOnEarlierDay(data: AnkiData, today: Date) {
+  const copied = Date.parse(data.generatedAt)
+  return !Number.isFinite(copied) || ankiDayKey(copied, data.dayStartHour) < toDateKey(today)
+}
+
 /** What's waiting today, from FSRS card data. Null without real FSRS data (mock data has none). */
 export function dueToday(data: AnkiData, today: Date): DueToday | null {
   if (!data.fsrs?.enabled) return null
-  const todayKey = toDateKey(today)
-  const copied = Date.parse(data.generatedAt)
-  if (!Number.isFinite(copied) || ankiDayKey(copied, data.dayStartHour) < todayKey) return { stale: true }
-  const day = dayNumber(todayKey)
+  if (copiedOnEarlierDay(data, today)) return { stale: true }
+  const day = dayNumber(toDateKey(today))
   const cards = data.fsrs.cards.filter((c) => !c.buried && dayNumber(c.due) <= day).length
   return { stale: false, cards, minutes: (cards * measuredDefaults(data, today).secondsPerReview) / 60 }
 }

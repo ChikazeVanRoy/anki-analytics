@@ -91,11 +91,17 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
   const effectiveRetention = retentionMode === 'custom' ? retention : presetValues.length === 1 ? presetValues[0] / 100 : null
   const settings: SimSettings = {
     ...planSettings(deckIds, studyDays, startWeekday),
+    // Until a pace is known this run only feeds the scenarios, and its own results are never shown
+    ...(presets || typeof pace === 'number' ? {} : { runs: 8 }),
     newPerDay,
     desiredRetention: retentionMode === 'custom' ? retention : undefined,
     recall,
   }
-  const { main, scenarios, running, error, unavailable } = useSimulation(simDecks, settings)
+  const { main, scenarios, running, settled, error, unavailable } = useSimulation(simDecks, settings)
+  // Nothing is shown until the first plan is in, or the stand-in's numbers would appear under the pace's label
+  const [planShown, setPlanShown] = useState(false)
+  if (!planShown && settled && (presets || typeof pace === 'number')) setPlanShown(true)
+  const updating = running || !settled
   const fittedPresets = useMemo(
     () => (scenarios?.newPerDay ? planPresets(standardSweep(scenarios.newPerDay), budget, secs) : null),
     [scenarios, budget, secs],
@@ -267,7 +273,7 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
     <PlannerState title="The simulation didn’t finish" alert>
       Something went wrong ({error}). Try different settings or reload the page.
     </PlannerState>
-  ) : !main || !summary ? (
+  ) : !main || !summary || !planShown ? (
     <PlannerState title="Simulating your cards…" busy>
       Running {settings.runs} simulated futures of every card. This takes a moment.
     </PlannerState>
@@ -283,7 +289,7 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
               <p className="text-sm font-extrabold text-ink tabular-nums">{messages.planner.summary.load(minutesPerStudyDay, summary.avgPerStudyDay)}</p>
               <p className="text-xs text-muted">{messages.planner.summary.detail(newPerDay, verdict?.label ?? messages.planner.pace.label)}</p>
             </div>
-            {running ? (
+            {updating ? (
               <RefreshIcon size={18} spinning />
             ) : (
               verdict && <span className={verdict.tone === 'good' ? 'text-good' : 'text-warning'}>{verdict.tone === 'good' ? <CheckIcon size={18} /> : <WarningIcon size={18} />}</span>
@@ -301,7 +307,7 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
           variant="projection"
           className="lg:col-span-3"
           actions={
-            running && main ? (
+            updating && main && planShown ? (
               <span role="status" className="inline-flex items-center gap-1.5 rounded-full bg-brand-soft px-2.5 py-1 text-xs font-bold text-brand-strong">
                 <RefreshIcon size={14} spinning /> Updating…
               </span>

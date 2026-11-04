@@ -19,11 +19,16 @@ export function deckFinish(data: AnkiData, deckId: string, today: Date): DeckFin
   const remaining = fsrs.newCards[deckId] ?? 0
   if (remaining === 0) return { kind: 'done' }
 
-  const first = data.daily.reduce<string | null>((min, s) => (s.deckId === deckId && s.reviews > 0 && (!min || s.date < min) ? s.date : min), null)
   const introduced = fsrs.behaviour.find((b) => b.deckId === deckId)?.newCardsIntroduced ?? 0
   const todayNumber = dayNumber(toDateKey(today))
-  // A deck younger than the measurement window has only had those days to introduce cards
-  const days = first ? Math.min(fsrs.windowDays, todayNumber - dayNumber(first) + 1) : 0
+  // The pace runs from the first day studied inside the window: a deck picked up partway through it, new or
+  // after a long break, has only had those days to introduce cards
+  const windowStart = keyFromDayNumber(todayNumber - fsrs.windowDays + 1)
+  const first = data.daily.reduce<string | null>(
+    (min, s) => (s.deckId === deckId && s.reviews > 0 && s.date >= windowStart && (!min || s.date < min) ? s.date : min),
+    null,
+  )
+  const days = first ? todayNumber - dayNumber(first) + 1 : 0
   if (introduced < MIN_NEW_CARDS || days < MIN_PACE_DAYS) return { kind: 'thin' }
 
   const perDay = introduced / days

@@ -33,8 +33,15 @@ describe('deckFinish', () => {
   })
 
   it('measures over the window, not the whole of an older deck’s life', () => {
-    const f = deckFinish(data('2024-01-01', 180, 100), 'language', TODAY)
-    expect(f).toMatchObject({ kind: 'date', perDay: 1, days: 180 })
+    const d = data('2024-01-01', 180, 100)
+    d.daily.push({ ...d.daily[0], date: '2026-05-09' })
+    expect(deckFinish(d, 'language', TODAY)).toMatchObject({ kind: 'date', perDay: 1, days: 180 })
+  })
+
+  it('starts the pace when a deck was picked up again after a long break', () => {
+    const d = data('2020-03-01', 180, 100)
+    d.daily.push({ ...d.daily[0], date: '2026-08-07' })
+    expect(deckFinish(d, 'language', TODAY)).toMatchObject({ kind: 'date', perDay: 2, days: 90 })
   })
 
   it('says a deck is finished when no new cards are left', () => {

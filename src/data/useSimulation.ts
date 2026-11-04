@@ -15,6 +15,7 @@ type Scenarios = Extract<SimResponse, { kind: 'scenarios' }>
  */
 export function useSimulation(decks: SimDeck[], settings: SimSettings, enabled = true) {
   const [main, setMain] = useState<Main | null>(null)
+  const [mainKey, setMainKey] = useState<string | null>(null)
   const [scenarios, setScenarios] = useState<Scenarios | null>(null)
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -42,8 +43,10 @@ export function useSimulation(decks: SimDeck[], settings: SimSettings, enabled =
       }
       worker.onmessage = (e: MessageEvent<SimResponse>) => {
         if (e.data.id !== id) return
-        if (e.data.kind === 'main') setMain(e.data)
-        else {
+        if (e.data.kind === 'main') {
+          setMain(e.data)
+          setMainKey(key)
+        } else {
           setScenarios(e.data)
           setRunning(false)
           worker?.terminate()
@@ -66,5 +69,6 @@ export function useSimulation(decks: SimDeck[], settings: SimSettings, enabled =
   }, [decks, key, unavailable, enabled])
 
   // A run cancelled because the selection became empty never reports back, so don't keep showing "updating"
-  return { main, scenarios, running: running && !unavailable, error, unavailable }
+  // `settled`: `main` answers the current settings, not the ones before them
+  return { main, scenarios, running: running && !unavailable, settled: mainKey === key, error, unavailable }
 }
