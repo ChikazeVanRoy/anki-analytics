@@ -1,6 +1,6 @@
 {
   "name": "Anki Analytics",
-  "short_name": "Anki Stats",
+  "short_name": "Anki Analytics",
   "description": "Your Anki statistics, read from your own collection.",
   "start_url": "/",
   "scope": "/",
