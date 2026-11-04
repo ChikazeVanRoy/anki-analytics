@@ -113,13 +113,24 @@ const isReset = (e: RevlogRow) => e.type === 4 && e.ease === 0 && e.factor === 0
 /** A filtered-deck answer with factor 0 didn't reschedule the card, so Anki leaves it out of FSRS. */
 const isCram = (e: RevlogRow) => e.type === 3 && e.factor === 0
 
-/** Review history Anki uses for FSRS: entries after the last "Forget" reset, without manual or cram entries. */
+/**
+ * Review history Anki uses for FSRS, as reviews_for_fsrs does in its scheduler: working back from the latest entry, from
+ * the start of the last run of learning answers (older Ankis logged no reset, so those can't be relied on), else from
+ * after the last "Forget". Manual and cram entries aren't reviews.
+ */
 export function fsrsHistory(entries: RevlogRow[]): RevlogRow[] {
   let start = 0
-  entries.forEach((e, i) => {
-    if (isReset(e)) start = i + 1
-  })
-  return entries.slice(start).filter((e) => e.type <= 3 && e.ease >= 1 && e.ease <= 4 && !isCram(e))
+  let learning = -1
+  for (let i = entries.length - 1; i >= 0; i--) {
+    const e = entries[i]
+    if (isCram(e)) continue
+    if (e.type === 0 && e.ease >= 1) learning = i
+    else if (isReset(e)) {
+      start = i + 1
+      break
+    } else if (learning >= 0) break
+  }
+  return entries.slice(learning >= 0 ? learning : start).filter((e) => e.type <= 3 && e.ease >= 1 && e.ease <= 4 && !isCram(e))
 }
 
 /** The days to sample, oldest first, always ending today. */

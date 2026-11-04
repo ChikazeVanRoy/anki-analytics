@@ -616,6 +616,25 @@ describe('fsrsHistory', () => {
     expect(fsrsHistory([learned, entry(2, 3, 3, 0), rescheduled])).toEqual([learned, rescheduled])
   })
 
+  it('starts at the last run of learning answers, even with no Forget logged', () => {
+    const relearned = [entry(5, 0, 1, 0), entry(6, 0, 3, 0), entry(7, 1, 3, 2500)]
+    expect(fsrsHistory([entry(1, 0, 3, 0), entry(2, 1, 3, 2500), entry(3, 1, 1, 2500), ...relearned])).toEqual(relearned)
+  })
+
+  it('treats a manual entry as the end of a run of learning answers', () => {
+    const last = entry(3, 0, 3, 0)
+    expect(fsrsHistory([entry(1, 0, 3, 0), entry(2, 4, 0, 2500), last])).toEqual([last])
+  })
+
+  it('uses what came after a Forget when no learning answers followed it', () => {
+    const review = entry(3, 1, 3, 2500)
+    expect(fsrsHistory([entry(1, 0, 3, 0), entry(2, 4, 0, 0), review])).toEqual([review])
+  })
+
+  it('has nothing to use when a Forget is the latest entry', () => {
+    expect(fsrsHistory([entry(1, 0, 3, 0), entry(2, 4, 0, 0)])).toEqual([])
+  })
+
   it('starts after the last Forget and skips manual entries', () => {
     const kept = entry(4, 0, 3, 0)
     expect(fsrsHistory([entry(1, 0, 3, 0), entry(2, 4, 0, 0), entry(3, 4, 0, 2500), kept])).toEqual([kept])
