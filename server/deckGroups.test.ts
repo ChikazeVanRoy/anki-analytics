@@ -92,8 +92,29 @@ describe('planDeckGroups without a config', () => {
         [3, 10],
       ]),
     ).groups.map((g) => g.id)
-    expect(ids).toEqual(['other-2', 'espanol', 'deck', 'other'])
+    expect(ids).toEqual(['other-2', 'espanol', '日本語', 'other'])
     expect(new Set(ids).size).toBe(ids.length)
+  })
+})
+
+describe('deck ids', () => {
+  it('keeps a deck in any script on its own id and colour when its rank changes', () => {
+    const decks = [
+      { id: 1, name: '中文' },
+      { id: 2, name: '日本語' },
+    ]
+    const colour = (first: number, second: number) => {
+      const plan = planDeckGroups(decks, new Map([[1, first], [2, second]]), { maxDecks: 1 }, new Map([['中文', 2], ['日本語', 3]]))
+      return plan.groups[0]
+    }
+    expect(colour(10, 5)).toMatchObject({ id: '中文', color: 2 })
+    expect(colour(5, 10)).toMatchObject({ id: '日本語', color: 3 })
+  })
+
+  it('stays clear of names the charts and plain objects already use', () => {
+    const decks = ['Date', 'Label', 'Constructor'].map((name, i) => ({ id: i + 1, name }))
+    const ids = planDeckGroups(decks, new Map([[1, 3], [2, 2], [3, 1]])).groups.map((g) => g.id)
+    expect(ids).toEqual(['date-2', 'label-2', 'constructor-2', 'other'])
   })
 })
 

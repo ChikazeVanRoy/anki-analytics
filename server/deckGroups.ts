@@ -54,7 +54,7 @@ const slug = (name: string) =>
     .normalize('NFKD')
     .replace(/\p{M}/gu, '') // drop accents: "Español" -> "espanol"
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/[^\p{L}\p{N}]+/gu, '-') // keeps any script: a deck's id must not depend on its rank among others
     .replace(/^-|-$/g, '') || 'deck'
 
 /** Reads and checks the optional config file. Missing file: no config. Invalid file: an error saying why. */
@@ -174,7 +174,8 @@ export function planDeckGroups(
     t.studied += studied.get(d.id) ?? 0
   }
 
-  const used = new Set([OTHER.id])
+  // Ids become keys beside the charts' own `date` and `label`, and in plain objects, where `constructor` already exists
+  const used = new Set([OTHER.id, 'date', 'label', 'constructor'])
   const uniqueId = (name: string) => {
     let id = slug(name)
     for (let n = 2; used.has(id); n++) id = `${slug(name)}-${n}`
