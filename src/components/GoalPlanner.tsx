@@ -91,7 +91,7 @@ export function GoalPlanner({ selection, started, available, todayKey, studyDays
             <button
               type="button"
               onClick={() => onUse(plan.perStudyDay)}
-              className="shrink-0 rounded-xl bg-brand px-3 py-2 text-sm font-bold text-brand-ink hover:brightness-110"
+              className="btn-3d shrink-0 text-sm"
             >
               {m.use}
             </button>

@@ -73,6 +73,17 @@ export const en = {
         `This copy is from ${date ?? 'an earlier day'}, so the numbers below stop there.`,
       empty: 'Your progress will appear here after your first review in Anki.',
     },
+    next: {
+      label: 'Next up',
+      reviews: (n: number, minutes: number) => `${int(n)} ${plural(n, 'review', 'reviews')}, about ${int(minutes)} min`,
+      fresh: (n: number, minutes: number) => `Up to ${int(n)} new ${plural(n, 'card', 'cards')}, about ${int(minutes)} min`,
+      done: 'All done for today',
+      doneSub: 'Nothing left in Anki. Enjoy the rest of your day.',
+      refresh: 'Update your copy to see today’s cards',
+      refreshSub: 'Quit Anki and it updates by itself, or press Refresh.',
+      sub: 'Open Anki when you’re ready. This page updates when you close it.',
+    },
+    numbers: { title: 'Your numbers', subtitle: 'Today, this week, what you remembered and the last two weeks' },
     today: {
       title: 'Today',
       dueLabel: 'Cards due',

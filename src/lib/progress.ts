@@ -189,6 +189,20 @@ export function todayWork(data: AnkiData, today: Date, seconds: number): TodayWo
   return { stale: false, cards: work.cards, heldBack: work.heldBack, newCards: work.newCards, minutes: work.seconds / 60 }
 }
 
+/** The one thing to do now. Reviews come before new cards, as they do in Anki. */
+export type NextStep =
+  | { kind: 'refresh' } // the copy is from an earlier day
+  | { kind: 'reviews'; cards: number; minutes: number }
+  | { kind: 'new'; cards: number; minutes: number }
+  | { kind: 'done' }
+
+export function nextStep(due: TodayWork): NextStep {
+  if (due.stale) return { kind: 'refresh' }
+  const minutes = Math.max(1, Math.round(due.minutes))
+  if (due.cards > 0) return { kind: 'reviews', cards: due.cards, minutes }
+  return due.newCards > 0 ? { kind: 'new', cards: due.newCards, minutes } : { kind: 'done' }
+}
+
 // ---------- One insight ----------
 
 export interface HomeInsight {

@@ -113,6 +113,7 @@ test('the study calendar fits the screen, and pages through older weeks when it 
 test('a keyboard user can read each day on the Home activity chart', async ({ page }) => {
   await useRealShapedData(page)
   await page.goto('#/')
+  await page.getByText(messages.home.numbers.title).click()
   const chart = page.getByRole('list', { name: /of the last 14 days/ })
   const readout = page.getByTestId('day-readout')
   await chart.focus()
@@ -125,6 +126,7 @@ test('a keyboard user can read each day on the Home activity chart', async ({ pa
 test('picking the last day on the Home chart stays on screen', async ({ page }) => {
   await useRealShapedData(page)
   await page.goto('#/')
+  await page.getByText(messages.home.numbers.title).click()
   const chart = page.getByRole('list', { name: /of the last 14 days/ })
   await chart.locator('li').last().click()
   const readout = page.getByTestId('day-readout')

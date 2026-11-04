@@ -7,6 +7,7 @@ import {
   longestStreak,
   milestones,
   milestoneTrack,
+  nextStep,
   recentDays,
   staleCopyKey,
   todayWork,
@@ -307,5 +308,20 @@ describe('todayWork', () => {
   })
   it('is null without FSRS data, so sample data never shows a due count', () => {
     expect(todayWork(data([]), TODAY, 6)).toBeNull()
+  })
+})
+
+describe('nextStep', () => {
+  const work = (cards: number, newCards: number, minutes = 10.4) => ({ stale: false as const, cards, heldBack: 0, newCards, minutes })
+
+  it('puts reviews first, then new cards, then rest', () => {
+    expect(nextStep(work(5, 10))).toEqual({ kind: 'reviews', cards: 5, minutes: 10 })
+    expect(nextStep(work(0, 10))).toEqual({ kind: 'new', cards: 10, minutes: 10 })
+    expect(nextStep(work(0, 0, 0))).toEqual({ kind: 'done' })
+  })
+
+  it('never promises less than a minute, and asks for a refresh on an old copy', () => {
+    expect(nextStep(work(1, 0, 0.1))).toMatchObject({ minutes: 1 })
+    expect(nextStep({ stale: true })).toEqual({ kind: 'refresh' })
   })
 })

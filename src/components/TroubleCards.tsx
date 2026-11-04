@@ -43,7 +43,7 @@ export function TroubleCards({ fsrs, decks }: { fsrs: FsrsData; decks: Deck[] })
             <button
               type="button"
               onClick={onCopy}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-brand px-3 py-2 text-sm font-bold text-brand-ink hover:brightness-110"
+              className="btn-3d text-sm"
             >
               {copy === 'done' && <CheckIcon size={16} />}
               {copy === 'done' ? m.troubleCopied : m.troubleCopy}

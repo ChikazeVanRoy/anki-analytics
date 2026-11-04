@@ -3,7 +3,7 @@ import { ActivityIcon, ArrowRightIcon, BrainIcon, CheckIcon, Flame, LayersIcon, 
 import { AnswerBar } from '../components/AnswerBar'
 import { GardenLegend, GardenPlot } from '../components/MemoryGarden'
 import { StatCard } from '../components/StatCard'
-import { CountUp, InfoTip, ProgressBar, SourceBadge } from '../components/ui'
+import { CountUp, Disclosure, InfoTip, ProgressBar, SourceBadge } from '../components/ui'
 import { useDeckColor } from '../data/deckColors'
 import { useTodayPlan, type TodayPlan } from '../data/useTodayPlan'
 import type { AnkiData } from '../data/types'
@@ -19,11 +19,13 @@ import {
   homeInsight,
   longestStreak,
   milestones,
+  nextStep,
   recentDays,
   staleCopyKey,
   todayWork,
   weekComparison,
   type MilestoneTrack,
+  type NextStep,
   type TodayWork,
 } from '../lib/progress'
 import { gardenBed, plantUnit, type GardenBed } from '../lib/garden'
@@ -95,74 +97,6 @@ export function HomePage({ data }: { data: AnkiData }) {
         copied={sample ? null : messages.data.copiedAt(formatCopiedAt(data.generatedAt))}
       />
 
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <StatCard
-          label={m.kpi.today}
-          icon={<CheckIcon size={18} className="text-good" />}
-          tint="var(--color-good-soft)"
-          value={stale ? '—' : <CountUp value={week7.reviewsToday} format={formatInt} />}
-          hint={stale ? m.kpi.todayStale : m.kpi.todaySub(todayMinutes)}
-        />
-        <StatCard
-          label={m.kpi.week}
-          icon={<ActivityIcon size={18} className="text-brand" />}
-          tint="var(--color-brand-soft)"
-          value={<CountUp value={week.thisWeek} format={formatInt} />}
-          delta={
-            week.change !== null
-              ? changeDelta(week.change, {
-                  tolerance: SAME_RELATIVE,
-                  same: m.kpi.weekSame,
-                  text: (size, up) => m.kpi.weekVs(formatPct(size, 0), up),
-                })
-              : undefined
-          }
-          hint={week.change === null ? m.kpi.weekNoPrev : undefined}
-          style={{ animationDelay: '60ms' }}
-        />
-        <StatCard
-          label={m.kpi.remembered}
-          tip={fsrsOn ? `${m.kpi.rememberedTip} ${m.kpi.rememberedTipAdvanced}` : m.kpi.rememberedTip}
-          icon={<BrainIcon size={18} className="text-sun-ink" />}
-          tint="var(--color-sun-soft)"
-          value={reviewCards.reviews > 0 ? <CountUp value={reviewCards.rate} format={formatRate} /> : '—'}
-          visual={reviewCards.reviews > 0 && <AnswerBar {...answerCounts(reviewCards)} />}
-          hint={
-            reviewCards.reviews === 0 ? (
-              m.kpi.rememberedNone
-            ) : (
-              <>
-                {m.kpi.rememberedSub(reviewCards.reviews)}
-                <span className="mt-0.5 block">
-                  {split.matureThin
-                    ? m.kpi.rememberedYoungNote(split.mature.reviews)
-                    : m.kpi.rememberedSplit(split.young.reviews > 0 ? formatRate(split.young.rate) : '—', formatRate(split.mature.rate))}
-                </span>
-                {shift && <span className="mt-0.5 block font-semibold text-ink-2">{m.kpi.rememberedShift(formatRate(shift.rate), formatShortDate(shift.date))}</span>}
-              </>
-            )
-          }
-          style={{ animationDelay: '120ms' }}
-        />
-        <StatCard
-          label={m.kpi.active}
-          icon={<LayersIcon size={18} className="text-ink-2" />}
-          value={
-            <>
-              <CountUp value={month.activeDays} format={formatInt} />
-              <span className="text-lg font-bold text-muted"> / 30</span>
-            </>
-          }
-          hint={m.kpi.activeSub}
-          style={{ animationDelay: '180ms' }}
-        />
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        <RecentActivity rows={recent} endsToday={!stale} sample={sample} className="lg:col-span-2" />
-        <InsightCard text={insight?.text ?? m.status.empty} tone={insight?.tone ?? 'neutral'} link={insight?.link} sample={sample} />
-      </div>
-
       {shownDecks.length > 0 && (
         <section aria-labelledby="home-decks" className="animate-rise">
           <div className="flex flex-wrap items-start justify-between gap-2">
@@ -196,6 +130,78 @@ export function HomePage({ data }: { data: AnkiData }) {
         </div>
         <p className="mt-3 text-xs text-muted">{m.milestones.note}</p>
       </section>
+
+      <Disclosure title={m.numbers.title} subtitle={m.numbers.subtitle}>
+        <div className="space-y-6 pt-2">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+            <StatCard
+              label={m.kpi.today}
+              icon={<CheckIcon size={18} className="text-good" />}
+              tint="var(--color-good-soft)"
+              value={stale ? '—' : <CountUp value={week7.reviewsToday} format={formatInt} />}
+              hint={stale ? m.kpi.todayStale : m.kpi.todaySub(todayMinutes)}
+            />
+            <StatCard
+              label={m.kpi.week}
+              icon={<ActivityIcon size={18} className="text-brand" />}
+              tint="var(--color-brand-soft)"
+              value={<CountUp value={week.thisWeek} format={formatInt} />}
+              delta={
+                week.change !== null
+                  ? changeDelta(week.change, {
+                      tolerance: SAME_RELATIVE,
+                      same: m.kpi.weekSame,
+                      text: (size, up) => m.kpi.weekVs(formatPct(size, 0), up),
+                    })
+                  : undefined
+              }
+              hint={week.change === null ? m.kpi.weekNoPrev : undefined}
+              style={{ animationDelay: '60ms' }}
+            />
+            <StatCard
+              label={m.kpi.remembered}
+              tip={fsrsOn ? `${m.kpi.rememberedTip} ${m.kpi.rememberedTipAdvanced}` : m.kpi.rememberedTip}
+              icon={<BrainIcon size={18} className="text-sun-ink" />}
+              tint="var(--color-sun-soft)"
+              value={reviewCards.reviews > 0 ? <CountUp value={reviewCards.rate} format={formatRate} /> : '—'}
+              visual={reviewCards.reviews > 0 && <AnswerBar {...answerCounts(reviewCards)} />}
+              hint={
+                reviewCards.reviews === 0 ? (
+                  m.kpi.rememberedNone
+                ) : (
+                  <>
+                    {m.kpi.rememberedSub(reviewCards.reviews)}
+                    <span className="mt-0.5 block">
+                      {split.matureThin
+                        ? m.kpi.rememberedYoungNote(split.mature.reviews)
+                        : m.kpi.rememberedSplit(split.young.reviews > 0 ? formatRate(split.young.rate) : '—', formatRate(split.mature.rate))}
+                    </span>
+                    {shift && <span className="mt-0.5 block font-semibold text-ink-2">{m.kpi.rememberedShift(formatRate(shift.rate), formatShortDate(shift.date))}</span>}
+                  </>
+                )
+              }
+              style={{ animationDelay: '120ms' }}
+            />
+            <StatCard
+              label={m.kpi.active}
+              icon={<LayersIcon size={18} className="text-ink-2" />}
+              value={
+                <>
+                  <CountUp value={month.activeDays} format={formatInt} />
+                  <span className="text-lg font-bold text-muted"> / 30</span>
+                </>
+              }
+              hint={m.kpi.activeSub}
+              style={{ animationDelay: '180ms' }}
+            />
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-3">
+            <RecentActivity rows={recent} endsToday={!stale} sample={sample} className="lg:col-span-2" />
+            <InsightCard text={insight?.text ?? m.status.empty} tone={insight?.tone ?? 'neutral'} link={insight?.link} sample={sample} />
+          </div>
+        </div>
+      </Disclosure>
     </div>
   )
 }
@@ -223,11 +229,8 @@ function Hero({
 }) {
   return (
     <section
-      className="animate-rise relative overflow-hidden rounded-3xl bg-brand-soft px-5 py-4 sm:px-6 sm:py-5"
-      style={{
-        backgroundImage:
-          'radial-gradient(circle at 92% 10%, var(--color-sun-soft), transparent 42%), radial-gradient(circle at 0% 100%, color-mix(in oklab, var(--color-brand) 14%, transparent), transparent 45%)',
-      }}
+      className="animate-rise relative overflow-hidden rounded-3xl px-5 py-4 shadow-pop sm:px-6 sm:py-5"
+      style={{ backgroundImage: 'linear-gradient(120deg, var(--color-hero-from), var(--color-hero-to))' }}
     >
       <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
         <div className="max-w-xl">
@@ -252,8 +255,24 @@ function Hero({
           </div>
         </div>
       </div>
+      {due && <NextUp step={nextStep(due)} />}
       {due && <TodayPlanRow due={due} plan={plan} />}
     </section>
+  )
+}
+
+/** The one thing to do now, bigger than everything around it. */
+function NextUp({ step }: { step: NextStep }) {
+  const n = m.next
+  const title =
+    step.kind === 'reviews' ? n.reviews(step.cards, step.minutes) : step.kind === 'new' ? n.fresh(step.cards, step.minutes) : step.kind === 'done' ? n.done : n.refresh
+  const sub = step.kind === 'done' ? n.doneSub : step.kind === 'refresh' ? n.refreshSub : n.sub
+  return (
+    <div className="relative mt-4 rounded-2xl bg-surface p-4 shadow-card">
+      <p className="text-xs font-extrabold tracking-wide text-brand-strong uppercase">{n.label}</p>
+      <p className="mt-0.5 text-xl font-black tracking-tight text-ink sm:text-2xl">{title}</p>
+      <p className="mt-0.5 text-sm text-ink-2">{sub}</p>
+    </div>
   )
 }
 
@@ -285,7 +304,7 @@ function TodayPlanRow({ due, plan }: { due: TodayWork; plan: TodayPlan | null })
         </div>
       )}
       {plan && <PlanSuggestion plan={plan} />}
-      <a href={routeHref('planner')} className="mt-1 inline-flex items-center gap-1.5 text-sm font-bold text-brand-strong hover:underline">
+      <a href={routeHref('planner')} className="btn-3d mt-3 mb-1 text-sm">
         {t.planLink} <ArrowRightIcon size={16} />
       </a>
     </section>
