@@ -12,7 +12,7 @@ import reference from '../src/lib/fixtures/anki-fsrs-reference.json' with { type
 import { DEFAULT_PARAMS, replay, retrievability, toFsrs6Params } from '../src/lib/fsrs.ts'
 import { readAnkiData, readDeckTops } from './anki.ts'
 import type { DeckConfig } from './deckGroups.ts'
-import { readPreset } from './fsrsData.ts'
+import { plainFront, readPreset, sampleDays } from './fsrsData.ts'
 import { parseProto } from './protobuf.ts'
 
 const dir = mkdtempSync(join(tmpdir(), 'anki-analytics-test-'))
@@ -77,7 +77,8 @@ beforeAll(() => {
     CREATE TABLE decks (id INTEGER PRIMARY KEY, name TEXT, kind BLOB);
     CREATE TABLE deck_config (id INTEGER PRIMARY KEY, name TEXT, config BLOB);
     CREATE TABLE config (key TEXT PRIMARY KEY, val BLOB);
-    CREATE TABLE cards (id INTEGER PRIMARY KEY, did INTEGER, odid INTEGER DEFAULT 0, type INTEGER, queue INTEGER, due INTEGER, odue INTEGER DEFAULT 0, ivl INTEGER, mod INTEGER DEFAULT 0, data TEXT);
+    CREATE TABLE cards (id INTEGER PRIMARY KEY, did INTEGER, odid INTEGER DEFAULT 0, type INTEGER, queue INTEGER, due INTEGER, odue INTEGER DEFAULT 0, ivl INTEGER, mod INTEGER DEFAULT 0, data TEXT, nid INTEGER DEFAULT 0);
+    CREATE TABLE notes (id INTEGER PRIMARY KEY, sfld TEXT);
     CREATE TABLE revlog (id INTEGER PRIMARY KEY, cid INTEGER, ease INTEGER, time INTEGER, type INTEGER, lastIvl INTEGER, factor INTEGER);
     INSERT INTO config VALUES ('rollover', CAST('${ROLLOVER}' AS BLOB)), ('fsrs', CAST('true' AS BLOB));
   `)
@@ -278,6 +279,18 @@ describe('FSRS data', () => {
     expect(fsrs().validation).toEqual({ cards: 3, stabilityMatched: 2, difficultyMatched: 2 })
   })
 
+  it('replays each day’s knowledge from the review log, ending today', () => {
+    const f = fsrs()
+    const today = f.knowledge!.filter((p) => p.date === '2026-03-15' && p.deckId === 'spanish')
+    expect(today).toHaveLength(1)
+    // 12, 13 and 15 replay from their first answer; 15's history starts again after its reset
+    expect(today[0].started).toBe(3)
+    expect(today[0].recalled).toBeGreaterThan(0)
+    expect(today[0].recalled).toBeLessThan(3)
+    const first = f.knowledge!.find((p) => p.deckId === 'spanish')!
+    expect(first.started).toBeLessThan(today[0].started)
+  })
+
   it('counts a card as proven only once it has passed a review at a long interval', () => {
     // Card 12 passed one with a previous interval of 25 days. Card 41 is excluded, and 98 is suspended
     expect(fsrs().proven).toEqual({ spanish: 1 })
@@ -433,6 +446,46 @@ describe('readPreset on blobs written by Anki', () => {
     const expected = toFsrs6Params(reference.presets.fsrs45.params)!
     expect(p.params).toHaveLength(21)
     p.params.forEach((w, i) => expect(w).toBeCloseTo(expected[i], 4))
+  })
+})
+
+describe('trouble cards', () => {
+  it('lists cards you keep struggling with, as plain text, and only those', () => {
+    const copy = join(dir, 'trouble.anki2')
+    copyFileSync(path, copy)
+    const db = new DatabaseSync(copy)
+    const rev = db.prepare('INSERT INTO revlog VALUES (?, 70, ?, 1000, ?, ?, 0)')
+    db.prepare('INSERT INTO notes VALUES (7, ?)').run('<b>olá</b> [sound:ola.mp3]  amigo')
+    db.prepare('INSERT INTO cards (id, did, type, queue, due, ivl, data, nid) VALUES (70, 1, 2, 2, ?, 3, ?, 7)').run(
+      dayNumber('2026-03-20') - crtDay,
+      JSON.stringify({ s: 3, d: 5, lrt: Math.floor(at(2026, 3, 14, 12) / 1000) }),
+    )
+    rev.run(at(2026, 2, 10, 10), 3, 0, 0)
+    rev.run(at(2026, 3, 12, 10), 1, 1, 3)
+    rev.run(at(2026, 3, 13, 10), 2, 1, 3)
+    rev.run(at(2026, 3, 14, 12), 2, 1, 3)
+    db.close()
+    expect(readAnkiData(copy, NOW, { deckConfig: DECKS }).fsrs!.troubleCards).toEqual([
+      { cardId: '70', deckId: 'spanish', front: 'olá amigo', again: 1, hard: 2, reviews: 3 },
+    ])
+  })
+})
+
+describe('plainFront', () => {
+  it('keeps one readable line, however messy the field', () => {
+    expect(plainFront('<div>a&nbsp;b</div>[sound:x.mp3]\n c')).toBe('a b c')
+    expect(plainFront(42)).toBe('42')
+    expect(plainFront(null)).toBe('')
+    expect(plainFront('x'.repeat(100))).toHaveLength(80)
+  })
+})
+
+describe('sampleDays', () => {
+  it('ends today, and thins out a long history', () => {
+    expect(sampleDays(10, 13)).toEqual([10, 11, 12, 13])
+    const long = sampleDays(0, 3000, 60)
+    expect(long.at(-1)).toBe(3000)
+    expect(long.length).toBeLessThanOrEqual(60)
   })
 })
 

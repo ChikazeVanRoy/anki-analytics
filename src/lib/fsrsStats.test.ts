@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { CalibrationPoint, FsrsData } from '../data/types'
 import { DEFAULT_PARAMS, retrievability } from './fsrs'
-import { calibrationCurve, cardsNow, fsrsVerdict, histogram, lapseEvidence, memorySummary, paramsSourceOf, retentionComparison, STABILITY_BINS } from './fsrsStats'
+import { ankiSearch, calibrationCurve, cardsNow, knowledgeCurve, fsrsVerdict, histogram, lapseEvidence, memorySummary, paramsSourceOf, retentionComparison, STABILITY_BINS } from './fsrsStats'
 import type { HorizonSummary } from './simulator'
 import { buildInsights, maxSustainableNewPerDay } from './insights'
 
@@ -182,4 +182,20 @@ describe('fsrsVerdict', () => {
     const f = { calibration: [], presets: [{ paramsSource: 'default' }], cardPresets: [{ paramsSource: 'optimised' }, { paramsSource: 'default' }] } as unknown as FsrsData
     expect(paramsSourceOf(f)).toBe('mixed')
   })
+})
+
+describe('ankiSearch', () => {
+  it('uses the search Anki’s Browser understands', () => expect(ankiSearch(['1', '2'])).toBe('cid:1,2'))
+})
+
+describe('knowledgeCurve', () => {
+  const point = (date: string, deckId: string, started: number, recalled: number) => ({ date, deckId, started, recalled })
+
+  it('makes one row per day, and totals the latest day', () => {
+    const curve = knowledgeCurve([point('2026-03-01', 'a', 2, 1.5), point('2026-03-02', 'a', 4, 3), point('2026-03-02', 'b', 2, 1)])
+    expect(curve.rows).toEqual([{ date: '2026-03-01', a: 1.5 }, { date: '2026-03-02', a: 3, b: 1 }])
+    expect(curve).toMatchObject({ recalled: 4, started: 6 })
+  })
+
+  it('is empty without data', () => expect(knowledgeCurve([])).toEqual({ rows: [], recalled: 0, started: 0 }))
 })

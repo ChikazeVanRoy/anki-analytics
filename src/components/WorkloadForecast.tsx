@@ -26,6 +26,7 @@ import { deckLimits, defaultBudget, minutesAt, PLAN_PRESETS, planPresets, planSe
 import { buildSimDecks, HORIZONS, presetRetentionLabel, type SimDay, type SimSettings } from '../lib/simulator'
 import { chart, forecast } from '../lib/theme'
 import { ChartTooltip } from './ChartTooltip'
+import { GoalPlanner } from './GoalPlanner'
 import { CheckIcon, RefreshIcon, SparkleIcon, WarningIcon } from './icons'
 import { Panel } from './Panel'
 import { Disclosure, HatchPattern, InfoTip, Metric, Segmented, Slider } from './ui'
@@ -467,6 +468,17 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
           </Panel>
 
           {/* Timeline */}
+          <GoalPlanner
+            started={decks.filter((d) => deckIds.includes(d.id)).reduce((n, d) => n + d.youngCards + d.matureCards, 0)}
+            available={pool}
+            todayKey={todayKey}
+            studyDaysPerWeek={studyDays}
+            sweep={scenarios?.newPerDay ? standardSweep(scenarios.newPerDay) : []}
+            secondsPerReview={secs}
+            budget={budget}
+            onUse={setPace}
+          />
+
           <Panel
             title="How will my reviews add up?"
             eyebrow={weekly ? 'Projected reviews per day (weekly average)' : 'Projected daily reviews'}

@@ -1,6 +1,6 @@
 // Turns FSRS data from the API into dashboard metrics. Pure functions (tested).
 
-import type { CalibrationBin, CalibrationPoint, FsrsCard, FsrsData } from '../data/types'
+import type { CalibrationBin, CalibrationPoint, FsrsCard, FsrsData, KnowledgePoint } from '../data/types'
 import { dayNumber } from './dates'
 import { DEFAULT_PARAMS, difficultyPercent, retrievability } from './fsrs'
 import { gradingShift, type GradingShift } from './gradingShift'
@@ -235,3 +235,22 @@ export function lapseEvidence(points: { deckId: string; reviews: number; passed:
     lapses: ps.reduce((n, p) => n + p.reviews - p.passed, 0),
   }
 }
+
+/** The knowledge curve as chart rows, one per sampled day, and the latest totals. */
+export function knowledgeCurve(points: KnowledgePoint[]) {
+  const rows = new Map<string, Record<string, number | string>>()
+  for (const p of points) {
+    const row = rows.get(p.date) ?? rows.set(p.date, { date: p.date }).get(p.date)!
+    row[p.deckId] = p.recalled
+  }
+  const last = points.at(-1)?.date
+  const today = points.filter((p) => p.date === last)
+  return {
+    rows: [...rows.values()],
+    recalled: today.reduce((n, p) => n + p.recalled, 0),
+    started: today.reduce((n, p) => n + p.started, 0),
+  }
+}
+
+/** Anki's Browser finds these cards from this search, so nothing here needs to write to Anki. */
+export const ankiSearch = (ids: string[]) => `cid:${ids.join(',')}`

@@ -111,6 +111,24 @@ export interface CalibrationDay {
   predicted: number // sum of predicted recall probabilities
 }
 
+/** What a deck's studied cards were worth on one past day, replayed from the review log. */
+export interface KnowledgePoint {
+  date: string // Anki day, YYYY-MM-DD
+  deckId: string
+  started: number // cards first studied by this day
+  recalled: number // sum of their recall probabilities that day: how many you'd expect to remember
+}
+
+/** A card you've kept struggling with lately. Its text comes from your collection and stays on this computer. */
+export interface TroubleCard {
+  cardId: string // Anki card id, for a Browser search
+  deckId: string
+  front: string // the note's sort field, as plain text
+  again: number // scheduled reviews answered Again, in the window
+  hard: number // scheduled reviews answered Hard, in the window
+  reviews: number // all scheduled reviews in the window
+}
+
 /** Predicted-vs-actual recall, grouped by predicted probability. */
 export interface CalibrationBin {
   deckId: string
@@ -165,6 +183,10 @@ export interface FsrsData {
   incompleteHistory?: number
   calibration: CalibrationPoint[]
   calibrationDaily?: CalibrationDay[]
+  knowledge?: KnowledgePoint[]
+  /** Cards with the most Again and Hard answers on scheduled reviews lately, worst first. */
+  troubleCards?: TroubleCard[]
+  troubleWindowDays?: number
   calibrationBins: CalibrationBin[]
   behaviour: DeckBehaviour[]
   /** How closely replaying the review log through our FSRS code reproduces Anki's stored states. */

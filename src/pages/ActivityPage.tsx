@@ -4,8 +4,10 @@ import { AnswerBar } from '../components/AnswerBar'
 import { DailyReviewsChart } from '../components/DailyReviewsChart'
 import { DeckComparison } from '../components/DeckComparison'
 import { HardTrend } from '../components/HardTrend'
+import { KnowledgeChart } from '../components/KnowledgeChart'
 import { RangeFilter } from '../components/RangeFilter'
 import { StatCard } from '../components/StatCard'
+import { TroubleCards } from '../components/TroubleCards'
 import { WorkSplitChart } from '../components/WorkSplitChart'
 import { SourceBadge } from '../components/ui'
 import type { AnkiData } from '../data/types'
@@ -133,6 +135,7 @@ export function ActivityPage({ data, range, onRangeChange }: Props) {
       {compareNote && <p className="-mt-3 text-xs text-muted">{compareNote}</p>}
 
       <ActivityHeatmap byDate={byDate} today={today} years={years} />
+      {data.fsrs?.enabled && <KnowledgeChart fsrs={data.fsrs} decks={data.decks} />}
       <DailyReviewsChart rows={periodRows} decks={data.decks} bucket={bucket} period={period} />
       <WorkSplitChart split={work} bucket={bucket} period={period} sample={data.source === 'mock'} />
       <HardTrend
@@ -143,6 +146,7 @@ export function ActivityPage({ data, range, onRangeChange }: Props) {
         sample={data.source === 'mock'}
       />
       <DeckComparison summaries={decks} againRows={againRows} decks={data.decks} bucket={bucket} period={period} />
+      {data.fsrs?.enabled && <TroubleCards fsrs={data.fsrs} decks={data.decks} />}
     </div>
   )
 }

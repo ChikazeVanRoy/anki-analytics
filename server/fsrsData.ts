@@ -12,15 +12,21 @@ import type {
   DeckPreset,
   FsrsCard,
   FsrsData,
+  KnowledgePoint,
+  TroubleCard,
 } from '../src/data/types.ts'
 import { ankiDayKey, dayNumber, keyFromDayNumber } from '../src/lib/dates.ts'
-import { DEFAULT_PARAMS, replay, toFsrs6Params, type MemoryState, type Rating } from '../src/lib/fsrs.ts'
+import { DEFAULT_PARAMS, replay, retrievability, toFsrs6Params, type MemoryState, type Rating } from '../src/lib/fsrs.ts'
 import { readConfigJson } from './ankiConfig.ts'
 import { firstBytes, firstFloat, firstVarint, floats, parseProto } from './protobuf.ts'
 
 const MATURE_DAYS = 21
 const WINDOW_DAYS = 180 // window for measured answer behaviour
 const BIN_EDGES = [0, 0.7, 0.8, 0.85, 0.9, 0.95, 1.0001]
+const KNOWLEDGE_POINTS = 60 // most days the knowledge curve is sampled on, per deck
+const TROUBLE_WINDOW_DAYS = 90
+const TROUBLE_MIN_ANSWERS = 3 // Again or Hard answers in the window that make a card worth listing
+const TROUBLE_MAX_CARDS = 30
 
 interface Context {
   db: DatabaseSync
@@ -109,6 +115,25 @@ export function fsrsHistory(entries: RevlogRow[]): RevlogRow[] {
     if (isReset(e)) start = i + 1
   })
   return entries.slice(start).filter((e) => e.type <= 3 && e.ease >= 1 && e.ease <= 4)
+}
+
+/** A note's sort field as one short line: Anki has stripped most markup, but sound tags and stray HTML can remain. */
+export function plainFront(sfld: unknown): string {
+  const text = String(sfld ?? '')
+    .replace(/\[sound:[^\]]*\]/g, ' ')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return text.length > 80 ? `${text.slice(0, 79)}…` : text
+}
+
+/** The days to sample, oldest first, always ending today. */
+export function sampleDays(first: number, today: number, points = KNOWLEDGE_POINTS): number[] {
+  const every = Math.max(1, Math.ceil((today - first) / Math.max(1, points - 1)))
+  const out: number[] = []
+  for (let d = today; d >= first; d -= every) out.unshift(d)
+  return out
 }
 
 export function readFsrsData(ctx: Context): FsrsData {
@@ -268,6 +293,8 @@ export function readFsrsData(ctx: Context): FsrsData {
   const calibDays = new Map<string, CalibrationDay>()
   const bins = new Map<string, CalibrationBin>()
   const validation = { cards: 0, stabilityMatched: 0, difficultyMatched: 0 }
+  const replayed: { group: string; days: number[]; states: MemoryState[]; params: number[] }[] = []
+  const trouble: Omit<TroubleCard, 'front'>[] = []
   let resetCards = 0
   let incompleteHistory = 0
   const today = dayNumber(dayKey(ctx.now))
@@ -307,10 +334,20 @@ export function readFsrsData(ctx: Context): FsrsData {
     // from SM-2 values. Its predictions are not reconstructed (never inferred), so it's left out below.
     const complete = history[0].type === 0
     if (!complete) incompleteHistory++
-    const { state, predicted } = replay(
+    const params = paramsFor(cid, group)
+    const { state, predicted, states } = replay(
       history.map((e, i) => ({ day: days[i], rating: e.ease as Rating })),
-      paramsFor(cid, group),
+      params,
     )
+    // Only cards shown elsewhere as studied, with a history that can be replayed from its first answer
+    if (complete && storedState.has(cid)) replayed.push({ group, days, states, params })
+
+    const scheduled = history.filter((e, i) => e.type === 1 && days[i] > today - TROUBLE_WINDOW_DAYS)
+    const again = scheduled.filter((e) => e.ease === 1).length
+    const hard = scheduled.filter((e) => e.ease === 2).length
+    if (storedState.has(cid) && again + hard >= TROUBLE_MIN_ANSWERS) {
+      trouble.push({ cardId: String(cid), deckId: group, again, hard, reviews: scheduled.length })
+    }
 
     // Validation against Anki's stored state (only meaningful for a complete history)
     const stored = storedState.get(cid)
@@ -391,6 +428,32 @@ export function readFsrsData(ctx: Context): FsrsData {
     }
   }
 
+  // --- Knowledge curve: each card's recall probability on sampled past days, from its replayed states ---
+  const firstDay = replayed.reduce((min, c) => Math.min(min, c.days[0]), today)
+  const samples = sampleDays(firstDay, today)
+  const knowledge = new Map<string, KnowledgePoint>()
+  for (const c of replayed) {
+    let i = -1
+    for (const d of samples) {
+      while (i + 1 < c.days.length && c.days[i + 1] <= d) i++
+      if (i < 0) continue
+      const date = keyFromDayNumber(d)
+      const key = `${date}|${c.group}`
+      const point = knowledge.get(key) ?? { date, deckId: c.group, started: 0, recalled: 0 }
+      point.started++
+      point.recalled += retrievability(d - c.days[i], c.states[i].stability, c.params)
+      knowledge.set(key, point)
+    }
+  }
+
+  // --- Trouble cards: worst first, with Again counting double; their text is read only for the few listed ---
+  const worst = trouble.sort((a, b) => b.again * 2 + b.hard - (a.again * 2 + a.hard) || a.cardId.localeCompare(b.cardId)).slice(0, TROUBLE_MAX_CARDS)
+  const fronts = new Map<string, string>()
+  if (worst.length) {
+    const rows = db.prepare(`SELECT c.id AS id, n.sfld AS sfld FROM cards c JOIN notes n ON n.id = c.nid WHERE c.id IN (${worst.map(() => '?').join(',')})`)
+    for (const r of rows.all(...worst.map((t) => Number(t.cardId)))) fronts.set(String(r.id), plainFront(r.sfld))
+  }
+
   return {
     enabled,
     version: 'FSRS-6',
@@ -412,6 +475,9 @@ export function readFsrsData(ctx: Context): FsrsData {
     cardPresets,
     calibration: [...calib.values()].sort((a, b) => a.month.localeCompare(b.month)),
     calibrationDaily: [...calibDays.values()].sort((a, b) => a.date.localeCompare(b.date) || a.deckId.localeCompare(b.deckId)),
+    knowledge: [...knowledge.values()].sort((a, b) => a.date.localeCompare(b.date) || a.deckId.localeCompare(b.deckId)),
+    troubleCards: worst.map((t) => ({ ...t, front: fronts.get(t.cardId) ?? '' })),
+    troubleWindowDays: TROUBLE_WINDOW_DAYS,
     calibrationBins: [...bins.values()].sort((a, b) => a.deckId.localeCompare(b.deckId) || a.from - b.from),
     behaviour: [...behaviour.values()]
       .filter((b) => b.timeN > 0 || b.newCardsIntroduced > 0)

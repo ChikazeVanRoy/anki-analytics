@@ -114,12 +114,14 @@ export function replay(reviews: { day: number; rating: Rating }[], w: readonly n
   let state: MemoryState | null = null
   let lastDay = 0
   const predicted: number[] = [] // R just before each review (NaN for the first)
+  const states: MemoryState[] = [] // the state after each review
   for (const { day, rating } of reviews) {
     predicted.push(state && day > lastDay ? retrievability(day - lastDay, state.stability, w) : NaN)
     state = step(state, rating, state ? day - lastDay : 0, w)
+    states.push(state)
     lastDay = day
   }
-  return { state, predicted }
+  return { state, predicted, states }
 }
 
 /** Anki shows difficulty as a percentage: D 1 -> 0%, D 10 -> 100%. */

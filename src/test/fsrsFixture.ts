@@ -60,6 +60,14 @@ export function fsrsFixture(): FsrsData {
       maturePassed: 74,
       maturePredicted: 72,
     })),
+    knowledge: [-40, -20, 0].flatMap((offset, i) =>
+      ['language', 'science'].map((deckId) => ({ date: dayOffset(offset), deckId, started: 30 * (i + 1), recalled: 27 * (i + 1) })),
+    ),
+    troubleCards: [
+      { cardId: '1700000000001', deckId: 'language', front: 'A synthetic card', again: 3, hard: 2, reviews: 7 },
+      { cardId: '1700000000002', deckId: 'science', front: `A long synthetic card ${'with many words '.repeat(5)}`, again: 0, hard: 4, reviews: 6 },
+    ],
+    troubleWindowDays: 90,
     calibrationBins: decks.map((deckId) => ({ deckId, from: 0.85, to: 0.9, reviews: 200, passed: 180, predicted: 175 })),
     behaviour: decks.map((deckId) => ({
       deckId,
