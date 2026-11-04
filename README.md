@@ -61,7 +61,7 @@ Four sections (`#/`, `#/activity`, `#/planner`, `#/advanced`), simple first and 
 
 | Section | What it answers | Source |
 |---|---|---|
-| **Home** | What should I do today? Today plan, weekly goal, key numbers, last two weeks, one insight, deck progress, milestones | **Measured** from your review log and card counts; the suggested new-card limit and deck finish dates are labelled **projections** |
+| **Home** | What should I do today? Today plan, streak, key numbers, last two weeks, one insight, deck progress, milestones | **Measured** from your review log and card counts; the suggested new-card limit and deck finish dates are labelled **projections** |
 | **Activity** | When and how much did I study, and am I forgetting less? Heatmap, review charts, deck comparison | **Measured** from your review log |
 | **Planner** | How much work is coming, and how many new cards can I sustain? | **Projection**: Monte Carlo simulation with FSRS-6 scheduling on your real cards |
 | **Advanced** | How strong are my memories, and does FSRS predict me well? Stability, difficulty, recall, risk, calibration | **Measured** card states (as Anki stored them) + the FSRS-6 forgetting curve; past predictions replayed from the review log |

@@ -4,11 +4,11 @@ import {
   dayStatus,
   greetingPart,
   homeInsight,
+  longestStreak,
   milestones,
   milestoneTrack,
   recentDays,
   todayWork,
-  weekGoal,
   weekComparison,
 } from './progress'
 import { lastNDays, totalsByDate } from './stats'
@@ -54,6 +54,21 @@ beforeEach(() => {
 })
 afterEach(() => vi.useRealTimers())
 
+describe('longestStreak', () => {
+  it('finds the longest run of consecutive review days anywhere in history', () => {
+    const byDate = totalsByDate(on([20, 19, 18, 17, 10, 9, 1, 0]))
+    expect(longestStreak(byDate)).toBe(4)
+  })
+  it('is 0 without reviews and ignores days with zero reviews', () => {
+    expect(longestStreak(new Map())).toBe(0)
+    expect(longestStreak(totalsByDate([...on([3]), ...on([2], 0), ...on([1])]))).toBe(1)
+  })
+  it('counts across month and DST boundaries by calendar day', () => {
+    const byDate = totalsByDate(['2026-10-24', '2026-10-25', '2026-10-26', '2026-11-01'].map((d) => stat(d, 'a', 1)))
+    expect(longestStreak(byDate)).toBe(3)
+  })
+})
+
 describe('weekComparison', () => {
   it('compares the last 7 days with the 7 before', () => {
     const byDate = totalsByDate([...on([0, 3, 6], 20), ...on([7, 13], 15)])
@@ -96,10 +111,10 @@ describe('milestones', () => {
 
 describe('dayStatus and greeting', () => {
   it('picks the right Home message', () => {
-    expect(dayStatus(false, 0, false)).toBe('empty')
-    expect(dayStatus(true, 5, true)).toBe('done')
-    expect(dayStatus(true, 0, true)).toBe('met')
-    expect(dayStatus(true, 0, false)).toBe('keep')
+    expect(dayStatus(false, 0, 0)).toBe('empty')
+    expect(dayStatus(true, 5, 3)).toBe('done')
+    expect(dayStatus(true, 0, 3)).toBe('keep')
+    expect(dayStatus(true, 0, 0)).toBe('start')
   })
   it('greets by hour', () => {
     expect(greetingPart(4)).toBe('evening')
@@ -250,42 +265,5 @@ describe('todayWork', () => {
   })
   it('is null without FSRS data, so sample data never shows a due count', () => {
     expect(todayWork(data([]), TODAY, 6)).toBeNull()
-  })
-})
-
-describe('weekGoal', () => {
-  // 2026-03-11 is a Wednesday
-  const wednesday = new Date(2026, 2, 11)
-  const onDates = (...dates: string[]) => totalsByDate(dates.flatMap((d) => [{ ...stat(d, 'a', 5) }]))
-
-  it('covers Monday to Sunday and counts study days', () => {
-    const w = weekGoal(onDates('2026-03-09', '2026-03-11', '2026-03-08'), wednesday, 3)
-    expect(w.days.map((d) => d.date)).toEqual(['2026-03-09', '2026-03-10', '2026-03-11', '2026-03-12', '2026-03-13', '2026-03-14', '2026-03-15'])
-    expect(w.done).toBe(2)
-    expect(w.met).toBe(false)
-    expect(w.days[2]).toMatchObject({ isToday: true, studied: true, future: false })
-    expect(w.days[3]).toMatchObject({ future: true, studied: false })
-  })
-
-  it('treats a Sunday as the end of its own week', () => {
-    const sunday = new Date(2026, 2, 15)
-    expect(weekGoal(new Map(), sunday, 1).days[0].date).toBe('2026-03-09')
-  })
-
-  it('stays reachable only while enough days remain', () => {
-    expect(weekGoal(new Map(), wednesday, 5).reachable).toBe(true)
-    expect(weekGoal(new Map(), wednesday, 6).reachable).toBe(false)
-    // Today already counted: it can't count twice
-    expect(weekGoal(onDates('2026-03-11'), wednesday, 6).reachable).toBe(false)
-  })
-
-  it('counts finished weeks in a row, and this week only once met', () => {
-    const byDate = onDates('2026-03-02', '2026-03-03', '2026-02-23', '2026-02-24', '2026-02-16')
-    expect(weekGoal(byDate, wednesday, 2).weeksInRow).toBe(2)
-    expect(weekGoal(onDates('2026-03-02', '2026-03-03', '2026-03-09', '2026-03-10'), wednesday, 2).weeksInRow).toBe(2)
-  })
-
-  it('doesn’t let an unfinished week break the run', () => {
-    expect(weekGoal(onDates('2026-03-02', '2026-03-03'), new Date(2026, 2, 9), 2).weeksInRow).toBe(1)
   })
 })

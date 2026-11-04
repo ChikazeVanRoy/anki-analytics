@@ -67,9 +67,8 @@ export const en = {
     status: {
       done: (n: number) => `You’ve reviewed ${int(n)} ${plural(n, 'card', 'cards')} today. Nice work!`,
       doneMoreDue: (n: number) => `You’ve reviewed ${int(n)} ${plural(n, 'card', 'cards')} today, with more waiting when you’re ready.`,
-      keep: (done: number, goal: number) =>
-        done === 0 ? 'A new week. A short session today gets it started.' : `${done} of ${goal} days so far this week. A short session today counts.`,
-      met: 'This week’s goal is met. Anything more is a bonus.',
+      keep: (streak: number) => `Your ${streak}-day streak is waiting. A short session today keeps it going.`,
+      start: 'Ready when you are. A short session today starts a new streak.',
       empty: 'Your progress will appear here after your first review in Anki.',
     },
     today: {
@@ -102,20 +101,7 @@ export const en = {
         `From the Planner’s simulation of your real cards: the most new cards a day whose heaviest month in the next year stays within ${budget} minutes per study day. ${budget} minutes is your measured time per study day over the last 4 weeks, rounded up to 5. It assumes you keep your recent study days and pace. Nothing changes in Anki.`,
       planLink: 'Open the Planner',
     },
-    goal: {
-      progress: (done: number, goal: number) => `${done} of ${goal}`,
-      unit: 'days this week',
-      met: 'Goal met',
-      left: (n: number) => `${n} more ${plural(n, 'day', 'days')} to go`,
-      nextWeek: 'A new week starts on Monday',
-      inARow: (n: number) => `${n} weeks in a row`,
-      day: (date: string, studied: boolean) => `${date}: ${studied ? 'studied' : 'not studied'}`,
-      label: 'Weekly goal',
-      fewer: 'Lower the goal by one day',
-      more: 'Raise the goal by one day',
-      change: (goal: number) => `Goal: ${goal} ${plural(goal, 'day', 'days')}`,
-      tip: 'Days with at least one review this calendar week, Monday to Sunday. The goal starts at your measured habit over the last 4 weeks; change it with the buttons. Rest days don’t count against you.',
-    },
+    streak: { label: 'day streak', best: (n: number) => `Best: ${n} ${plural(n, 'day', 'days')}` },
     kpi: {
       today: 'Reviewed today',
       todaySub: (minutes: number) => (minutes > 0 ? `about ${int(minutes)} min` : 'nothing yet today'),
@@ -183,7 +169,7 @@ export const en = {
       known: 'Cards known well',
       next: (remaining: string, target: string) => `${remaining} to go until ${target}`,
       maxed: 'Every milestone reached. Impressive.',
-      note: 'Milestones reward steady progress. There’s no badge for cramming: rest days are part of learning.',
+      note: 'Milestones reward steady progress. There’s no badge for cramming.',
     },
   },
   activity: {

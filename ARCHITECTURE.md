@@ -204,7 +204,7 @@ Notes from the code:
 | `app/useTheme.ts`, `app/useRoute.ts`, `app/ErrorBoundary.tsx` | Light/dark/system theme, hash routing, per-section error state |
 | `pages/*.tsx` | Home, Activity, Planner and Advanced pages; `FsrsGate.tsx` is the empty state without FSRS data |
 | `i18n/en.ts`, `i18n/index.ts` | Interface text (typed) and locale |
-| `lib/progress.ts` | Home: weekly goal, week comparison, milestones, status, one insight |
+| `lib/progress.ts` | Home: longest streak, week comparison, milestones, status, one insight |
 | `lib/plan.ts` | The Planner's defaults, paces and sweep, shared with the Today plan on Home |
 | `lib/deckPace.ts` | Home: a deck's projected finish from the measured pace of new cards |
 | `lib/route.ts` | Section names and URL hashes |
@@ -213,7 +213,7 @@ Notes from the code:
 | `data/useUpdateOffer.ts` | Polls `/api/status` and offers a refresh when Anki has closed or a new Anki day has started |
 | `data/useSimulation.ts` | Starts, debounces and cancels Web Worker runs |
 | `data/mockData.ts` | Seeded sample data (no FSRS data) |
-| `lib/stats.ts` | Ranges, totals, Again rate, share of Hard, retention, grouping by day/week/month |
+| `lib/stats.ts` | Ranges, totals, streaks, Again rate, share of Hard, retention, grouping by day/week/month |
 | `lib/heatmap.ts` | Heatmap grid and colour levels |
 | `lib/fsrsStats.ts` | Current retrievability, distributions, risk, retention vs target, calibration, lapse evidence |
 | `lib/simulator.ts` | Monte Carlo forecast, scenario values, horizon summaries |

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { cleanup, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it } from 'vitest'
 import { mockData } from '../data/mockData'
 import type { AnkiData } from '../data/types'
 import { messages } from '../i18n'
@@ -108,23 +108,21 @@ describe('Home "Remembered" card with only mature reviews', () => {
   })
 })
 
-describe('Home weekly goal', () => {
-  beforeEach(() => localStorage.clear())
-
-  it('shows this week’s progress against the measured habit, and no streak', () => {
+describe('Home streak', () => {
+  it('shows the current and best streak, with no weekly goal', () => {
     render(<HomePage data={withRetention([40, 38], [0, 0])} />)
-    expect(screen.getByRole('region', { name: messages.home.goal.label }).textContent).toContain(messages.home.goal.progress(1, 1))
-    expect(document.body.textContent).not.toMatch(/streak/i)
+    expect(screen.getByText(messages.home.streak.label).closest('div')?.textContent).toContain('1')
+    expect(screen.getByText(messages.home.streak.best(1))).toBeTruthy()
+    expect(document.body.textContent).not.toMatch(/days this week/)
   })
 
-  it('lets the owner change the goal, and remembers it', () => {
-    const { unmount } = render(<HomePage data={withRetention([40, 38], [0, 0])} />)
-    fireEvent.click(screen.getByRole('button', { name: messages.home.goal.more }))
-    fireEvent.click(screen.getByRole('button', { name: messages.home.goal.more }))
-    expect(screen.getByText(messages.home.goal.change(3))).toBeTruthy()
-    unmount()
-    render(<HomePage data={withRetention([40, 38], [0, 0])} />)
-    expect(screen.getByText(messages.home.goal.change(3))).toBeTruthy()
+  it('asks for a session when today has none yet', () => {
+    const data = withRetention([40, 38], [0, 0])
+    const yesterday = new Date(ankiToday(data))
+    yesterday.setDate(yesterday.getDate() - 1)
+    data.daily[0] = { ...data.daily[0], date: toDateKey(yesterday) }
+    render(<HomePage data={data} />)
+    expect(screen.getByText(messages.home.status.keep(1))).toBeTruthy()
   })
 })
 

@@ -85,6 +85,7 @@
     0 10px 30px -14px light-dark(rgb(60 40 20 / 0.16), transparent);
   --shadow-pop: 0 12px 32px -12px light-dark(rgb(60 40 20 / 0.25), rgb(0 0 0 / 0.6));
 
+  --animate-flicker: flicker 2.4s ease-in-out infinite;
   --animate-rise: rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
   --animate-pop: pop 0.45s cubic-bezier(0.3, 1.4, 0.5, 1) both;
   --animate-shimmer: shimmer 1.6s linear infinite;
@@ -94,6 +95,18 @@
     from {
       opacity: 0;
       transform: translateY(10px);
+    }
+  }
+  @keyframes flicker {
+    0%,
+    100% {
+      transform: scale(1) rotate(0deg);
+    }
+    30% {
+      transform: scale(1.05, 0.97) rotate(-2deg);
+    }
+    60% {
+      transform: scale(0.97, 1.04) rotate(2deg);
     }
   }
   @keyframes pop {

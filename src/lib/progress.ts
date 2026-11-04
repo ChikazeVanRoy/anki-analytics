@@ -1,4 +1,4 @@
-// Home-page progress: the weekly goal, week-on-week change, milestones and one plain-language insight.
+// Home-page progress: streaks, week-on-week change, milestones and one plain-language insight.
 // Pure functions over measured data only (tested). Nothing here is estimated or invented: a milestone is
 // shown as reached only when the review log or card counts show it.
 
@@ -8,6 +8,21 @@ import { formatInt, formatPct, formatRate } from './format'
 import { deckSummaries, lastNDays, MIN_RATE_SAMPLE, ratio, retentionSplit, type DayTotal } from './stats'
 
 const studied = (byDate: Map<string, DayTotal>, key: string) => (byDate.get(key)?.reviews ?? 0) > 0
+
+/** Longest run of consecutive days with at least one review, across the whole history. */
+export function longestStreak(byDate: Map<string, DayTotal>): number {
+  const days = [...byDate]
+    .filter(([, t]) => t.reviews > 0)
+    .map(([d]) => dayNumber(d))
+    .sort((a, b) => a - b)
+  let best = 0
+  let run = 0
+  for (let i = 0; i < days.length; i++) {
+    run = i > 0 && days[i] === days[i - 1] + 1 ? run + 1 : 1
+    best = Math.max(best, run)
+  }
+  return best
+}
 
 const reviewsOn = (byDate: Map<string, DayTotal>, keys: string[]) =>
   keys.reduce((n, k) => n + (byDate.get(k)?.reviews ?? 0), 0)
@@ -32,53 +47,6 @@ export function recentDays(byDate: Map<string, DayTotal>, today: Date, n = 14) {
     reviews: byDate.get(date)?.reviews ?? 0,
     minutes: (byDate.get(date)?.seconds ?? 0) / 60,
   }))
-}
-
-// ---------- Weekly goal ----------
-
-export interface GoalDay {
-  date: string
-  studied: boolean
-  isToday: boolean
-  future: boolean
-}
-
-export interface WeekGoal {
-  goal: number
-  done: number // study days so far this week
-  met: boolean
-  /** Monday to Sunday of this week. */
-  days: GoalDay[]
-  /** Whether the goal can still be reached this week. */
-  reachable: boolean
-  /** Weeks in a row at this goal: this week once met, plus the finished weeks before it. */
-  weeksInRow: number
-}
-
-/** The seven date keys of the week `weeksAgo` before the one holding `today`, Monday first. */
-function weekKeys(today: Date, weeksAgo: number): string[] {
-  const monday = today.getDate() - ((today.getDay() + 6) % 7) - weeksAgo * 7
-  return Array.from({ length: 7 }, (_, i) => toDateKey(new Date(today.getFullYear(), today.getMonth(), monday + i)))
-}
-
-/**
- * Progress towards `goal` study days this calendar week (Monday to Sunday). Unlike a streak, a rest day costs
- * nothing, and a week still under way never breaks the run of weeks.
- */
-export function weekGoal(byDate: Map<string, DayTotal>, today: Date, goal: number): WeekGoal {
-  const todayKey = toDateKey(today)
-  const days = weekKeys(today, 0).map((date) => ({
-    date,
-    studied: studied(byDate, date),
-    isToday: date === todayKey,
-    future: date > todayKey,
-  }))
-  const done = days.filter((d) => d.studied).length
-  const met = done >= goal
-  const open = days.filter((d) => !d.studied && (d.future || d.isToday)).length
-  let weeksInRow = met ? 1 : 0
-  for (let w = 1; weekKeys(today, w).filter((k) => studied(byDate, k)).length >= goal; w++) weeksInRow++
-  return { goal, done, met, days, reachable: done + open >= goal, weeksInRow }
 }
 
 // ---------- Milestones ----------
@@ -127,13 +95,13 @@ export function milestones(data: AnkiData, byDate: Map<string, DayTotal>): Miles
 
 // ---------- Status and greeting ----------
 
-export type DayStatus = 'empty' | 'done' | 'met' | 'keep'
+export type DayStatus = 'empty' | 'done' | 'keep' | 'start'
 
-/** What to say at the top of Home: reviewed today, the week's goal already met, a session to come, or no data yet. */
-export function dayStatus(hasAnyReviews: boolean, reviewsToday: number, goalMet: boolean): DayStatus {
+/** What to say at the top of Home: reviewed today, a streak to continue, a fresh start, or no data yet. */
+export function dayStatus(hasAnyReviews: boolean, reviewsToday: number, streak: number): DayStatus {
   if (!hasAnyReviews) return 'empty'
   if (reviewsToday > 0) return 'done'
-  return goalMet ? 'met' : 'keep'
+  return streak > 0 ? 'keep' : 'start'
 }
 
 /** Greeting by local clock hour. */

@@ -1,10 +1,9 @@
 import { useMemo, useState, type KeyboardEvent, type ReactNode } from 'react'
-import { ActivityIcon, ArrowRightIcon, BrainIcon, CheckIcon, LayersIcon, SparkleIcon, TrophyIcon } from '../components/icons'
+import { ActivityIcon, ArrowRightIcon, BrainIcon, CheckIcon, Flame, LayersIcon, SparkleIcon, TrophyIcon } from '../components/icons'
 import { AnswerBar } from '../components/AnswerBar'
 import { GardenLegend, GardenPlot } from '../components/MemoryGarden'
 import { StatCard } from '../components/StatCard'
 import { CountUp, InfoTip, ProgressBar, SourceBadge } from '../components/ui'
-import { useWeeklyGoal } from '../app/useWeeklyGoal'
 import { useDeckColor } from '../data/deckColors'
 import { useTodayPlan, type TodayPlan } from '../data/useTodayPlan'
 import type { AnkiData } from '../data/types'
@@ -16,14 +15,13 @@ import {
   dayStatus,
   greetingPart,
   homeInsight,
+  longestStreak,
   milestones,
   recentDays,
   todayWork,
   weekComparison,
-  weekGoal,
   type MilestoneTrack,
   type TodayWork,
-  type WeekGoal,
 } from '../lib/progress'
 import { gardenBed, plantUnit, type GardenBed } from '../lib/garden'
 import { measuredDefaults } from '../lib/measured'
@@ -38,6 +36,7 @@ export function HomePage({ data }: { data: AnkiData }) {
   const week7 = useMemo(() => summarize(data, 7), [data])
   const month = useMemo(() => summarize(data, 30), [data])
   const week = useMemo(() => weekComparison(byDate, today), [byDate, today])
+  const best = useMemo(() => longestStreak(byDate), [byDate])
   const recent = useMemo(() => recentDays(byDate, today, 14), [byDate, today])
   const tracks = useMemo(() => milestones(data, byDate), [data, byDate])
   const insight = useMemo(() => homeInsight(data, byDate, today), [data, byDate, today])
@@ -47,12 +46,10 @@ export function HomePage({ data }: { data: AnkiData }) {
   const plan = useTodayPlan(data, today)
   const measured = useMemo(() => measuredDefaults(data, today), [data, today])
   const due = useMemo(() => todayWork(data, today, measured.secondsPerReview), [data, today, measured])
-  const { goal, change: changeGoal } = useWeeklyGoal(measured.studyDaysPerWeek)
-  const thisWeek = useMemo(() => weekGoal(byDate, today, goal), [byDate, today, goal])
 
   const [hour] = useState(() => new Date().getHours())
   const hasAny = data.daily.some((s) => s.reviews > 0)
-  const status = dayStatus(hasAny, week7.reviewsToday, thisWeek.met)
+  const status = dayStatus(hasAny, week7.reviewsToday, week7.streak)
   const todayMinutes = (byDate.get(toDateKey(today))?.seconds ?? 0) / 60
   const { reviewCards } = month.retention
   const split = retentionSplit(month.retention)
@@ -70,16 +67,16 @@ export function HomePage({ data }: { data: AnkiData }) {
             ? due && !due.stale && due.cards + due.newCards > 0
               ? m.status.doneMoreDue(week7.reviewsToday)
               : m.status.done(week7.reviewsToday)
-            : status === 'met'
-              ? m.status.met
-              : status === 'keep'
-                ? m.status.keep(thisWeek.done, thisWeek.goal)
+            : status === 'keep'
+              ? m.status.keep(week7.streak)
+              : status === 'start'
+                ? m.status.start
                 : m.status.empty
         }
         due={due}
         plan={plan}
-        week={thisWeek}
-        onChangeGoal={changeGoal}
+        streak={week7.streak}
+        best={best}
         sample={sample}
         copied={sample ? null : messages.data.copiedAt(formatCopiedAt(data.generatedAt))}
       />
@@ -191,8 +188,8 @@ function Hero({
   status,
   due,
   plan,
-  week,
-  onChangeGoal,
+  streak,
+  best,
   sample,
   copied,
 }: {
@@ -200,8 +197,8 @@ function Hero({
   status: string
   due: TodayWork | null
   plan: TodayPlan | null
-  week: WeekGoal
-  onChangeGoal: (by: number) => void
+  streak: number
+  best: number
   sample: boolean
   copied: string | null
 }) {
@@ -222,7 +219,18 @@ function Hero({
           <p className="mt-1 text-sm font-semibold text-ink-2 sm:text-base">{status}</p>
           {copied && <p className="mt-2 text-xs text-ink-2">{copied}</p>}
         </div>
-        <WeekGoalCard week={week} onChange={onChangeGoal} />
+        <div className="flex shrink-0 items-center gap-2 self-start rounded-2xl bg-surface px-3.5 py-2.5 shadow-card sm:self-auto">
+          <Flame lit={streak > 0} size={30} />
+          <div>
+            <p className="text-sm leading-tight text-ink">
+              <span className="text-xl font-black tabular-nums">
+                <CountUp value={streak} format={formatInt} />
+              </span>{' '}
+              <span className="font-bold text-sun-ink">{m.streak.label}</span>
+            </p>
+            {best > 0 && <p className="text-xs text-muted">{m.streak.best(best)}</p>}
+          </div>
+        </div>
       </div>
       {due && <TodayPlanRow due={due} plan={plan} />}
     </section>
@@ -299,49 +307,6 @@ function PlanSuggestion({ plan }: { plan: TodayPlan }) {
             : t.suggest(max.value, budget)}
       <InfoTip label={t.suggestTipLabel}>{t.suggestTip(budget)}</InfoTip>
     </p>
-  )
-}
-
-function WeekGoalCard({ week, onChange }: { week: WeekGoal; onChange: (by: number) => void }) {
-  const g = m.goal
-  const hint = week.met ? g.met : week.reachable ? g.left(week.goal - week.done) : g.nextWeek
-  const stepClass = 'grid size-8 place-items-center rounded-xl bg-surface-2 text-base leading-none font-black text-ink-2 hover:text-ink disabled:opacity-40'
-  return (
-    <section aria-label={g.label} className="shrink-0 rounded-2xl bg-surface px-3.5 py-3 shadow-card">
-      <p className="text-sm text-ink">
-        <span className="text-xl font-black tabular-nums">{g.progress(week.done, week.goal)}</span> <span className="font-bold text-ink-2">{g.unit}</span>
-        <InfoTip label={`About ${g.label}`}>{g.tip}</InfoTip>
-      </p>
-      <ol className="mt-2 flex justify-between gap-1.5">
-        {week.days.map((d) => {
-          const date = parseDateKey(d.date)
-          return (
-            <li
-              key={d.date}
-              className={`grid size-7 place-items-center rounded-full text-[11px] font-bold ${
-                d.studied ? 'bg-brand text-brand-ink' : d.future ? 'border border-dashed border-line text-muted' : 'bg-surface-2 text-muted'
-              } ${d.isToday ? 'ring-2 ring-sun ring-offset-2 ring-offset-surface' : ''}`}
-            >
-              <span className="sr-only">{g.day(date.toLocaleDateString(LOCALE, { weekday: 'long' }), d.studied)}</span>
-              <span aria-hidden>{d.studied ? <CheckIcon size={14} /> : date.toLocaleDateString(LOCALE, { weekday: 'narrow' })}</span>
-            </li>
-          )
-        })}
-      </ol>
-      <p className="mt-2 text-xs text-muted">
-        {hint}
-        {week.weeksInRow > 1 && ` · ${g.inARow(week.weeksInRow)}`}
-      </p>
-      <div className="mt-2 flex items-center gap-1.5 text-xs font-bold text-ink-2">
-        <span className="mr-auto">{g.change(week.goal)}</span>
-        <button type="button" aria-label={g.fewer} disabled={week.goal <= 1} onClick={() => onChange(-1)} className={stepClass}>
-          −
-        </button>
-        <button type="button" aria-label={g.more} disabled={week.goal >= 7} onClick={() => onChange(1)} className={stepClass}>
-          +
-        </button>
-      </div>
-    </section>
   )
 }
 

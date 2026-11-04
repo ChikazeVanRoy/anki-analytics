@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AnkiData, DailyDeckStat } from '../data/types'
 import {
+  currentStreak,
+  totalsByDate,
   answerCounts,
   hardShareSeries,
   againRateSeries,
@@ -51,6 +53,25 @@ beforeEach(() => {
   vi.setSystemTime(new Date(2026, 2, 15, 12, 0))
 })
 afterEach(() => vi.useRealTimers())
+
+describe('currentStreak', () => {
+  const today = new Date(2026, 2, 15)
+  it('counts consecutive days ending today', () => {
+    const byDate = totalsByDate([stat('2026-03-13', 'a', 5), stat('2026-03-14', 'a', 5), stat('2026-03-15', 'a', 5)])
+    expect(currentStreak(byDate, today)).toBe(3)
+  })
+  it('still counts up to yesterday when today has no reviews yet', () => {
+    const byDate = totalsByDate([stat('2026-03-13', 'a', 5), stat('2026-03-14', 'a', 5)])
+    expect(currentStreak(byDate, today)).toBe(2)
+  })
+  it('stops at a gap', () => {
+    const byDate = totalsByDate([stat('2026-03-11', 'a', 5), stat('2026-03-13', 'a', 5), stat('2026-03-14', 'a', 5)])
+    expect(currentStreak(byDate, today)).toBe(2)
+  })
+  it('is 0 with no recent reviews', () => {
+    expect(currentStreak(totalsByDate([stat('2026-03-01', 'a', 5)]), today)).toBe(0)
+  })
+})
 
 describe('lastNDays', () => {
   it('returns n days ending today, oldest first, across a month boundary', () => {
