@@ -127,6 +127,8 @@ test('a keyboard user can read each day on the Home activity chart', async ({ pa
 test('picking the last day on the Home chart stays on screen', async ({ page }) => {
   await useRealShapedData(page)
   await page.goto('#/')
+  // The suggestion's text lengthens Home when it arrives, moving the chart away from the pointer
+  await expect(page.getByText(messages.home.today.suggestPending)).toHaveCount(0, { timeout: 30_000 })
   await page.getByText(messages.home.numbers.title).click()
   const chart = page.getByRole('list', { name: /of the last 14 days/ })
   await chart.locator('li').last().click()

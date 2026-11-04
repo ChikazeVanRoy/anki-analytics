@@ -8,6 +8,9 @@ export default defineConfig({
   testDir: './e2e',
   testMatch: '*.e2e.ts',
   fullyParallel: true,
+  // Every page runs real simulations in Web Workers, so more browsers at once only starve each other
+  workers: 2,
+  expect: { timeout: 15_000 },
   reporter: 'list',
   use: { baseURL: `http://localhost:${PORT}`, channel: 'chrome', headless: true },
   projects: [
