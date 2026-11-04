@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { messages } from '../i18n'
 import { formatInt } from '../lib/format'
 import type { Recap } from '../lib/recap'
@@ -32,61 +32,77 @@ function Tile({ label, value, style }: { label: string; value: number; style?: C
 /** The payoff for a session: Anki can't be watched live, so the celebration comes once it's closed. */
 export function SessionRecap({ recap, onClose }: { recap: Recap; onClose: () => void }) {
   const [sound, setSound] = useState(soundOn)
+  const dialog = useRef<HTMLDialogElement>(null)
   const close = useRef<HTMLButtonElement>(null)
+  const chimed = useRef(false) // effects run twice in development
   useEffect(() => {
+    const d = dialog.current
+    // showModal keeps focus inside and blocks the page behind; a browser without it still shows the dialog
+    if (d && !d.open) {
+      if (d.showModal) d.showModal()
+      else d.setAttribute('open', '')
+    }
     close.current?.focus()
-    if (soundOn()) chime()
+    if (soundOn() && !chimed.current) chimed.current = chime()
   }, [])
-  const onKey = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') onClose()
+  const finish = () => {
+    // A recap that opens by itself may not be allowed to play: this click is the first chance
+    if (soundOn() && !chimed.current) chime()
+    onClose()
   }
   const toggleSound = () => {
     setSoundOn(!sound)
-    if (!sound) chime()
+    if (!sound) chimed.current = chime()
     setSound(!sound)
   }
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm" onKeyDown={onKey}>
-      <div role="dialog" aria-modal="true" aria-labelledby="recap-title" className="animate-bounce-in relative w-full max-w-md overflow-hidden rounded-3xl bg-surface p-6 text-center shadow-pop">
-        <div className="pointer-events-none absolute inset-0" aria-hidden>
-          {confetti.map((style, i) => (
-            <span key={i} className="confetti" style={style} />
-          ))}
-        </div>
-        <div className="relative">
-          <div className="flex justify-center">
-            <Mascot mood="cheer" size={84} />
-          </div>
-          <h2 id="recap-title" className="mt-2 text-2xl font-black tracking-tight text-ink">
-            {m.title}
-          </h2>
-          <p className="mt-1 text-sm text-ink-2">{m.sub}</p>
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <Tile label={m.reviews} value={recap.reviews} />
-            <Tile label={m.minutes} value={recap.minutes} style={{ animationDelay: '80ms' }} />
-            <Tile label={m.newCards} value={recap.newCards} style={{ animationDelay: '160ms' }} />
-            <Tile label={m.streak} value={recap.streak} style={{ animationDelay: '240ms' }} />
-          </div>
-          {recap.bloomed > 0 && <p className="mt-3 text-sm font-extrabold text-good">{m.bloomed(recap.bloomed)}</p>}
-          {recap.badges.length > 0 && (
-            <div className="mt-4">
-              <p className="text-sm font-extrabold text-ink">{m.badges(recap.badges.length)}</p>
-              <div className="mt-2 grid gap-2">
-                {recap.badges.map((id) => (
-                  <BadgeMedal key={id} id={id} earned />
-                ))}
-              </div>
-            </div>
-          )}
-          <button ref={close} type="button" onClick={onClose} className="btn-3d mt-5 w-full">
-            {m.close}
-          </button>
-          <label className="mt-3 inline-flex cursor-pointer items-center gap-2 text-xs text-ink-2">
-            <input type="checkbox" checked={sound} onChange={toggleSound} />
-            {m.sound}
-          </label>
-        </div>
+    <dialog
+      ref={dialog}
+      aria-labelledby="recap-title"
+      onCancel={(e) => {
+        e.preventDefault()
+        finish()
+      }}
+      className="animate-bounce-in m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md overflow-x-hidden overflow-y-auto rounded-3xl bg-surface p-6 text-center shadow-pop backdrop:bg-black/50 backdrop:backdrop-blur-sm"
+    >
+      <div className="pointer-events-none absolute inset-0" aria-hidden>
+        {confetti.map((style, i) => (
+          <span key={i} className="confetti" style={style} />
+        ))}
       </div>
-    </div>
+      <div className="relative">
+        <div className="flex justify-center">
+          <Mascot mood="cheer" size={84} />
+        </div>
+        <h2 id="recap-title" className="mt-2 text-2xl font-black tracking-tight text-ink">
+          {m.title}
+        </h2>
+        <p className="mt-1 text-sm text-ink-2">{m.sub}</p>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <Tile label={m.reviews} value={recap.reviews} />
+          <Tile label={m.minutes} value={recap.minutes} style={{ animationDelay: '80ms' }} />
+          <Tile label={m.newCards} value={recap.newCards} style={{ animationDelay: '160ms' }} />
+          <Tile label={m.streak} value={recap.streak} style={{ animationDelay: '240ms' }} />
+        </div>
+        {recap.bloomed > 0 && <p className="mt-3 text-sm font-extrabold text-good">{m.bloomed(recap.bloomed)}</p>}
+        {recap.badges.length > 0 && (
+          <div className="mt-4">
+            <p className="text-sm font-extrabold text-ink">{m.badges(recap.badges.length)}</p>
+            <div className="mt-2 grid gap-2">
+              {recap.badges.map((id) => (
+                <BadgeMedal key={id} id={id} earned />
+              ))}
+            </div>
+          </div>
+        )}
+        <button ref={close} type="button" onClick={finish} className="btn-3d mt-5 w-full">
+          {m.close}
+        </button>
+        <label className="mt-3 inline-flex cursor-pointer items-center gap-2 text-xs text-ink-2">
+          <input type="checkbox" checked={sound} onChange={toggleSound} />
+          {m.sound}
+        </label>
+      </div>
+    </dialog>
   )
 }

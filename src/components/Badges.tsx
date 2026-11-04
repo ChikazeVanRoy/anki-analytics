@@ -1,6 +1,7 @@
 import { messages } from '../i18n'
 import { BADGES, type BadgeId } from '../lib/badges'
 import { TrophyIcon } from './icons'
+import { SourceBadge } from './ui'
 
 const m = messages.home.badges
 
@@ -18,7 +19,7 @@ export function BadgeMedal({ id, earned }: { id: BadgeId; earned: boolean }) {
 }
 
 /** Every badge, earned or still to come, so it's clear what each one takes. */
-export function Badges({ earned }: { earned: BadgeId[] }) {
+export function Badges({ earned, sample }: { earned: BadgeId[]; sample: boolean }) {
   return (
     <section aria-labelledby="home-badges" className="animate-rise rounded-3xl border border-line bg-surface p-5 shadow-card sm:p-6">
       <div className="mb-3 flex flex-wrap items-baseline gap-x-3">
@@ -26,6 +27,7 @@ export function Badges({ earned }: { earned: BadgeId[] }) {
           {m.title}
         </h2>
         <p className="text-sm text-muted">{m.count(earned.length, BADGES.length)}</p>
+        {sample && <SourceBadge kind="sample" />}
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {BADGES.map((id) => (

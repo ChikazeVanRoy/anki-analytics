@@ -43,6 +43,7 @@ export interface CardNow extends FsrsCard {
   r: number // current retrievability
   desired: number
   overdue: boolean
+  dueToday: boolean // due today or earlier: Anki will show it
 }
 
 /** The memory-model settings a card uses: its own preset, else its deck group's preset. */
@@ -62,6 +63,7 @@ export function cardsNow(fsrs: FsrsData, todayKey: string): CardNow[] {
       r: retrievability(elapsed, c.stability, preset?.params ?? DEFAULT_PARAMS),
       desired: preset?.desiredRetention ?? 0.9,
       overdue: dayNumber(c.due) < today,
+      dueToday: dayNumber(c.due) <= today,
     }
   })
 }

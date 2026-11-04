@@ -75,13 +75,17 @@ describe('gardenBed', () => {
 
 describe('the living garden', () => {
   const card = (over: Partial<CardNow>) =>
-    ({ deckId: 'a', r: 0.95, desired: 0.9, overdue: false, interval: 5, due: '2026-03-05', ...over }) as CardNow
+    ({ deckId: 'a', r: 0.95, desired: 0.9, overdue: false, dueToday: false, interval: 5, due: '2026-03-05', ...over }) as CardNow
   const deck = { id: 'a', newCards: 3 } as Deck
 
   it('droops a card that needs reviewing, whatever else is true of it', () => {
     expect(stageOf(card({ overdue: true, proven: true }))).toBe('wilt')
-    expect(stageOf(card({ r: 0.8 }))).toBe('wilt')
-    expect(stageOf(card({ r: 0.86 }))).toBe('sprout')
+    expect(stageOf(card({ r: 0.8, dueToday: true }))).toBe('wilt')
+    expect(stageOf(card({ r: 0.86, dueToday: true }))).toBe('sprout')
+  })
+
+  it('leaves a low card alone until Anki will show it', () => {
+    expect(stageOf(card({ r: 0.8 }))).toBe('sprout')
   })
 
   it('buds at a long interval and opens once proven', () => {

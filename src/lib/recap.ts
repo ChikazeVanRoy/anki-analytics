@@ -12,6 +12,9 @@ export interface Snapshot {
   proven: number
   streak: number
   badges: BadgeId[]
+  /** The latest day with reviews, and the reviews before it: a past that changes means the data did, not you. */
+  day: string
+  before: number
 }
 
 export interface Recap {
@@ -23,8 +26,12 @@ export interface Recap {
   badges: BadgeId[]
 }
 
+export const reviewsBefore = (byDate: Map<string, DayTotal>, day: string) =>
+  [...byDate].reduce((n, [d, t]) => (d < day ? n + t.reviews : n), 0)
+
 export function snapshotOf(data: AnkiData, byDate: Map<string, DayTotal>, today: Date): Snapshot {
   const totals = [...byDate.values()]
+  const day = [...byDate].filter(([, t]) => t.reviews > 0).reduce((latest, [d]) => (d > latest ? d : latest), '')
   return {
     reviews: totals.reduce((n, t) => n + t.reviews, 0),
     seconds: totals.reduce((n, t) => n + t.seconds, 0),
@@ -32,12 +39,18 @@ export function snapshotOf(data: AnkiData, byDate: Map<string, DayTotal>, today:
     proven: Object.values(data.fsrs?.proven ?? {}).reduce((a, b) => a + b, 0),
     streak: streakWithRests(byDate, today).days,
     badges: earnedBadges(data, byDate),
+    day,
+    before: reviewsBefore(byDate, day),
   }
 }
 
-/** Null until there's a visit to compare with and you've studied since. Cards can leave a deck, so nothing goes below 0. */
-export function recapSince(last: Snapshot | null, now: Snapshot): Recap | null {
-  if (!last || now.reviews <= last.reviews) return null
+/**
+ * Null until there's a visit to compare with and you've studied since. Reviews only ever join the end of the log,
+ * so if earlier days changed, a deck was added or left out or the profile changed, and there's no session to
+ * celebrate. Cards can leave a deck, so nothing goes below 0.
+ */
+export function recapSince(last: Snapshot | null, now: Snapshot, byDate: Map<string, DayTotal>): Recap | null {
+  if (!last || now.reviews <= last.reviews || reviewsBefore(byDate, last.day) !== last.before) return null
   return {
     reviews: now.reviews - last.reviews,
     minutes: Math.max(0, now.seconds - last.seconds) / 60,

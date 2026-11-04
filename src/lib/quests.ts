@@ -2,8 +2,7 @@
 // Nothing rewards doing more than the pace: going past it finishes a quest, and nothing else.
 
 import type { AnkiData } from '../data/types'
-import { toDateKey } from './dates'
-import { cardsNow, memorySummary } from './fsrsStats'
+import { RISK_MARGIN, type CardNow } from './fsrsStats'
 import type { TodayWork } from './progress'
 
 export type Quest =
@@ -16,14 +15,17 @@ export const questProgress = (q: Quest) => (q.kind === 'rescue' ? (q.left === 0 
 
 const total = (counts: Record<string, number> | undefined) => Object.values(counts ?? {}).reduce((a, b) => a + b, 0)
 
-/** `paceNew`: the new cards a day that fit your time. Without a known pace, that quest is left out. */
-export function dailyQuests(data: AnkiData, today: Date, work: TodayWork | null, paceNew: number | null): Quest[] {
+/**
+ * `cards`: each card's state today. `paceNew`: the new cards a day that fit your time; without one, that quest is
+ * left out. Rescue only counts cards Anki will show today, so it can always be finished.
+ */
+export function dailyQuests(data: AnkiData, cards: CardNow[], work: TodayWork | null, paceNew: number | null): Quest[] {
   if (!data.fsrs?.enabled || !work || work.stale) return []
   const { fsrs } = data
   const quests: Quest[] = []
   const reviewed = total(fsrs.reviewsToday)
   if (reviewed + work.cards > 0) quests.push({ kind: 'reviews', done: reviewed, goal: reviewed + work.cards })
   if (paceNew) quests.push({ kind: 'new', done: total(fsrs.newToday), goal: paceNew })
-  quests.push({ kind: 'rescue', left: memorySummary(cardsNow(fsrs, toDateKey(today)), 'all').atRisk })
+  quests.push({ kind: 'rescue', left: cards.filter((c) => c.dueToday && !c.buried && c.r < c.desired - RISK_MARGIN).length })
   return quests
 }

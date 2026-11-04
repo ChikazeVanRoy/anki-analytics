@@ -181,7 +181,7 @@ test('celebrates new reviews since the last visit, then lets you carry on', asyn
   await useRealShapedData(page)
   await page.addInitScript(() => {
     if (!sessionStorage.getItem('seeded')) {
-      localStorage.setItem('anki-analytics:last-visit', JSON.stringify({ reviews: 1, seconds: 0, started: 0, proven: 0, streak: 0, badges: [] }))
+      localStorage.setItem('anki-analytics:last-visit', JSON.stringify({ reviews: 1, seconds: 0, started: 0, proven: 0, streak: 0, badges: [], day: '2000-01-01', before: 0 }))
       sessionStorage.setItem('seeded', 'yes')
     }
   })

@@ -223,7 +223,7 @@ describe('todayWork', () => {
 
   it('counts cards due today or overdue, not later ones, and estimates minutes at the measured pace', () => {
     const due = todayWork(withFsrs(['2026-11-01', '2026-11-03', '2026-11-04', '2026-12-01']), TODAY, 6)
-    expect(due).toEqual({ stale: false, cards: 2, heldBack: 0, newCards: 0, minutes: (2 * 6) / 60 })
+    expect(due).toEqual({ stale: false, cards: 2, heldBack: 0, newCards: 0, minutes: (2 * 6) / 60, reviewMinutes: (2 * 6) / 60 })
   })
   describe('with new cards', () => {
     type Limits = { deckId: string; newPerDay: number; reviewsPerDay?: number }
@@ -315,12 +315,21 @@ describe('todayWork', () => {
 })
 
 describe('nextStep', () => {
-  const work = (cards: number, newCards: number, minutes = 10.4) => ({ stale: false as const, cards, heldBack: 0, newCards, minutes })
+  const work = (cards: number, newCards: number, minutes = 10.4, reviewMinutes = minutes) => ({ stale: false as const, cards, heldBack: 0, newCards, minutes, reviewMinutes })
 
   it('puts reviews first, then new cards, then rest', () => {
     expect(nextStep(work(5, 10))).toEqual({ kind: 'reviews', cards: 5, minutes: 10 })
     expect(nextStep(work(0, 10))).toEqual({ kind: 'new', cards: 10, minutes: 10 })
     expect(nextStep(work(0, 0, 0))).toEqual({ kind: 'done' })
+  })
+
+  it('gives the reviews’ own time, not the whole day’s', () => {
+    expect(nextStep(work(5, 10, 30, 11))).toMatchObject({ kind: 'reviews', minutes: 11 })
+  })
+
+  it('stops new cards at your pace', () => {
+    expect(nextStep(work(0, 40, 40, 0), 10)).toEqual({ kind: 'new', cards: 10, minutes: 10 })
+    expect(nextStep(work(0, 5, 5, 0), 10)).toMatchObject({ cards: 5 })
   })
 
   it('never promises less than a minute, and asks for a refresh on an old copy', () => {

@@ -193,6 +193,8 @@ export type TodayWork =
        * its deck's measured answers on the first day.
        */
       minutes: number
+      /** The part of `minutes` for the reviews alone. */
+      reviewMinutes: number
     }
   /** The copy is from an earlier Anki day, so its due dates can't say what's left today. */
   | { stale: true }
@@ -230,11 +232,12 @@ export function todayWork(data: AnkiData, today: Date, seconds: number): TodayWo
     due.set(c.deckId, counts)
   }
   const pace = (deckId: string) => fsrs.behaviour.find((b) => b.deckId === deckId)?.secondsPerReview || seconds
-  const work = { cards: 0, heldBack: 0, newCards: 0, seconds: 0 }
+  const work = { cards: 0, heldBack: 0, newCards: 0, seconds: 0, reviewSeconds: 0 }
   for (const [deckId, { reviews, learning }] of due) {
     if (fsrs.presets.some((p) => p.deckId === deckId)) continue
     work.cards += reviews + learning // no preset read for this group, so no limit to apply
     work.seconds += (reviews + learning) * pace(deckId)
+    work.reviewSeconds += (reviews + learning) * pace(deckId)
   }
   for (const p of fsrs.presets) {
     const started = fsrs.newToday?.[p.deckId] ?? 0
@@ -249,8 +252,9 @@ export function todayWork(data: AnkiData, today: Date, seconds: number): TodayWo
     work.heldBack += reviews - shown
     work.newCards += newLeft
     work.seconds += (shown + learning + newLeft * firstDayAnswers) * pace(p.deckId)
+    work.reviewSeconds += (shown + learning) * pace(p.deckId)
   }
-  return { stale: false, cards: work.cards, heldBack: work.heldBack, newCards: work.newCards, minutes: work.seconds / 60 }
+  return { stale: false, cards: work.cards, heldBack: work.heldBack, newCards: work.newCards, minutes: work.seconds / 60, reviewMinutes: work.reviewSeconds / 60 }
 }
 
 /** The one thing to do now. Reviews come before new cards, as they do in Anki. */
@@ -260,11 +264,13 @@ export type NextStep =
   | { kind: 'new'; cards: number; minutes: number }
   | { kind: 'done' }
 
-export function nextStep(due: TodayWork): NextStep {
+/** `paceNew`: the new cards a day that fit your time. New cards stop there, whatever Anki's limit would allow. */
+export function nextStep(due: TodayWork, paceNew: number | null = null): NextStep {
   if (due.stale) return { kind: 'refresh' }
-  const minutes = Math.max(1, Math.round(due.minutes))
-  if (due.cards > 0) return { kind: 'reviews', cards: due.cards, minutes }
-  return due.newCards > 0 ? { kind: 'new', cards: due.newCards, minutes } : { kind: 'done' }
+  if (due.cards > 0) return { kind: 'reviews', cards: due.cards, minutes: Math.max(1, Math.round(due.reviewMinutes)) }
+  if (due.newCards === 0) return { kind: 'done' }
+  const cards = paceNew ? Math.min(due.newCards, paceNew) : due.newCards
+  return { kind: 'new', cards, minutes: Math.max(1, Math.round((due.minutes * cards) / due.newCards)) }
 }
 
 // ---------- One insight ----------

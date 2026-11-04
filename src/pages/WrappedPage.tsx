@@ -13,11 +13,11 @@ import { PageHeader } from './PageHeader'
 const m = messages.wrapped
 const monthName = (month: string) => parseDateKey(`${month}-01`).toLocaleDateString(LOCALE, { month: 'long', year: 'numeric' })
 
-function Slide({ tint, kicker, big, children }: { tint: string; kicker: string; big: string; children?: ReactNode }) {
+function Slide({ tint, kicker, big, wordy, children }: { tint: string; kicker: string; big: string; wordy?: boolean; children?: ReactNode }) {
   return (
     <section className="flex h-80 w-[85%] max-w-md shrink-0 snap-center flex-col justify-center rounded-3xl p-6 text-center" style={{ background: tint }}>
       <p className="text-sm font-extrabold tracking-wide text-ink-2 uppercase">{kicker}</p>
-      <p className="mt-2 text-5xl font-black tracking-tight break-words text-ink">{big}</p>
+      <p className={`mt-2 font-black tracking-tight break-words text-ink ${wordy ? 'line-clamp-4 text-2xl' : 'text-5xl'}`}>{big}</p>
       {children && <div className="mt-3 text-base font-semibold text-ink-2">{children}</div>}
     </section>
   )
@@ -71,12 +71,12 @@ export function WrappedPage({ data }: { data: AnkiData }) {
               {formatLongDate(w.busiest.date)}
             </Slide>
             {w.topDeck && deckName && (
-              <Slide tint="var(--color-sun-soft)" kicker={m.topDeck} big={deckName}>
+              <Slide tint="var(--color-sun-soft)" kicker={m.topDeck} big={deckName} wordy>
                 {m.topDeckSub(w.topDeck.reviews)}
               </Slide>
             )}
             {tough && (
-              <Slide tint="var(--color-good-soft)" kicker={m.tough} big={tough.front || m.toughNoText}>
+              <Slide tint="var(--color-good-soft)" kicker={m.tough} big={tough.front || m.toughNoText} wordy>
                 {m.toughSub}
               </Slide>
             )}

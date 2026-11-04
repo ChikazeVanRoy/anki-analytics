@@ -17,23 +17,23 @@ export function Mascot({ mood, size = 72 }: { mood: MascotMood; size?: number })
       {/* Face */}
       {closed ? (
         <>
-          <path d="M27 58 q5 -6 10 0" stroke="#2a241f" strokeWidth={3} strokeLinecap="round" fill="none" />
-          <path d="M43 58 q5 -6 10 0" stroke="#2a241f" strokeWidth={3} strokeLinecap="round" fill="none" />
+          <path d="M27 58 q5 -6 10 0" stroke="var(--color-sprig-ink)" strokeWidth={3} strokeLinecap="round" fill="none" />
+          <path d="M43 58 q5 -6 10 0" stroke="var(--color-sprig-ink)" strokeWidth={3} strokeLinecap="round" fill="none" />
         </>
       ) : (
         <>
-          <circle cx={32} cy={57} r={4} fill="#2a241f" />
-          <circle cx={48} cy={57} r={4} fill="#2a241f" />
-          <circle cx={33.4} cy={55.6} r={1.3} fill="#fff" />
-          <circle cx={49.4} cy={55.6} r={1.3} fill="#fff" />
+          <circle cx={32} cy={57} r={4} fill="var(--color-sprig-ink)" />
+          <circle cx={48} cy={57} r={4} fill="var(--color-sprig-ink)" />
+          <circle cx={33.4} cy={55.6} r={1.3} fill="var(--color-sprig-shine)" />
+          <circle cx={49.4} cy={55.6} r={1.3} fill="var(--color-sprig-shine)" />
         </>
       )}
-      {mood === 'cheer' && <path d="M31 65 q9 11 18 0 z" fill="#2a241f" />}
-      {mood === 'happy' && <path d="M32 66 q8 7 16 0" stroke="#2a241f" strokeWidth={3} strokeLinecap="round" fill="none" />}
-      {mood === 'curious' && <circle cx={40} cy={67} r={3} fill="#2a241f" />}
+      {mood === 'cheer' && <path d="M31 65 q9 11 18 0 z" fill="var(--color-sprig-ink)" />}
+      {mood === 'happy' && <path d="M32 66 q8 7 16 0" stroke="var(--color-sprig-ink)" strokeWidth={3} strokeLinecap="round" fill="none" />}
+      {mood === 'curious' && <circle cx={40} cy={67} r={3} fill="var(--color-sprig-ink)" />}
       {mood === 'sleepy' && (
         <>
-          <path d="M34 67 h12" stroke="#2a241f" strokeWidth={3} strokeLinecap="round" />
+          <path d="M34 67 h12" stroke="var(--color-sprig-ink)" strokeWidth={3} strokeLinecap="round" />
           <text x={62} y={28} fontSize={14} fontWeight={900} fill="var(--color-brand-strong)">
             z
           </text>

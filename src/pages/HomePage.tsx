@@ -53,11 +53,14 @@ export function HomePage({ data }: { data: AnkiData }) {
   const stale = data.source === 'anki' && copiedOnEarlierDay(data, today)
   const copyKey = staleCopyKey(data, today)
   const asOf = useMemo(() => (copyKey ? parseDateKey(copyKey) : today), [copyKey, today])
+  const asOfKey = toDateKey(asOf)
+  const living = useMemo(() => (data.fsrs ? cardsNow(data.fsrs, asOfKey) : null), [data, asOfKey])
   const week7 = useMemo(() => summarize(data, 7, asOf), [data, asOf])
   const month = useMemo(() => summarize(data, 30, asOf), [data, asOf])
   const week = useMemo(() => weekComparison(byDate, asOf), [byDate, asOf])
-  const best = useMemo(() => longestWithRests(byDate), [byDate])
   const streak = useMemo(() => streakWithRests(byDate, asOf), [byDate, asOf])
+  // The two walks can place rest days differently, and today's streak must never beat the record
+  const best = useMemo(() => Math.max(longestWithRests(byDate), streak.days), [byDate, streak])
   const recent = useMemo(() => recentDays(byDate, asOf, 14), [byDate, asOf])
   const tracks = useMemo(() => milestones(data, byDate), [data, byDate])
   const insight = useMemo(() => homeInsight(data, byDate, asOf), [data, byDate, asOf])
@@ -81,11 +84,9 @@ export function HomePage({ data }: { data: AnkiData }) {
   const sample = data.source === 'mock'
   const shownDecks = data.decks.filter((d) => d.totalCards + d.suspendedCards > 0)
   const plantsPer = plantUnit(shownDecks, 60)
-  const asOfKey = toDateKey(asOf)
   const badges = useMemo(() => earnedBadges(data, byDate), [data, byDate])
   const paceNew = plan?.status === 'ready' ? (limitRange(plan.max, plan.altMax)?.[0] || plan.max?.value || null) : null
-  const quests = useMemo(() => dailyQuests(data, today, due, paceNew), [data, today, due, paceNew])
-  const living = useMemo(() => (data.fsrs ? cardsNow(data.fsrs, asOfKey) : null), [data, asOfKey])
+  const quests = useMemo(() => dailyQuests(data, living ?? [], due, paceNew), [data, living, due, paceNew])
 
   return (
     <div className="space-y-6">
@@ -106,6 +107,7 @@ export function HomePage({ data }: { data: AnkiData }) {
         }
         due={due}
         plan={plan}
+        next={due ? nextStep(due, paceNew) : null}
         streak={streak.days}
         rests={streak.rests}
         mood={mascotMood(status, !!due && !due.stale && due.cards + due.newCards === 0)}
@@ -141,7 +143,7 @@ export function HomePage({ data }: { data: AnkiData }) {
         </section>
       )}
 
-      {shownDecks.length > 0 && <JourneyMap decks={shownDecks} />}
+      {shownDecks.length > 0 && <JourneyMap decks={shownDecks} sample={sample} />}
 
       <section aria-labelledby="home-milestones" className="animate-rise rounded-3xl border border-line bg-surface p-5 shadow-card sm:p-6">
         <SectionHeading id="home-milestones" title={m.milestones.title} question={m.milestones.question} />
@@ -153,7 +155,7 @@ export function HomePage({ data }: { data: AnkiData }) {
         <p className="mt-3 text-xs text-muted">{m.milestones.note}</p>
       </section>
 
-      <Badges earned={badges} />
+      <Badges earned={badges} sample={sample} />
 
       <a href={routeHref('wrapped')} className="btn-3d">
         {messages.wrapped.link} <ArrowRightIcon size={18} />
@@ -239,6 +241,7 @@ function Hero({
   status,
   due,
   plan,
+  next,
   streak,
   rests,
   mood,
@@ -251,6 +254,7 @@ function Hero({
   status: string
   due: TodayWork | null
   plan: TodayPlan | null
+  next: NextStep | null
   streak: number
   rests: number
   mood: MascotMood
@@ -292,7 +296,7 @@ function Hero({
           </div>
         </div>
       </div>
-      {due && <NextUp step={nextStep(due)} />}
+      {next && <NextUp step={next} />}
       {due && <TodayPlanRow due={due} plan={plan} />}
     </section>
   )
@@ -455,7 +459,8 @@ function RecentActivity({
         onKeyDown={onBarKey}
         onFocus={() => setPicked((p) => p ?? rows.length - 1)}
         onBlur={() => setPicked(null)}
-        onMouseLeave={() => setPicked(null)}
+        // Real pointers only: a tap stays put, and Home moving under it must not clear the day it picked
+        onPointerLeave={(e) => e.pointerType === 'mouse' && setPicked(null)}
       >
         {rows.map((r, i) => {
           const isToday = endsToday && i === rows.length - 1

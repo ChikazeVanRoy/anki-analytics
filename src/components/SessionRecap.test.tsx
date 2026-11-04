@@ -23,7 +23,7 @@ describe('SessionRecap', () => {
     expect(screen.getByText(m.bloomed(3))).toBeTruthy()
     expect(screen.getByText(messages.home.badges.items.week.title)).toBeTruthy()
     expect(document.activeElement).toBe(screen.getByRole('button', { name: m.close }))
-    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
+    fireEvent(screen.getByRole('dialog'), new Event('cancel', { cancelable: true }))
     fireEvent.click(screen.getByRole('button', { name: m.close }))
     expect(onClose).toHaveBeenCalledTimes(2)
   })
@@ -53,7 +53,7 @@ describe('useSessionRecap', () => {
   })
 
   it('keeps an unread recap across a reload', () => {
-    localStorage.setItem('anki-analytics:last-visit', JSON.stringify({ reviews: 1, seconds: 0, started: 0, proven: 0, streak: 0, badges: [] }))
+    localStorage.setItem('anki-analytics:last-visit', JSON.stringify({ reviews: 1, seconds: 0, started: 0, proven: 0, streak: 0, badges: [], day: '2020-01-01', before: 0 }))
     expect(renderHook(() => useSessionRecap(data(5))).result.current.recap?.reviews).toBe(4)
   })
 

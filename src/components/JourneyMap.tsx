@@ -4,6 +4,7 @@ import { messages } from '../i18n'
 import { formatInt } from '../lib/format'
 import { journey } from '../lib/journey'
 import { Mascot } from './Mascot'
+import { SourceBadge } from './ui'
 
 const m = messages.home.journey
 
@@ -41,8 +42,8 @@ function Road({ deck }: { deck: Deck }) {
         {j.stops.map((s, i) => (
           <span
             key={s.at}
-            className={`absolute grid size-9 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-2 border-surface text-[11px] font-black tabular-nums ${s.reached ? 'text-white' : 'bg-surface-2 text-ink-2'}`}
-            style={{ left: `${points[i].x}%`, top: `${points[i].y}%`, background: s.reached ? color : undefined }}
+            className={`absolute grid size-9 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-[3px] bg-surface text-[11px] font-black text-ink tabular-nums ${s.reached ? '' : 'border-line'}`}
+            style={{ left: `${points[i].x}%`, top: `${points[i].y}%`, borderColor: s.reached ? color : undefined }}
             aria-hidden
           >
             {s.finish ? '🏁' : formatInt(s.at)}
@@ -56,7 +57,7 @@ function Road({ deck }: { deck: Deck }) {
   )
 }
 
-export function JourneyMap({ decks }: { decks: Deck[] }) {
+export function JourneyMap({ decks, sample }: { decks: Deck[]; sample: boolean }) {
   return (
     <section aria-labelledby="home-journey" className="animate-rise">
       <div className="mb-3 flex flex-wrap items-baseline gap-x-3">
@@ -64,6 +65,7 @@ export function JourneyMap({ decks }: { decks: Deck[] }) {
           {m.title}
         </h2>
         <p className="text-sm text-muted">{m.question}</p>
+        {sample && <SourceBadge kind="sample" />}
       </div>
       <div className={`grid gap-4 ${decks.length >= 2 ? 'md:grid-cols-2' : ''}`}>
         {decks.map((d) => (

@@ -18,9 +18,14 @@ export function setSoundOn(on: boolean) {
   }
 }
 
-export function chime() {
-  if (typeof AudioContext === 'undefined') return
+/** False if the browser wouldn't let it play: sound needs a click on the page first. */
+export function chime(): boolean {
+  if (typeof AudioContext === 'undefined') return false
   const audio = new AudioContext()
+  if (audio.state !== 'running') {
+    void audio.close()
+    return false
+  }
   ;[659, 880].forEach((hz, i) => {
     const start = audio.currentTime + i * 0.14
     const tone = audio.createOscillator()
@@ -33,4 +38,6 @@ export function chime() {
     tone.start(start)
     tone.stop(start + 0.35)
   })
+  setTimeout(() => void audio.close(), 1_000)
+  return true
 }

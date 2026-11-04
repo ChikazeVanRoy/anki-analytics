@@ -42,9 +42,12 @@ const plantsFor = (cards: number, unit: number) => (cards > 0 ? Math.max(1, Math
 
 const MATURE_DAYS = 21
 
-/** A card's place in the garden. Needing water comes first: a proven card still needs its next review. */
+/**
+ * A card's place in the garden. Needing water comes first: a proven card still needs its next review. Only cards
+ * Anki will show today droop, as the garden tells you to review them.
+ */
 export function stageOf(c: CardNow): PlantStage {
-  if (c.overdue || c.r < c.desired - RISK_MARGIN) return 'wilt'
+  if (c.overdue || (c.dueToday && c.r < c.desired - RISK_MARGIN)) return 'wilt'
   if (c.proven) return 'flower'
   return c.interval >= MATURE_DAYS ? 'bud' : 'sprout'
 }

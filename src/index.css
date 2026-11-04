@@ -41,6 +41,9 @@
   --color-brand-soft: light-dark(#f0ecff, #2c2546);
   /* The shadow edge of a pressable button */
   --color-brand-deep: light-dark(#4630ad, #6f5cd6);
+  /* Sprig's face: the pot is orange in both themes, so its ink doesn't change */
+  --color-sprig-ink: #2a241f;
+  --color-sprig-shine: #ffffff;
   /* The Home hero. Ink and ink-2 keep 4.5:1 on both ends in both themes */
   --color-hero-from: light-dark(#e7dfff, #3d2c8a);
   --color-hero-to: light-dark(#ffe3cc, #6b2a5e);
