@@ -1,6 +1,7 @@
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { useDeckColor } from '../data/deckColors'
 import type { Deck } from '../data/types'
+import { messages } from '../i18n'
 import { formatBucketTick, formatBucketTitle, formatInt } from '../lib/format'
 import type { Bucket } from '../lib/stats'
 import { chart } from '../lib/theme'
@@ -15,7 +16,7 @@ interface DailyReviewsChartProps {
   period: string
 }
 
-const TITLES: Record<Bucket, string> = { day: 'Daily reviews', week: 'Weekly reviews', month: 'Monthly reviews' }
+const m = messages.activity.daily
 
 export function DailyReviewsChart({ rows, decks, bucket, period }: DailyReviewsChartProps) {
   const deckColor = useDeckColor()
@@ -24,9 +25,9 @@ export function DailyReviewsChart({ rows, decks, bucket, period }: DailyReviewsC
 
   return (
     <Panel
-      title="How much did I review?"
-      eyebrow={TITLES[bucket]}
-      subtitle={`Reviews per ${bucket} by deck, ${period}`}
+      title={m.title}
+      eyebrow={m.eyebrow[bucket]}
+      subtitle={m.subtitle(bucket, period)}
       actions={
         <div className="flex flex-wrap gap-3">
           {decks.map((d) => (
@@ -60,7 +61,7 @@ export function DailyReviewsChart({ rows, decks, bucket, period }: DailyReviewsC
                     value: formatInt(Number(p.value)),
                   }))}
                   footer={{
-                    label: 'Total',
+                    label: m.total,
                     value: formatInt((payload ?? []).reduce((n, p) => n + Number(p.value), 0)),
                   }}
                 />

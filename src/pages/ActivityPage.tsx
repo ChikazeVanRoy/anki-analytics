@@ -86,14 +86,14 @@ export function ActivityPage({ data, range, onRangeChange }: Props) {
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <StatCard
-          label="Reviews per day"
+          label={m.reviewsPerDay}
           value={formatInt(summary.avgPerDay)}
           delta={
             canCompare
               ? changeDelta(avgChange, {
                   tolerance: SAME_RELATIVE,
                   same: m.noChange,
-                  text: (size, up) => `${up ? '▲' : '▼'} ${formatPct(size, 0)}`,
+                  text: (size, up) => m.changePct(formatPct(size, 0), up),
                 })
               : undefined
           }
@@ -109,7 +109,7 @@ export function ActivityPage({ data, range, onRangeChange }: Props) {
                   tolerance: SAME_POINTS,
                   same: m.noChange,
                   lowerIsBetter: true,
-                  text: (size, up) => `${up ? '▲' : '▼'} ${(size * 100).toFixed(1)} pts`,
+                  text: (size, up) => m.changePoints((size * 100).toFixed(1), up),
                 })
               : undefined
           }
@@ -134,9 +134,9 @@ export function ActivityPage({ data, range, onRangeChange }: Props) {
           style={{ animationDelay: '120ms' }}
         />
         <StatCard
-          label="Study time"
+          label={m.studyTime}
           value={formatMinutes(minutes)}
-          hint={`${summary.activeDays} active ${summary.activeDays === 1 ? 'day' : 'days'} · ${formatInt(summary.totalCards)} cards in total`}
+          hint={m.studySub(summary.activeDays, summary.totalCards)}
           style={{ animationDelay: '180ms' }}
         />
       </div>

@@ -3,8 +3,9 @@
 // shown as reached only when the review log or card counts show it.
 
 import type { AnkiData } from '../data/types'
+import { messages } from '../i18n'
 import { ankiDayKey, dayNumber, keyFromDayNumber, toDateKey } from './dates'
-import { formatInt, formatPct, formatRate } from './format'
+import { formatPct, formatRate } from './format'
 import { shiftWithin } from './gradingShift'
 import { deckSummaries, lastNDays, MIN_RATE_SAMPLE, ratio, retentionSplit, type DayTotal } from './stats'
 
@@ -267,8 +268,7 @@ export interface HomeInsight {
   link: 'activity'
 }
 
-const fmt = formatInt
-const pct = formatRate
+const i = messages.home.insight
 
 /**
  * A single sentence from measured data, in priority order: a clear change in weekly volume, the
@@ -279,20 +279,8 @@ export function homeInsight(data: AnkiData, byDate: Map<string, DayTotal>, today
   if (!data.daily.some((s) => s.reviews > 0)) return null
   const week = weekComparison(byDate, today)
   if (week.change !== null && week.lastWeek >= 20) {
-    if (week.change >= 0.15) {
-      return {
-        text: `You reviewed ${formatPct(week.change, 0)} more in the last 7 days than the 7 before (${fmt(week.thisWeek)} vs ${fmt(week.lastWeek)}). Great momentum.`,
-        tone: 'good',
-        link: 'activity',
-      }
-    }
-    if (week.change <= -0.3) {
-      return {
-        text: `A lighter week: ${fmt(week.thisWeek)} reviews vs ${fmt(week.lastWeek)} the week before. Short, regular sessions keep cards fresh.`,
-        tone: 'neutral',
-        link: 'activity',
-      }
-    }
+    if (week.change >= 0.15) return { text: i.busier(formatPct(week.change, 0), week.thisWeek, week.lastWeek), tone: 'good', link: 'activity' }
+    if (week.change <= -0.3) return { text: i.lighter(week.thisWeek, week.lastWeek), tone: 'neutral', link: 'activity' }
   }
 
   // A month that mixes two grading habits can't rank decks, as each deck's rate depends on how much it has of each
@@ -303,22 +291,12 @@ export function homeInsight(data: AnkiData, byDate: Map<string, DayTotal>, today
   )
   if (decks.length >= 2) {
     const best = [...decks].sort((a, b) => b.retention.reviewCards.rate - a.retention.reviewCards.rate)[0]
-    return {
-      text: `Your strongest deck this month is ${best.deck.name}: you remembered ${pct(best.retention.reviewCards.rate)} of ${fmt(best.retention.reviewCards.reviews)} scheduled reviews.`,
-      tone: 'good',
-      link: 'activity',
-    }
+    const { rate, reviews } = best.retention.reviewCards
+    return { text: i.strongest(best.deck.name, formatRate(rate), reviews), tone: 'good', link: 'activity' }
   }
 
   const last30 = lastNDays(30, 0, today)
   const active = last30.filter((d) => (byDate.get(d)?.reviews ?? 0) > 0).length
   const share = ratio(active, 30)
-  return {
-    text:
-      share >= 0.7
-        ? `You studied on ${active} of the last 30 days. That kind of consistency is what makes spaced repetition work.`
-        : `You studied on ${active} of the last 30 days. Even a few minutes on most days keeps reviews from piling up.`,
-    tone: share >= 0.7 ? 'good' : 'neutral',
-    link: 'activity',
-  }
+  return { text: share >= 0.7 ? i.steady(active) : i.sparse(active), tone: share >= 0.7 ? 'good' : 'neutral', link: 'activity' }
 }

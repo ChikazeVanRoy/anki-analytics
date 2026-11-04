@@ -1,13 +1,17 @@
 // English interface text. Another language is added by writing an object of type `Messages`
 // (the compiler then lists every missing string) and selecting it in ./index.ts.
-// Technical copy deep inside the Planner and Advanced sections is still inline; move it here when
-// a second language is added.
+// Technical copy deep inside the Planner and Advanced sections (their components, lib/insights.ts and the
+// bins in lib/fsrsStats.ts) is still inline; move it here when a second language is added.
 
 const plural = (n: number, one: string, many: string) => (n === 1 ? one : many)
 const int = (n: number) => Math.round(n).toLocaleString('en-GB') // this file's locale
 
 export const en = {
   appName: 'Anki Analytics',
+  skipToContent: 'Skip to content',
+  moreInfo: 'More info',
+  about: (topic: string) => `About ${topic}`,
+  weekOf: (date: string) => `Week of ${date}`,
   nav: {
     label: 'Sections',
     home: 'Home',
@@ -279,7 +283,17 @@ export const en = {
       note: 'Grown from Anki’s card counts: a card blooms once its interval reaches 21 days. Suspended cards aren’t planted.',
       noteLiving: 'Grown from your cards’ memory states. A card droops when it’s overdue or at risk, buds at a 21-day interval and opens once you’ve remembered it at that interval. Suspended cards aren’t planted.',
     },
-    insight: { title: 'Insight', basis: 'Based on your review history', basisSample: 'Based on the generated sample data', more: 'See the detail' },
+    insight: {
+      title: 'Insight',
+      basis: 'Based on your review history',
+      basisSample: 'Based on the generated sample data',
+      more: 'See the detail',
+      busier: (change: string, thisWeek: number, lastWeek: number) => `You reviewed ${change} more in the last 7 days than the 7 before (${int(thisWeek)} vs ${int(lastWeek)}). Great momentum.`,
+      lighter: (thisWeek: number, lastWeek: number) => `A lighter week: ${int(thisWeek)} reviews vs ${int(lastWeek)} the week before. Short, regular sessions keep cards fresh.`,
+      strongest: (deck: string, rate: string, reviews: number) => `Your strongest deck this month is ${deck}: you remembered ${rate} of ${int(reviews)} scheduled reviews.`,
+      steady: (active: number) => `You studied on ${active} of the last 30 days. That kind of consistency is what makes spaced repetition work.`,
+      sparse: (active: number) => `You studied on ${active} of the last 30 days. Even a few minutes on most days keeps reviews from piling up.`,
+    },
     milestones: {
       title: 'Milestones',
       question: 'What have I achieved so far?',
@@ -293,6 +307,58 @@ export const en = {
     },
   },
   activity: {
+    ranges: {
+      '7d': { label: '7d', description: 'last 7 days' },
+      '30d': { label: '30d', description: 'last 30 days' },
+      '90d': { label: '90d', description: 'last 90 days' },
+      '1y': { label: '1y', description: 'last year' },
+      all: { label: 'All', description: 'all time' },
+    },
+    rangeLabel: 'Time range',
+    reviewsPerDay: 'Reviews per day',
+    studyTime: 'Study time',
+    studySub: (days: number, cards: number) => `${days} active ${plural(days, 'day', 'days')} · ${int(cards)} cards in total`,
+    changePct: (pct: string, up: boolean) => `${up ? '▲' : '▼'} ${pct}`,
+    changePoints: (points: string, up: boolean) => `${up ? '▲' : '▼'} ${points} pts`,
+    calendar: {
+      title: 'When did I study?',
+      eyebrow: 'Study calendar',
+      summary: (reviews: number, period: string, days: number) => `${int(reviews)} reviews ${period} · ${days} active days`,
+      viewLabel: 'Heatmap period',
+      gridLabel: (period: string) => `Daily reviews ${period}`,
+      less: 'Less',
+      more: 'More',
+      last12: 'Last 12 months',
+      overLastYear: 'over the last year',
+      inYear: (year: number) => `in ${year}`,
+      from: (range: string) => `from ${range}`,
+      weekdays: ['Mon', '', 'Wed', '', 'Fri', '', ''],
+      months: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+      cell: (date: string, reviews: number) => `${date}: ${reviews} reviews`,
+      tip: (reviews: number) => `${int(reviews)} reviews`,
+    },
+    daily: {
+      title: 'How much did I review?',
+      eyebrow: { day: 'Daily reviews', week: 'Weekly reviews', month: 'Monthly reviews' },
+      subtitle: (bucket: string, period: string) => `Reviews per ${bucket} by deck, ${period}`,
+      total: 'Total',
+    },
+    compare: {
+      title: 'How do my decks compare?',
+      eyebrow: 'Decks',
+      subtitle: (period: string) => `Each deck, ${period}. “Remembered” counts scheduled reviews not answered Again; Hard counts as remembered.`,
+      notStarted: 'Not started',
+      learning: 'Learning',
+      reviews: 'Reviews',
+      perDay: 'Per day',
+      studyTime: 'Study time',
+      remembered: 'Remembered',
+      rememberedKnown: 'Remembered, known-well cards',
+      noReviews: 'no reviews yet',
+      ofReviews: (reviews: number) => `of ${int(reviews)}`,
+      forgetTitle: 'Am I forgetting less over time?',
+      forgetSub: (bucket: 'day' | 'week' | 'month') => `Share of answers that were Again · ${bucket === 'day' ? '7-day rolling average' : `per ${bucket}`} · lower is better`,
+    },
     title: 'Activity',
     subtitle: 'What you’ve reviewed, and how it’s going.',
     forgot: 'Forgot (all answers)',
@@ -355,6 +421,7 @@ export const en = {
     replayTotal: (date: string) => `reviews by ${date}`,
   },
   planner: {
+    simFailed: 'The simulation failed.',
     title: 'Planner',
     subtitle: 'Simulations of your real cards, so you can plan a workload you’ll enjoy keeping.',
     subtitleSample: 'Simulates your real cards once your Anki data is connected.',
@@ -446,6 +513,17 @@ export const en = {
     },
   },
   fsrsMissing: {
+    sample: {
+      title: 'Available with your real Anki data',
+      detail: 'These sections use your cards’ FSRS memory states, so they are not shown with sample data. Start the local API (npm run dev) and press Refresh with Anki closed.',
+    },
+    unavailable: 'FSRS data unavailable',
+    unaffected: (error: string) => `${error} The rest of the dashboard is unaffected.`,
+    notSent: 'The API did not send FSRS data. Restart it (npm run dev) and press Refresh.',
+    off: {
+      title: 'FSRS is turned off in Anki',
+      detail: 'Your collection uses Anki’s older SM-2 scheduler, so there are no FSRS memory states to analyse or simulate. Turn on FSRS in Anki (Deck options → Advanced → FSRS), then press Refresh.',
+    },
     planner: 'The Planner needs your real FSRS data',
     advanced: 'Memory details need your real FSRS data',
     back: 'Back to Home',

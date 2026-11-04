@@ -9,14 +9,16 @@ import { ChartTooltip } from './ChartTooltip'
 import { LegendItem, Panel } from './Panel'
 import { Notice } from './ui'
 
+const c = messages.activity.compare
+
 function DeckCard({ summary, sinceChange }: { summary: DeckSummary; sinceChange?: number }) {
   const deckColor = useDeckColor()
   const { deck } = summary
   const color = deckColor(deck.id)
   // New -> young -> mature as one hue at increasing strength (an ordered scale)
   const segments = [
-    { label: 'Not started', value: deck.newCards, opacity: 0.3 },
-    { label: 'Learning', value: deck.youngCards, opacity: 0.65 },
+    { label: c.notStarted, value: deck.newCards, opacity: 0.3 },
+    { label: c.learning, value: deck.youngCards, opacity: 0.65 },
     { label: messages.home.garden.stage.flower, value: deck.matureCards, opacity: 1 },
   ]
 
@@ -26,18 +28,18 @@ function DeckCard({ summary, sinceChange }: { summary: DeckSummary; sinceChange?
         <span className="size-3 rounded-full" style={{ background: color }} />
         <h3 className="font-extrabold text-ink">{deck.name}</h3>
         <span className="ml-auto text-xs text-muted">
-          {formatInt(deck.totalCards)} cards
+          {messages.home.decks.cards(deck.totalCards)}
           {deck.suspendedCards > 0 && ` · ${messages.home.decks.suspended(deck.suspendedCards)}`}
         </span>
       </div>
 
       <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-        <Metric label="Reviews" value={formatInt(summary.reviews)} />
-        <Metric label="Per day" value={formatInt(summary.avgPerDay)} />
+        <Metric label={c.reviews} value={formatInt(summary.reviews)} />
+        <Metric label={c.perDay} value={formatInt(summary.avgPerDay)} />
         <Metric label={messages.activity.forgot} value={formatPct(summary.againRate)} />
-        <Metric label="Study time" value={formatMinutes(summary.minutes)} />
-        <RetentionMetric label="Remembered" {...summary.retention.reviewCards} />
-        <RetentionMetric label="Remembered, known-well cards" minReviews={MIN_MATURE_SAMPLE} {...summary.retention.mature} />
+        <Metric label={c.studyTime} value={formatMinutes(summary.minutes)} />
+        <RetentionMetric label={c.remembered} {...summary.retention.reviewCards} />
+        <RetentionMetric label={c.rememberedKnown} minReviews={MIN_MATURE_SAMPLE} {...summary.retention.mature} />
       </dl>
 
       {sinceChange !== undefined && <p className="mt-2 text-xs font-semibold text-ink-2">{messages.activity.deckShiftRate(formatRate(sinceChange))}</p>}
@@ -70,9 +72,9 @@ function Metric({ label, value, note }: { label: string; value: string; note?: s
 
 /** Pass rate with its sample size, since small samples (or none) are common for mature cards. */
 function RetentionMetric({ label, reviews, rate, minReviews = 1 }: { label: string; reviews: number; rate: number; minReviews?: number }) {
-  if (reviews === 0) return <Metric label={label} value="—" note="no reviews yet" />
+  if (reviews === 0) return <Metric label={label} value="—" note={c.noReviews} />
   if (reviews < minReviews) return <Metric label={label} value="—" note={messages.activity.deckThin(reviews)} />
-  return <Metric label={label} value={formatRate(rate)} note={`of ${formatInt(reviews)}`} />
+  return <Metric label={label} value={formatRate(rate)} note={c.ofReviews(reviews)} />
 }
 
 interface DeckComparisonProps {
@@ -91,7 +93,7 @@ interface DeckComparisonProps {
 export function DeckComparison({ summaries, againRows, decks, bucket, period, shiftDate, sinceChange = {} }: DeckComparisonProps) {
   const deckColor = useDeckColor()
   return (
-    <Panel title="How do my decks compare?" eyebrow="Decks" subtitle={`Each deck, ${period}. “Remembered” counts scheduled reviews not answered Again; Hard counts as remembered.`}>
+    <Panel title={c.title} eyebrow={c.eyebrow} subtitle={c.subtitle(period)}>
       {shiftDate && (
         <div className="mb-4">
           <Notice>{messages.activity.deckShift(formatShortDate(shiftDate))}</Notice>
@@ -106,10 +108,8 @@ export function DeckComparison({ summaries, againRows, decks, bucket, period, sh
       <div className="mt-6">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h3 className="text-base font-extrabold text-ink">Am I forgetting less over time?</h3>
-            <p className="text-xs text-muted">
-              Share of answers that were Again · {bucket === 'day' ? '7-day rolling average' : `per ${bucket}`} · lower is better
-            </p>
+            <h3 className="text-base font-extrabold text-ink">{c.forgetTitle}</h3>
+            <p className="text-xs text-muted">{c.forgetSub(bucket)}</p>
           </div>
           <div className="flex flex-wrap gap-3">
             {decks.map((d) => (

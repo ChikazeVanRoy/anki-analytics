@@ -1,4 +1,4 @@
-import { LOCALE } from '../i18n'
+import { LOCALE, messages } from '../i18n'
 import { parseDateKey } from './dates'
 import type { Bucket } from './stats'
 
@@ -54,7 +54,7 @@ export function formatBucketTitle(key: string, bucket: Bucket) {
   if (bucket === 'day') return formatLongDate(key)
   const d = parseDateKey(key)
   if (bucket === 'month') return d.toLocaleDateString(LOCALE, { month: 'long', year: 'numeric' })
-  return `Week of ${d.toLocaleDateString(LOCALE, { day: 'numeric', month: 'short', year: 'numeric' })}`
+  return messages.weekOf(d.toLocaleDateString(LOCALE, { day: 'numeric', month: 'short', year: 'numeric' }))
 }
 
 export function formatMinutes(min: number) {

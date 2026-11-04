@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { messages } from '../i18n'
 import { InfoTip } from './ui'
 
 interface Delta {
@@ -34,7 +35,7 @@ export function StatCard({ label, value, hint, visual, delta, tip, icon, tint, c
         )}
         <p className="text-sm font-bold text-muted">
           {label}
-          {tip && <InfoTip label={`About ${label}`}>{tip}</InfoTip>}
+          {tip && <InfoTip label={messages.about(label)}>{tip}</InfoTip>}
         </p>
       </div>
       <p className="mt-3 text-3xl font-extrabold tracking-tight text-ink tabular-nums">{value}</p>

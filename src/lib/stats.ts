@@ -2,16 +2,19 @@
 // No React here, so they are easy to test and reuse.
 
 import type { AnkiData, DailyDeckStat, Deck } from '../data/types'
+import { messages } from '../i18n'
 import { ankiDate, parseDateKey, toDateKey } from './dates'
 
 export { parseDateKey, toDateKey } from './dates'
 
+const ranges = messages.activity.ranges
+
 export const RANGE_OPTIONS = [
-  { key: '7d', label: '7d', description: 'last 7 days', days: 7 },
-  { key: '30d', label: '30d', description: 'last 30 days', days: 30 },
-  { key: '90d', label: '90d', description: 'last 90 days', days: 90 },
-  { key: '1y', label: '1y', description: 'last year', days: 365 },
-  { key: 'all', label: 'All', description: 'all time', days: null },
+  { key: '7d', ...ranges['7d'], days: 7 },
+  { key: '30d', ...ranges['30d'], days: 30 },
+  { key: '90d', ...ranges['90d'], days: 90 },
+  { key: '1y', ...ranges['1y'], days: 365 },
+  { key: 'all', ...ranges.all, days: null },
 ] as const
 export type RangeKey = (typeof RANGE_OPTIONS)[number]['key']
 

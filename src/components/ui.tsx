@@ -11,7 +11,7 @@ import { ChevronIcon, InfoIcon } from './icons'
  * The tip lives in a portal with fixed coordinates, so a card's `overflow-hidden` or transform can't clip it,
  * and it is kept inside the viewport at any width.
  */
-export function InfoTip({ children, label = 'More info' }: { children: ReactNode; label?: string }) {
+export function InfoTip({ children, label = messages.moreInfo }: { children: ReactNode; label?: string }) {
   const [hovered, setHovered] = useState(false)
   const [focused, setFocused] = useState(false)
   const [dismissed, setDismissed] = useState(false)
@@ -172,7 +172,7 @@ export function Slider({ label, value, min, max, step = 1, format = String, onCh
       <div className="flex items-baseline justify-between gap-2 text-sm font-semibold text-ink-2">
         <span>
           <label htmlFor={id}>{label}</label>
-          {hint && <InfoTip label={`About ${label}`}>{hint}</InfoTip>}
+          {hint && <InfoTip label={messages.about(label)}>{hint}</InfoTip>}
         </span>
         <span className={`font-extrabold text-ink tabular-nums ${size === 'lg' ? 'text-2xl' : 'text-base'}`}>{format(value)}</span>
       </div>
@@ -240,7 +240,7 @@ export function Metric({
     <div className="rounded-2xl bg-surface-2 p-4">
       <p className="text-xs font-bold text-muted">
         {label}
-        {tip && <InfoTip label={`About ${label}`}>{tip}</InfoTip>}
+        {tip && <InfoTip label={messages.about(label)}>{tip}</InfoTip>}
       </p>
       <p
         className={`mt-1 text-2xl font-extrabold tracking-tight tabular-nums ${

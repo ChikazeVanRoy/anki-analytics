@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { messages } from '../i18n'
 import { SCENARIO_NEW_PER_DAY } from '../lib/plan'
 import { retentionScenarioValues, type SimDeck, type SimSettings } from '../lib/simulator'
 import type { SimRequest, SimResponse } from '../lib/simulator.worker'
@@ -43,7 +44,7 @@ export function useSimulation(decks: SimDeck[], settings: SimSettings, enabled =
       const id = Date.now()
       worker.onerror = (e) => {
         e.preventDefault()
-        setError(e.message || 'The simulation failed.')
+        setError(e.message || messages.planner.simFailed)
         setRunning(false)
         worker?.terminate()
       }
