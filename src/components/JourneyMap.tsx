@@ -58,11 +58,11 @@ function Road({ deck, finish }: { deck: Deck; finish: DeckFinish | null }) {
         {j.stops.map((s, i) => (
           <span
             key={s.at}
-            className={`absolute grid size-9 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-[3px] bg-surface text-[11px] font-black text-ink tabular-nums ${s.reached ? '' : 'border-line'}`}
+            className={`absolute grid h-9 min-w-9 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border-[3px] bg-surface px-1 text-[11px] font-black text-ink tabular-nums ${s.reached ? '' : 'border-line'}`}
             style={{ left: `${points[i].x}%`, top: `${points[i].y}%`, borderColor: s.reached ? color : undefined }}
             aria-hidden
           >
-            {s.finish ? '🏁' : formatInt(s.at)}
+            {formatInt(s.at)}
           </span>
         ))}
         <span className="absolute z-10 -translate-x-1/2 -translate-y-[150%]" style={{ left: `${here.x}%`, top: `${here.y}%` }} aria-hidden>

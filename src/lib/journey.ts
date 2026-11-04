@@ -10,7 +10,6 @@ export interface JourneyStop {
   at: number // cards started when you reach it
   share: number // 0-1 along the whole deck
   reached: boolean
-  finish: boolean
 }
 
 export interface Journey {
@@ -35,9 +34,8 @@ export function journey(deck: Deck): Journey {
     at,
     share: total > 0 ? at / total : 0,
     reached: started >= at,
-    finish: at === total,
   }))
-  return { started, total, toGo: Math.max(0, total - started), progress: total > 0 ? Math.min(1, started / total) : 0, stops: stops.length ? stops : [{ at: 0, share: 0, reached: true, finish: false }] }
+  return { started, total, toGo: Math.max(0, total - started), progress: total > 0 ? Math.min(1, started / total) : 0, stops: stops.length ? stops : [{ at: 0, share: 0, reached: true }] }
 }
 
 /** The progress to print: rounding must not call an unfinished deck 100%, nor a begun one 0%. */

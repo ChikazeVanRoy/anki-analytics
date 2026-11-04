@@ -18,6 +18,11 @@ describe('JourneyMap', () => {
     expect(screen.getByRole('img').getAttribute('aria-label')).toBe(m.label('Language', 40, 100, 60))
   })
 
+  it('numbers every stop, the last one with the size of the deck', () => {
+    show(deck(40, 7329))
+    expect(screen.getByRole('img').textContent).toBe('02,5005,0007,329')
+  })
+
   it('tells a finished deck from an empty one', () => {
     show(deck(100, 100))
     expect(screen.getByText(m.finished)).toBeTruthy()

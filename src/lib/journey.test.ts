@@ -9,7 +9,7 @@ describe('journey', () => {
     const j = journey(deck(347, 7329))
     expect(j.stops.map((s) => s.at)).toEqual([0, 2500, 5000, 7329])
     expect(j.stops.map((s) => s.reached)).toEqual([true, false, false, false])
-    expect(j.stops.at(-1)).toMatchObject({ share: 1, finish: true })
+    expect(j.stops.at(-1)).toMatchObject({ at: 7329, share: 1 })
     expect(j).toMatchObject({ started: 347, total: 7329, toGo: 6982 })
     expect(j.progress).toBeCloseTo(347 / 7329)
   })
@@ -34,7 +34,7 @@ describe('journey', () => {
   it('copes with an empty deck', () => {
     const j = journey(deck(0, 0))
     expect(j).toMatchObject({ toGo: 0, progress: 0 })
-    expect(j.stops).toEqual([{ at: 0, share: 0, reached: true, finish: false }])
+    expect(j.stops).toEqual([{ at: 0, share: 0, reached: true }])
   })
 
   it('never prints 100% with cards to go, or 0% once begun', () => {
