@@ -749,7 +749,7 @@ function PacePicker({
               {preset ? (
                 <>
                   <span className="mt-0.5 block text-sm font-bold text-ink tabular-nums">{m.newCards(preset.newPerDay)}</span>
-                  <span className="block text-xs text-muted">{m.fits(preset.minutes)}</span>
+                  <span className="block text-xs text-muted">{preset.fits ? m.fits(preset.minutes) : m.over(preset.minutes)}</span>
                 </>
               ) : (
                 <span className="skeleton mx-auto mt-1.5 block h-7 w-14" aria-hidden />

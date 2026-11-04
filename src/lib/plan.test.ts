@@ -30,14 +30,14 @@ describe('planSettings', () => {
 describe('planPresets', () => {
   it('fits each preset to its share of the budget', () => {
     expect(planPresets(sweep, 30, 60)).toEqual([
-      { key: 'relaxed', minutes: 18, newPerDay: 5 },
-      { key: 'steady', minutes: 30, newPerDay: 20 },
-      { key: 'push', minutes: 45, newPerDay: 30 },
+      { key: 'relaxed', minutes: 18, newPerDay: 5, fits: true },
+      { key: 'steady', minutes: 30, newPerDay: 20, fits: true },
+      { key: 'push', minutes: 45, newPerDay: 30, fits: true },
     ])
   })
 
   it('gives no new cards when existing reviews already exceed a share of the budget', () => {
-    expect(planPresets(sweep, 10, 60)[0].newPerDay).toBe(0)
+    expect(planPresets(sweep, 10, 60)[0]).toMatchObject({ newPerDay: 0, fits: false })
   })
 
   it('never picks a scenario that leaves a backlog', () => {

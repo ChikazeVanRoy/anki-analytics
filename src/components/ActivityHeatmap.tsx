@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { messages } from '../i18n'
 import { formatInt, formatLongDate, formatShortDate } from '../lib/format'
-import { buildWeeks, level, replayStarts, revealedAt, runningTotals, thresholds, weeksThatFit, weekWindow, type HeatCell, type HeatmapView } from '../lib/heatmap'
+import { buildWeeks, lastWeekPage, level, replayStarts, revealedAt, runningTotals, thresholds, weeksThatFit, weekWindow, type HeatCell, type HeatmapView } from '../lib/heatmap'
 import { prefersReducedMotion } from '../lib/motion'
 import type { DayTotal } from '../lib/stats'
 import { heatmapLevels } from '../lib/theme'
@@ -87,7 +87,8 @@ export function ActivityHeatmap({ byDate, today, years }: ActivityHeatmapProps) 
   }
   const turnPage = (by: number) => {
     setShown(null)
-    setPage((p) => p + by)
+    // A wider window has fewer pages, so a page kept from before can be past the end
+    setPage(Math.min(page, lastWeekPage(allWeeks.length, capacity)) + by)
   }
   const replayDay = playing && shown > 0 ? cells[shown - 1] : null
 

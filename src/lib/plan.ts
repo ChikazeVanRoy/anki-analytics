@@ -40,14 +40,17 @@ export type PlanPresetKey = (typeof PLAN_PRESETS)[number]['key']
 export interface PlanPreset {
   key: PlanPresetKey
   newPerDay: number
-  /** The minutes per study day this preset fits within. */
+  /** The minutes per study day this preset aims for. */
   minutes: number
+  /** False when existing reviews alone take longer, so even no new cards won't fit. */
+  fits: boolean
 }
 
 /** Each preset is the most new cards a day whose heaviest month fits a share of the time budget. */
 export function planPresets(sweep: SweepPoint[], budgetMinutes: number, secondsPerReview: number): PlanPreset[] {
   return PLAN_PRESETS.map(({ key, budgetShare }) => {
     const minutes = Math.round(budgetMinutes * budgetShare)
-    return { key, minutes, newPerDay: maxSustainableNewPerDay(sweep, minutes, secondsPerReview)?.value ?? 0 }
+    const max = maxSustainableNewPerDay(sweep, minutes, secondsPerReview)
+    return { key, minutes, newPerDay: max?.value ?? 0, fits: max !== null }
   })
 }

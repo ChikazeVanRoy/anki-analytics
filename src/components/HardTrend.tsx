@@ -58,7 +58,7 @@ export function HardTrend({ rows, share, bucket, period, sample }: HardTrendProp
                     <ChartTooltip
                       active={active && row?.share != null}
                       title={typeof label === 'string' ? formatBucketTitle(label, bucket) : ''}
-                      rows={row?.share != null ? [{ color: HARD, label: m.hardLabel, value: `${formatPct(row.share)} of ${row.reviews}` }] : []}
+                      rows={row?.share != null ? [{ color: HARD, label: m.hardLabel, value: m.hardValue(formatPct(row.share), row.reviews) }] : []}
                     />
                   )
                 }}

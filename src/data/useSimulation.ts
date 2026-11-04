@@ -15,7 +15,9 @@ type Scenarios = Extract<SimResponse, { kind: 'scenarios' }>
  */
 export function useSimulation(decks: SimDeck[], settings: SimSettings, enabled = true) {
   const [main, setMain] = useState<Main | null>(null)
-  const [mainKey, setMainKey] = useState<string | null>(null)
+  // What the results above were computed from, so old results can't pass for current ones
+  const [mainFor, setMainFor] = useState<{ key: string; decks: SimDeck[] } | null>(null)
+  const [scenariosFor, setScenariosFor] = useState<{ key: string; decks: SimDeck[] } | null>(null)
   const [scenarios, setScenarios] = useState<Scenarios | null>(null)
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -45,9 +47,10 @@ export function useSimulation(decks: SimDeck[], settings: SimSettings, enabled =
         if (e.data.id !== id) return
         if (e.data.kind === 'main') {
           setMain(e.data)
-          setMainKey(key)
+          setMainFor({ key, decks })
         } else {
           setScenarios(e.data)
+          setScenariosFor({ key, decks })
           setRunning(false)
           worker?.terminate()
         }
@@ -69,6 +72,15 @@ export function useSimulation(decks: SimDeck[], settings: SimSettings, enabled =
   }, [decks, key, unavailable, enabled])
 
   // A run cancelled because the selection became empty never reports back, so don't keep showing "updating"
-  // `settled`: `main` answers the current settings, not the ones before them
-  return { main, scenarios, running: running && !unavailable, settled: mainKey === key, error, unavailable }
+  const current = (run: typeof mainFor) => run?.key === key && run.decks === decks
+  // `settled`: `main` answers these settings and cards, not earlier ones. `scenariosSettled`: likewise for `scenarios`
+  return {
+    main,
+    scenarios,
+    running: running && !unavailable,
+    settled: current(mainFor),
+    scenariosSettled: current(scenariosFor),
+    error,
+    unavailable,
+  }
 }

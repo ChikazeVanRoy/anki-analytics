@@ -9,14 +9,15 @@ export const MIN_NEW_CARDS = 20
 export const MIN_PACE_DAYS = 14
 
 export type DeckFinish =
-  | { kind: 'done' } // no new cards left to start
+  | { kind: 'done' } // no new cards left to start (suspended ones can't be started)
   | { kind: 'thin' } // too little recent history to project from
   | { kind: 'date'; date: string; perDay: number; remaining: number; introduced: number; days: number }
 
 export function deckFinish(data: AnkiData, deckId: string, today: Date): DeckFinish | null {
   const fsrs = data.fsrs?.enabled ? data.fsrs : null
   if (!fsrs) return null
-  const remaining = fsrs.newCards[deckId] ?? 0
+  const remaining = fsrs.newCards[deckId]
+  if (remaining === undefined) return null
   if (remaining === 0) return { kind: 'done' }
 
   const introduced = fsrs.behaviour.find((b) => b.deckId === deckId)?.newCardsIntroduced ?? 0

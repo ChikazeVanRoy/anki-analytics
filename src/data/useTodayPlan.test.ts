@@ -72,6 +72,19 @@ describe('useTodayPlan', () => {
     expect(second.result.current).toMatchObject({ status: 'ready' })
   })
 
+  it('simulates again after a refresh, and never reuses the old copy’s answer', async () => {
+    const before = { ...realShapedData(), generatedAt: new Date(Date.now() + 3).toISOString() }
+    const hook = renderHook(({ data }) => useTodayPlan(data, today), { initialProps: { data: before } })
+    await act(() => vi.advanceTimersByTimeAsync(300))
+    answer()
+    expect(hook.result.current).toMatchObject({ status: 'ready' })
+    const created = FakeWorker.created
+    hook.rerender({ data: { ...realShapedData(), generatedAt: new Date(Date.now() + 4).toISOString() } })
+    expect(hook.result.current).toEqual({ status: 'pending' })
+    await act(() => vi.advanceTimersByTimeAsync(300))
+    expect(FakeWorker.created).toBe(created + 1)
+  })
+
   it('gives up quietly if the simulation fails', async () => {
     const data = { ...realShapedData(), generatedAt: new Date(Date.now() + 2).toISOString() }
     const hook = renderHook(() => useTodayPlan(data, today))

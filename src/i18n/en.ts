@@ -149,7 +149,7 @@ export const en = {
       known: 'Known well',
       knownTip: 'Cards with an interval of 21 days or more (Anki calls these “mature”).',
       finish: (perDay: string, month: string) => `At about ${perDay} new cards a day, you’d start the last card around ${month}.`,
-      finishDone: 'Every card has been started.',
+      finishDone: 'No new cards left to start.',
       finishThin: 'Too few new cards lately to project a finish.',
       finishTipLabel: 'About this projection',
       finishTip: (introduced: number, days: number, remaining: number) =>
@@ -191,6 +191,7 @@ export const en = {
     hardTitle: 'Is my use of Hard changing?',
     hardEyebrow: 'Grading habits',
     hardLabel: 'Answered Hard',
+    hardValue: (share: string, reviews: number) => `${share} of ${int(reviews)}`,
     hardSub: (share: string, period: string, basis: string) =>
       `${share} of scheduled reviews were Hard, ${period}. The line shows a ${basis}. Hard counts as remembered, so pressing it after forgetting lifts Remembered.`,
     hardRolling: '7-day rolling average',
@@ -219,6 +220,7 @@ export const en = {
       push: 'Push',
       newCards: (n: number) => `≈ ${int(n)} new`,
       fits: (minutes: number) => `fits ${int(minutes)} min`,
+      over: (minutes: number) => `still over ${int(minutes)} min`,
       custom: (n: number) => `Custom: ${int(n)} new ${plural(n, 'card', 'cards')} a day`,
       tip: 'Each pace is the most new cards a day whose heaviest month in a simulated year fits a share of your time budget: 60% for Relaxed, all of it for Steady, 150% for Push. A projection, and nothing changes in Anki.',
     },

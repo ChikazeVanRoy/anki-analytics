@@ -177,7 +177,8 @@ export function fsrsVerdict(fsrs: FsrsData): FsrsVerdict {
   const { reviews, actual, predicted } = retentionComparison(fsrs.calibration, 'all')
   const gap = actual - predicted
   const kind = reviews < VERDICT_MIN_REVIEWS ? 'thin' : gap >= VERDICT_GAP ? 'under' : gap <= -VERDICT_GAP ? 'over' : 'fits'
-  return { kind, actual, predicted, reviews, lapses: Math.round(reviews * (1 - actual)), params: paramsSourceOf(fsrs) }
+  const lapses = fsrs.calibration.reduce((n, p) => n + p.reviews - p.passed, 0)
+  return { kind, actual, predicted, reviews, lapses, params: paramsSourceOf(fsrs) }
 }
 
 /** Monthly actual vs predicted retention, all decks combined. */

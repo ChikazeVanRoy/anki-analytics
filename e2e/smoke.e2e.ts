@@ -14,8 +14,11 @@ function watchErrors(page: Page) {
   return errors
 }
 
-const useRealShapedData = (page: Page) =>
-  page.route('**/api/stats', (route) => route.fulfill({ json: realShapedData() }))
+async function useRealShapedData(page: Page) {
+  await page.route('**/api/stats', (route) => route.fulfill({ json: realShapedData() }))
+  // Answered here so it never reaches a real API running on this machine
+  await page.route('**/api/status', (route) => route.fulfill({ json: { ankiRunning: true, updateAvailable: false, sourceModified: null } }))
+}
 const useNoApi = (page: Page) => page.route('**/api/**', (route) => route.abort())
 
 const expectNoSidewaysScroll = (page: Page) =>

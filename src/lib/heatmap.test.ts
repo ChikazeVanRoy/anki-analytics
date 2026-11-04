@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildWeeks, level, replayStarts, revealedAt, runningTotals, thresholds, weeksThatFit, weekWindow } from './heatmap'
+import { buildWeeks, level, replayStarts, revealedAt, runningTotals, lastWeekPage, thresholds, weeksThatFit, weekWindow } from './heatmap'
 
 const reviews = new Map([['2026-03-15', { reviews: 7 }]])
 const today = new Date(2026, 2, 15, 12) // Sunday
@@ -18,6 +18,14 @@ describe('weekWindow', () => {
   const weeks = Array.from({ length: 53 }, (_, i) => i)
   it('shows everything when it all fits', () => {
     expect(weekWindow(weeks, 60, 0)).toEqual({ weeks, older: false, newer: false })
+  })
+  it('shows everything before the width is known', () => {
+    expect(weekWindow(weeks, Infinity, 0)).toEqual({ weeks, older: false, newer: false })
+  })
+  it('knows the oldest page', () => {
+    expect(lastWeekPage(53, 18)).toBe(2)
+    expect(lastWeekPage(36, 18)).toBe(1)
+    expect(lastWeekPage(10, 18)).toBe(0)
   })
   it('starts on the newest weeks', () => {
     const w = weekWindow(weeks, 18, 0)

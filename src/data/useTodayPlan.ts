@@ -29,14 +29,14 @@ export function useTodayPlan(data: AnkiData, today: Date): TodayPlan | null {
   const settings = { ...planSettings(decks.map((d) => d.deckId), measured.studyDaysPerWeek, (today.getDay() + 6) % 7), runs: 8 }
   const key = `${data.generatedAt}|${budget}|${seconds}|${JSON.stringify(settings)}`
   const known = solved.get(key)
-  const { scenarios, error, unavailable } = useSimulation(decks, settings, !known)
+  const { scenarios, scenariosSettled, error, unavailable } = useSimulation(decks, settings, !known)
 
   const fresh = useMemo(
     () =>
-      scenarios?.newPerDay
+      scenariosSettled && scenarios?.newPerDay
         ? ({ status: 'ready', budget, max: maxSustainableNewPerDay(standardSweep(scenarios.newPerDay), budget, seconds) } as const)
         : null,
-    [scenarios, budget, seconds],
+    [scenarios, scenariosSettled, budget, seconds],
   )
   useEffect(() => {
     if (fresh) solved.set(key, fresh)

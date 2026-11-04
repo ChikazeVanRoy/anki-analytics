@@ -51,7 +51,10 @@ describe('deckFinish', () => {
   it('won’t project from too few cards or days', () => {
     expect(deckFinish(data('2026-08-07', 19, 100), 'language', TODAY)).toEqual({ kind: 'thin' })
     expect(deckFinish(data('2026-10-25', 180, 100), 'language', TODAY)).toEqual({ kind: 'thin' })
-    expect(deckFinish(data('2026-08-07', 180, 100), 'science', TODAY)).toMatchObject({ kind: 'done' })
+  })
+
+  it('says nothing about a deck it has no new-card count for', () => {
+    expect(deckFinish(data('2026-08-07', 180, 100), 'science', TODAY)).toBeNull()
   })
 
   it('shows nothing without real FSRS data', () => {

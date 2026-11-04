@@ -54,10 +54,14 @@ export const weeksThatFit = (width: number, step: number, gap: number, labels: n
 
 /** One screenful of weeks. Page 0 is the newest; each page goes one screenful further back. */
 export function weekWindow<T>(weeks: T[], capacity: number, page: number) {
+  if (capacity >= weeks.length) return { weeks, older: false, newer: false }
   const end = Math.max(Math.min(capacity, weeks.length), weeks.length - page * capacity)
   const start = Math.max(0, end - capacity)
   return { weeks: weeks.slice(start, end), older: start > 0, newer: end < weeks.length }
 }
+
+/** The oldest page of `weeks` at this capacity. */
+export const lastWeekPage = (weeks: number, capacity: number) => Math.max(0, Math.ceil(weeks / capacity) - 1)
 
 /** Quartile thresholds over active days, so the colour scale adapts to your own volume. */
 export function thresholds(values: number[]): [number, number, number] {
