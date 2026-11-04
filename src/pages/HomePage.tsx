@@ -1,6 +1,6 @@
 import { useMemo, useState, type KeyboardEvent, type ReactNode } from 'react'
-import { ActivityIcon, AdvancedIcon, ArrowRightIcon, BrainIcon, CheckIcon, LayersIcon, PlannerIcon, SparkleIcon, TrophyIcon } from '../components/icons'
-import { MemoryGarden } from '../components/MemoryGarden'
+import { ActivityIcon, ArrowRightIcon, BrainIcon, CheckIcon, LayersIcon, SparkleIcon, TrophyIcon } from '../components/icons'
+import { GardenLegend, GardenPlot } from '../components/MemoryGarden'
 import { StatCard } from '../components/StatCard'
 import { CountUp, InfoTip, ProgressBar, SourceBadge } from '../components/ui'
 import { useWeeklyGoal } from '../app/useWeeklyGoal'
@@ -9,6 +9,7 @@ import { useTodayPlan, type TodayPlan } from '../data/useTodayPlan'
 import type { AnkiData } from '../data/types'
 import { LOCALE, messages } from '../i18n'
 import { parseDateKey, toDateKey } from '../lib/dates'
+import { deckFinish, type DeckFinish } from '../lib/deckPace'
 import { changeDelta, formatCopiedAt, formatInt, formatPct, formatRate, SAME_RELATIVE } from '../lib/format'
 import {
   dayStatus,
@@ -23,6 +24,7 @@ import {
   type MilestoneTrack,
   type WeekGoal,
 } from '../lib/progress'
+import { gardenBed, plantUnit, type GardenBed } from '../lib/garden'
 import { measuredDefaults } from '../lib/measured'
 import { routeHref, type Route } from '../lib/route'
 import { ankiToday, deckSummaries, retentionSplit, summarize, totalsByDate, type DeckSummary } from '../lib/stats'
@@ -56,6 +58,7 @@ export function HomePage({ data }: { data: AnkiData }) {
   const fsrsOn = !!data.fsrs?.enabled
   const sample = data.source === 'mock'
   const shownDecks = data.decks.filter((d) => d.totalCards + d.suspendedCards > 0)
+  const plantsPer = plantUnit(shownDecks, 60)
 
   return (
     <div className="space-y-6">
@@ -142,8 +145,6 @@ export function HomePage({ data }: { data: AnkiData }) {
         />
       </div>
 
-      {shownDecks.length > 0 && <MemoryGarden decks={shownDecks} sample={sample} />}
-
       <div className="grid gap-6 lg:grid-cols-3">
         <RecentActivity rows={recent} sample={sample} className="lg:col-span-2" />
         <InsightCard text={insight?.text ?? m.status.empty} tone={insight?.tone ?? 'neutral'} link={insight?.link} sample={sample} />
@@ -151,43 +152,34 @@ export function HomePage({ data }: { data: AnkiData }) {
 
       {shownDecks.length > 0 && (
         <section aria-labelledby="home-decks" className="animate-rise">
-          <SectionHeading id="home-decks" title={m.decks.title} question={m.decks.question} />
-          <div className={`grid gap-4 ${shownDecks.length >= 3 ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <SectionHeading id="home-decks" title={m.decks.title} question={m.decks.question} />
+            <SourceBadge kind={sample ? 'sample' : 'measured'} />
+          </div>
+          <GardenLegend unit={plantsPer} />
+          <div className={`mt-3 grid gap-4 ${shownDecks.length >= 3 ? 'md:grid-cols-3' : shownDecks.length === 2 ? 'md:grid-cols-2' : ''}`}>
             {shownDecks.map((d) => (
               <DeckCard
                 key={d.id}
                 week={decksWeek.find((s) => s.deck.id === d.id)!}
                 month={decksMonth.find((s) => s.deck.id === d.id)!}
+                bed={gardenBed(d, plantsPer)}
+                finish={deckFinish(data, d.id, today)}
               />
             ))}
           </div>
+          <p className="mt-3 text-xs text-muted">{m.garden.note}</p>
         </section>
       )}
 
-      <section aria-labelledby="home-milestones" className="animate-rise">
+      <section aria-labelledby="home-milestones" className="animate-rise rounded-3xl border border-line bg-surface p-5 shadow-card sm:p-6">
         <SectionHeading id="home-milestones" title={m.milestones.title} question={m.milestones.question} />
         <div className="grid gap-4 md:grid-cols-3">
           {tracks.map((t) => (
-            <MilestoneCard key={t.kind} track={t} />
+            <Milestone key={t.kind} track={t} />
           ))}
         </div>
         <p className="mt-3 text-xs text-muted">{m.milestones.note}</p>
-      </section>
-
-      <section aria-label="Explore" className="grid gap-4 md:grid-cols-3">
-        <ExploreCard route="activity" icon={<ActivityIcon />} title={m.explore.activity} sub={m.explore.activitySub} />
-        <ExploreCard
-          route="planner"
-          icon={<PlannerIcon />}
-          title={m.explore.planner}
-          sub={fsrsOn ? m.explore.plannerSub : messages.fsrsMissing.planner}
-        />
-        <ExploreCard
-          route="advanced"
-          icon={<AdvancedIcon />}
-          title={m.explore.advanced}
-          sub={fsrsOn ? m.explore.advancedSub : messages.fsrsMissing.advanced}
-        />
       </section>
     </div>
   )
@@ -410,7 +402,7 @@ function RecentActivity({ rows, sample, className = '' }: { rows: { date: string
         })}
       </ol>
       <a href={routeHref('activity')} className="mt-4 inline-flex items-center gap-1.5 text-sm font-bold text-brand-strong hover:underline">
-        {messages.home.explore.activity} <ArrowRightIcon size={16} />
+        {m.recent.more} <ArrowRightIcon size={16} />
       </a>
     </section>
   )
@@ -444,7 +436,7 @@ function InsightCard({ text, tone, link, sample }: { text: string; tone: 'good' 
   )
 }
 
-function DeckCard({ week, month }: { week: DeckSummary; month: DeckSummary }) {
+function DeckCard({ week, month, bed, finish }: { week: DeckSummary; month: DeckSummary; bed: GardenBed; finish: DeckFinish | null }) {
   const deckColor = useDeckColor()
   const { deck } = week
   const color = deckColor(deck.id)
@@ -457,7 +449,7 @@ function DeckCard({ week, month }: { week: DeckSummary; month: DeckSummary }) {
   const rc = month.retention.reviewCards
   const rcThin = retentionSplit(month.retention).matureThin
   return (
-    <article className="rounded-3xl border border-line bg-surface p-5 shadow-card transition-transform hover:-translate-y-0.5">
+    <article className="rounded-3xl border border-line bg-surface p-5 shadow-card">
       <div className="flex items-center gap-3">
         <span className="grid size-10 place-items-center rounded-2xl text-base font-black text-white" style={{ background: color }} aria-hidden>
           {deck.name.slice(0, 1)}
@@ -471,7 +463,11 @@ function DeckCard({ week, month }: { week: DeckSummary; month: DeckSummary }) {
         </div>
       </div>
 
-      <div className="mt-4 flex h-3 gap-0.5 overflow-hidden rounded-full bg-surface-2" aria-hidden>
+      <div className="mt-4">
+        <GardenPlot deck={deck} bed={bed} color={color} />
+      </div>
+
+      <div className="mt-3 flex h-3 gap-0.5 overflow-hidden rounded-full bg-surface-2" aria-hidden>
         {parts.map((p) => (
           <div key={p.label} className="animate-grow origin-left" style={{ flexGrow: p.value, background: color, opacity: p.opacity }} />
         ))}
@@ -485,6 +481,8 @@ function DeckCard({ week, month }: { week: DeckSummary; month: DeckSummary }) {
           </li>
         ))}
       </ul>
+
+      {finish && <FinishLine finish={finish} />}
 
       <dl className="mt-4 grid grid-cols-2 gap-3">
         <div className="rounded-2xl bg-surface-2 px-3 py-2.5">
@@ -501,55 +499,49 @@ function DeckCard({ week, month }: { week: DeckSummary; month: DeckSummary }) {
   )
 }
 
+function FinishLine({ finish }: { finish: DeckFinish }) {
+  if (finish.kind !== 'date') {
+    return <p className="mt-3 text-sm text-ink-2">{finish.kind === 'done' ? m.decks.finishDone : m.decks.finishThin}</p>
+  }
+  const month = parseDateKey(finish.date).toLocaleDateString(LOCALE, { month: 'short', year: 'numeric' })
+  const pace = finish.perDay < 10 ? finish.perDay.toFixed(1) : formatInt(finish.perDay)
+  return (
+    <div className="mt-3 rounded-2xl border border-dashed border-line p-3">
+      <SourceBadge kind="projection" />
+      <p className="mt-1.5 text-sm font-semibold text-ink-2">
+        {m.decks.finish(pace, month)}
+        <InfoTip label={m.decks.finishTipLabel}>{m.decks.finishTip(finish.introduced, finish.days, finish.remaining)}</InfoTip>
+      </p>
+    </div>
+  )
+}
+
 const MILESTONE_STYLE: Record<MilestoneTrack['kind'], { icon: ReactNode; color: string; tint: string; title: string }> = {
   reviews: { icon: <TrophyIcon size={20} />, color: 'var(--color-brand)', tint: 'var(--color-brand-soft)', title: m.milestones.reviews },
   days: { icon: <ActivityIcon size={20} />, color: 'var(--color-sun-ink)', tint: 'var(--color-sun-soft)', title: m.milestones.days },
   known: { icon: <BrainIcon size={20} />, color: 'var(--color-good)', tint: 'var(--color-good-soft)', title: m.milestones.known },
 }
 
-function MilestoneCard({ track }: { track: MilestoneTrack }) {
+function Milestone({ track }: { track: MilestoneTrack }) {
   const s = MILESTONE_STYLE[track.kind]
   const unit = track.kind === 'days' ? (n: number) => `${formatInt(n)} ${n === 1 ? 'day' : 'days'}` : formatInt
   return (
-    <article className="rounded-3xl border border-line bg-surface p-5 shadow-card">
-      <div className="flex items-center justify-between gap-2">
-        <span className="grid size-10 place-items-center rounded-2xl" style={{ background: s.tint, color: s.color }}>
+    <article>
+      <div className="flex items-center gap-2.5">
+        <span className="grid size-9 shrink-0 place-items-center rounded-2xl" style={{ background: s.tint, color: s.color }}>
           {s.icon}
         </span>
-        {track.reached !== null ? (
-          <span className="animate-pop inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-extrabold" style={{ background: s.tint, color: s.color }}>
-            <CheckIcon size={14} /> {m.milestones.reached(unit(track.reached))}
-          </span>
-        ) : (
-          <span className="rounded-full bg-surface-2 px-2.5 py-1 text-xs font-bold text-muted">{m.milestones.none}</span>
-        )}
+        <h3 className="min-w-0 flex-1 text-sm font-bold text-muted">{s.title}</h3>
+        <p className="text-xl font-black tracking-tight text-ink tabular-nums">
+          <CountUp value={track.current} format={unit} />
+        </p>
       </div>
-      <h3 className="mt-4 text-sm font-bold text-muted">{s.title}</h3>
-      <p className="text-3xl font-black tracking-tight text-ink tabular-nums">
-        <CountUp value={track.current} format={unit} />
-      </p>
-      <div className="mt-3">
+      <div className="mt-2.5">
         <ProgressBar value={track.progress} color={s.color} label={`${s.title}: progress to next milestone`} />
-        <p className="mt-2 text-xs text-muted">
+        <p className="mt-1.5 text-xs text-muted">
           {track.next === null ? m.milestones.maxed : m.milestones.next(unit(track.next - track.current), unit(track.next))}
         </p>
       </div>
     </article>
-  )
-}
-
-function ExploreCard({ route, icon, title, sub }: { route: Route; icon: ReactNode; title: string; sub: string }) {
-  return (
-    <a
-      href={routeHref(route)}
-      className="group flex items-center gap-4 rounded-3xl border border-line bg-surface p-5 shadow-card transition-all hover:-translate-y-0.5 hover:border-brand/40"
-    >
-      <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-brand-soft text-brand">{icon}</span>
-      <span className="min-w-0 flex-1">
-        <span className="block font-extrabold text-ink">{title}</span>
-        <span className="block text-sm text-muted">{sub}</span>
-      </span>
-      <ArrowRightIcon size={18} className="shrink-0 text-muted transition-transform group-hover:translate-x-1 group-hover:text-brand" />
-    </a>
   )
 }

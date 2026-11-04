@@ -142,3 +142,28 @@ describe('Home Today plan', () => {
     expect(screen.getByText(messages.home.today.dueStale)).toBeTruthy()
   })
 })
+
+describe('Home decks', () => {
+  it('keeps the garden inside each deck card', () => {
+    render(<HomePage data={realShapedData()} />)
+    const card = screen.getByRole('heading', { name: 'Language' }).closest('article') as HTMLElement
+    expect(card.querySelector('[role="img"]')?.getAttribute('aria-label')).toMatch(/^Language: /)
+  })
+
+  it('labels a finish date as a projection', () => {
+    render(<HomePage data={realShapedData()} />)
+    const card = screen.getByRole('heading', { name: 'Language' }).closest('article') as HTMLElement
+    expect(card.textContent).toContain(messages.badges.projection)
+    expect(card.textContent).toMatch(/you’d start the last card around/)
+  })
+
+  it('gives no finish date for sample data', () => {
+    render(<HomePage data={mockData} />)
+    expect(document.body.textContent).not.toMatch(/start the last card/)
+  })
+
+  it('no longer repeats the navigation', () => {
+    render(<HomePage data={realShapedData()} />)
+    expect(screen.queryByRole('region', { name: 'Explore' })).toBeNull()
+  })
+})
