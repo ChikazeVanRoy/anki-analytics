@@ -100,7 +100,11 @@ export function copyCollection(profileName = process.env.ANKI_PROFILE, places = 
   for (const suffix of ['-wal', '-shm']) rmSync(`${copyPath}${suffix}`, { force: true })
   // Swapped in when finished: the launcher's sync and a page's refresh can both copy, and neither may read half a file
   const unfinished = `${copyPath}.${process.pid}.tmp`
-  copyFileSync(source, unfinished)
-  renameSync(unfinished, copyPath)
+  try {
+    copyFileSync(source, unfinished)
+    renameSync(unfinished, copyPath)
+  } finally {
+    rmSync(unfinished, { force: true }) // only still there if that failed
+  }
   return { profile, bytes: statSync(copyPath).size }
 }

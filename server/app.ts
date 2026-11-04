@@ -84,9 +84,11 @@ export function createApiServer(overrides: Partial<ApiDeps> = {}): Server {
   function sendSnapshot(res: ServerResponse, prepare: (saved: string) => string = (saved) => saved) {
     const saved = readSnapshotFile(deps.snapshotPath)
     if (saved === null) return send(res, 404, { error: 'No snapshot saved yet.' })
+    // Before the headers: a file that can't be prepared must still be able to answer with an error
+    const body = prepare(saved)
     // Always ask again, so a browser can't keep showing an old snapshot as the latest one
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache' })
-    res.end(prepare(saved))
+    res.end(body)
   }
 
   /** Your phone: read-only, and no route to live stats, the status or a refresh. */

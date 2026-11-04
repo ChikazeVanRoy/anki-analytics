@@ -1,7 +1,7 @@
 // Saves the stats the API would send to one file, so they can be shown without the API or the collection.
 // The file holds personal data, so it lives in the git-ignored data/ folder and only this user can read it.
 
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { AnkiData } from '../src/data/types.ts'
@@ -14,8 +14,12 @@ export const SNAPSHOT_FILE = fileURLToPath(new URL('../data/snapshot.json', impo
 export function writeSnapshot(data: AnkiData, path = SNAPSHOT_FILE) {
   mkdirSync(dirname(path), { recursive: true })
   const unfinished = `${path}.${process.pid}.tmp` // per process, so two runs at once can't share a half-written file
-  writeFileSync(unfinished, JSON.stringify(wrapSnapshot(data)), { mode: 0o600 })
-  renameSync(unfinished, path)
+  try {
+    writeFileSync(unfinished, JSON.stringify(wrapSnapshot(data)), { mode: 0o600 })
+    renameSync(unfinished, path)
+  } finally {
+    rmSync(unfinished, { force: true }) // only still there if that failed
+  }
 }
 
 /** The saved file's text, or null if there isn't one. */

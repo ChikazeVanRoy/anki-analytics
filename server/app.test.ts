@@ -312,6 +312,20 @@ describe('readConfigJson', () => {
   })
 })
 
+describe('a damaged snapshot', () => {
+  it('answers your phone with an error and keeps the server running', async () => {
+    const quiet = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const snapshotPath = join(dir, 'damaged-snapshot.json')
+    writeFileSync(snapshotPath, '{ not json')
+    const host = 'mac.tail.ts.net'
+    const { server, port } = await start({ collectionPath: existing, read: () => fakeData, snapshotPath, phoneHost: () => host })
+    expect((await call(port, '/snapshot.json', { host })).status).toBe(500)
+    expect((await call(port, '/api/stats')).status).toBe(200)
+    server.close()
+    quiet.mockRestore()
+  })
+})
+
 describe('GET /api/status', () => {
   const status = { ankiRunning: false, updateAvailable: true, sourceModified: 1000, copyModified: null }
 
