@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { mockData } from '../data/mockData'
 import type { AnkiData } from '../data/types'
@@ -188,8 +188,8 @@ describe('Home on a copy from an earlier day', () => {
   }
   const oldCopy = () => {
     const base = realShapedData()
-    const daily = [3, 4, 5].map((n) => ({ ...base.daily[0], date: toDateKey(dayAgo(n)), reviews: 10 }))
-    return { ...base, daily, dayStartHour: 0, generatedAt: dayAgo(3).toISOString() }
+    const daily = [5, 6, 7].map((n) => ({ ...base.daily[0], date: toDateKey(dayAgo(n)), reviews: 10 }))
+    return { ...base, daily, dayStartHour: 0, generatedAt: dayAgo(5).toISOString() }
   }
 
   it('keeps the streak as of the copy, not broken by days the copy can’t see', () => {
@@ -197,7 +197,7 @@ describe('Home on a copy from an earlier day', () => {
     const card = screen.getByText(messages.home.streak.label).closest('div') as HTMLElement
     expect(card.textContent).toContain('3')
     expect(screen.getByText(/^As of /)).toBeTruthy()
-    expect(screen.getByText(messages.home.status.stale)).toBeTruthy()
+    expect(screen.getByText(/^This copy is from .+, so the numbers below stop there\.$/)).toBeTruthy()
     expect(screen.queryByText(messages.home.status.start)).toBeNull()
   })
 
@@ -205,6 +205,18 @@ describe('Home on a copy from an earlier day', () => {
     render(<HomePage data={oldCopy()} />)
     expect(screen.getByText(messages.home.kpi.todayStale)).toBeTruthy()
     expect(screen.queryByText('nothing yet today')).toBeNull()
+  })
+
+  it('ends Last 7 days on the copy’s day, so missing days aren’t counted as no study', () => {
+    render(<HomePage data={oldCopy()} />)
+    const card = screen.getByText(messages.home.kpi.week).closest('div.animate-rise') as HTMLElement
+    expect(card.textContent).toContain('30')
+  })
+
+  it('ends the two-week chart on the copy’s day, and doesn’t call it today', () => {
+    render(<HomePage data={oldCopy()} />)
+    const chart = screen.getByRole('list', { name: /30 reviews on 3 of the last 14 days/ })
+    expect(within(chart).queryByText(messages.home.recent.today)).toBeNull()
   })
 })
 

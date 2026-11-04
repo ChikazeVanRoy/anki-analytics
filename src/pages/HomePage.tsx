@@ -12,13 +12,14 @@ import { parseDateKey, toDateKey } from '../lib/dates'
 import { deckFinish, type DeckFinish } from '../lib/deckPace'
 import { changeDelta, formatCopiedAt, formatInt, formatMinutes, formatPct, formatRate, SAME_RELATIVE } from '../lib/format'
 import {
+  copiedOnEarlierDay,
   dayStatus,
   greetingPart,
   homeInsight,
   longestStreak,
   milestones,
   recentDays,
-  staleCopyDay,
+  staleCopyKey,
   todayWork,
   weekComparison,
   type MilestoneTrack,
@@ -27,22 +28,26 @@ import {
 import { gardenBed, plantUnit, type GardenBed } from '../lib/garden'
 import { measuredDefaults } from '../lib/measured'
 import { routeHref, type Route } from '../lib/route'
-import { ankiToday, answerCounts, currentStreak, deckSummaries, retentionSplit, summarize, totalsByDate, type DeckSummary } from '../lib/stats'
+import { ankiToday, answerCounts, deckSummaries, retentionSplit, summarize, totalsByDate, type DeckSummary } from '../lib/stats'
 
 const m = messages.home
 
 export function HomePage({ data }: { data: AnkiData }) {
   const today = useMemo(() => ankiToday(data), [data])
   const byDate = useMemo(() => totalsByDate(data.daily), [data])
-  const week7 = useMemo(() => summarize(data, 7), [data])
-  const month = useMemo(() => summarize(data, 30), [data])
-  const week = useMemo(() => weekComparison(byDate, today), [byDate, today])
+  // An old copy can't see the days since it was made, so every window ends on its day, not today
+  const stale = data.source === 'anki' && copiedOnEarlierDay(data, today)
+  const copyKey = staleCopyKey(data, today)
+  const asOf = useMemo(() => (copyKey ? parseDateKey(copyKey) : today), [copyKey, today])
+  const week7 = useMemo(() => summarize(data, 7, asOf), [data, asOf])
+  const month = useMemo(() => summarize(data, 30, asOf), [data, asOf])
+  const week = useMemo(() => weekComparison(byDate, asOf), [byDate, asOf])
   const best = useMemo(() => longestStreak(byDate), [byDate])
-  const recent = useMemo(() => recentDays(byDate, today, 14), [byDate, today])
+  const recent = useMemo(() => recentDays(byDate, asOf, 14), [byDate, asOf])
   const tracks = useMemo(() => milestones(data, byDate), [data, byDate])
-  const insight = useMemo(() => homeInsight(data, byDate, today), [data, byDate, today])
-  const decksWeek = useMemo(() => deckSummaries(data, 7), [data])
-  const decksMonth = useMemo(() => deckSummaries(data, 30), [data])
+  const insight = useMemo(() => homeInsight(data, byDate, asOf), [data, byDate, asOf])
+  const decksWeek = useMemo(() => deckSummaries(data, 7, asOf), [data, asOf])
+  const decksMonth = useMemo(() => deckSummaries(data, 30, asOf), [data, asOf])
 
   const plan = useTodayPlan(data, today)
   const measured = useMemo(() => measuredDefaults(data, today), [data, today])
@@ -50,10 +55,8 @@ export function HomePage({ data }: { data: AnkiData }) {
 
   const [hour] = useState(() => new Date().getHours())
   const hasAny = data.daily.some((s) => s.reviews > 0)
-  // A streak read from an old copy runs to the day it was made: reviews since then aren't in it, not missed
-  const copyDay = staleCopyDay(data, today)
-  const streak = useMemo(() => (copyDay ? currentStreak(byDate, copyDay) : week7.streak), [byDate, copyDay, week7.streak])
-  const status = dayStatus(hasAny, week7.reviewsToday, streak, !!copyDay)
+  const status = dayStatus(hasAny, week7.reviewsToday, week7.streak, stale)
+  const copyLabel = copyKey ? parseDateKey(copyKey).toLocaleDateString(LOCALE, { day: 'numeric', month: 'short' }) : null
   const todayMinutes = (byDate.get(toDateKey(today))?.seconds ?? 0) / 60
   const { reviewCards } = month.retention
   const split = retentionSplit(month.retention)
@@ -72,18 +75,18 @@ export function HomePage({ data }: { data: AnkiData }) {
               ? m.status.doneMoreDue(week7.reviewsToday)
               : m.status.done(week7.reviewsToday)
             : status === 'stale'
-              ? m.status.stale
+              ? m.status.stale(copyLabel)
               : status === 'keep'
-                ? m.status.keep(streak)
+                ? m.status.keep(week7.streak)
                 : status === 'start'
                   ? m.status.start
                   : m.status.empty
         }
         due={due}
         plan={plan}
-        streak={streak}
+        streak={week7.streak}
         best={best}
-        streakAsOf={copyDay && copyDay.toLocaleDateString(LOCALE, { day: 'numeric', month: 'short' })}
+        streakAsOf={copyLabel}
         sample={sample}
         copied={sample ? null : messages.data.copiedAt(formatCopiedAt(data.generatedAt))}
       />
@@ -93,8 +96,8 @@ export function HomePage({ data }: { data: AnkiData }) {
           label={m.kpi.today}
           icon={<CheckIcon size={18} className="text-good" />}
           tint="var(--color-good-soft)"
-          value={copyDay ? '—' : <CountUp value={week7.reviewsToday} format={formatInt} />}
-          hint={copyDay ? m.kpi.todayStale : m.kpi.todaySub(todayMinutes)}
+          value={stale ? '—' : <CountUp value={week7.reviewsToday} format={formatInt} />}
+          hint={stale ? m.kpi.todayStale : m.kpi.todaySub(todayMinutes)}
         />
         <StatCard
           label={m.kpi.week}
@@ -151,7 +154,7 @@ export function HomePage({ data }: { data: AnkiData }) {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <RecentActivity rows={recent} sample={sample} className="lg:col-span-2" />
+        <RecentActivity rows={recent} endsToday={!stale} sample={sample} className="lg:col-span-2" />
         <InsightCard text={insight?.text ?? m.status.empty} tone={insight?.tone ?? 'neutral'} link={insight?.link} sample={sample} />
       </div>
 
@@ -331,7 +334,17 @@ function SectionHeading({ id, title, question }: { id: string; title: string; qu
   )
 }
 
-function RecentActivity({ rows, sample, className = '' }: { rows: { date: string; reviews: number }[]; sample: boolean; className?: string }) {
+function RecentActivity({
+  rows,
+  endsToday,
+  sample,
+  className = '',
+}: {
+  rows: { date: string; reviews: number }[]
+  endsToday: boolean
+  sample: boolean
+  className?: string
+}) {
   // One tab stop for the whole chart: hover, a tap or the arrow keys pick the day shown in the line above the
   // bars. A single fixed line can't run off the side of a phone, and only ever shows one day.
   const [picked, setPicked] = useState<number | null>(null)
@@ -371,7 +384,7 @@ function RecentActivity({ rows, sample, className = '' }: { rows: { date: string
         onMouseLeave={() => setPicked(null)}
       >
         {rows.map((r, i) => {
-          const isToday = i === rows.length - 1
+          const isToday = endsToday && i === rows.length - 1
           const label = m.recent.bar(fmtDay(r.date), r.reviews)
           return (
             <li

@@ -58,6 +58,8 @@ export interface FsrsCard {
   preset?: number
   /** Buried (by the user or sibling burying): Anki won't show it until the next day. Absent: not buried. */
   buried?: boolean
+  /** In a learning step of a day or more. Unlike same-day steps, these count towards the review limit. */
+  interday?: boolean
 }
 
 /** Scheduler settings of the preset a deck group uses (the one most of its cards use). */

@@ -69,7 +69,8 @@ export const en = {
       doneMoreDue: (n: number) => `You’ve reviewed ${int(n)} ${plural(n, 'card', 'cards')} today, with more waiting when you’re ready.`,
       keep: (streak: number) => `Your ${streak}-day streak is waiting. A short session today keeps it going.`,
       start: 'Ready when you are. A short session today starts a new streak.',
-      stale: 'This copy is from an earlier day, so it can’t show what you’ve done since.',
+      stale: (date: string | null) =>
+        `This copy is from ${date ?? 'an earlier day'}, so the numbers below stop there.`,
       empty: 'Your progress will appear here after your first review in Anki.',
     },
     today: {
@@ -79,7 +80,7 @@ export const en = {
       dueTipLabel: 'About cards due',
       dueHeld: (n: number) => `${int(n)} more held back by your review limit`,
       dueTip:
-        'Cards Anki will show today: reviews due today or overdue, up to each deck’s daily review limit, plus learning and relearning cards, which that limit doesn’t hold back. From the due dates stored when the collection was copied. Buried cards are left out.',
+        'Cards Anki will show today: reviews due today or overdue, up to each deck’s daily review limit, plus cards in same-day learning steps, which that limit doesn’t hold back. From the due dates stored when the collection was copied. Buried cards are left out.',
       newLabel: 'New cards today',
       newSub: 'left under your Anki limits',
       newTipLabel: 'About new cards today',

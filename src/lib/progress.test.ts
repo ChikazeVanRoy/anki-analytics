@@ -8,11 +8,11 @@ import {
   milestones,
   milestoneTrack,
   recentDays,
-  staleCopyDay,
+  staleCopyKey,
   todayWork,
   weekComparison,
 } from './progress'
-import { lastNDays, toDateKey, totalsByDate } from './stats'
+import { lastNDays, totalsByDate } from './stats'
 
 const TODAY = new Date(2026, 10, 3, 12) // 3 Nov 2026, noon
 
@@ -172,21 +172,20 @@ describe('insight percentages', () => {
   })
 })
 
-describe('staleCopyDay', () => {
+describe('staleCopyKey', () => {
   const copied = (generatedAt: string, source: AnkiData['source'] = 'anki') => ({ ...data([]), source, generatedAt })
 
   it('gives the copy’s Anki day when it’s before today', () => {
-    const day = staleCopyDay(copied(new Date(2026, 10, 1, 20).toISOString()), TODAY)
-    expect(day && toDateKey(day)).toBe('2026-11-01')
+    expect(staleCopyKey(copied(new Date(2026, 10, 1, 20).toISOString()), TODAY)).toBe('2026-11-01')
   })
   it('counts a copy from before the rollover as the day before', () => {
     const early = { ...copied(new Date(2026, 10, 2, 2).toISOString()), dayStartHour: 4 }
-    const day = staleCopyDay(early, TODAY)
-    expect(day && toDateKey(day)).toBe('2026-11-01')
+    expect(staleCopyKey(early, TODAY)).toBe('2026-11-01')
   })
-  it('is null for today’s copy and for sample data', () => {
-    expect(staleCopyDay(copied(new Date(2026, 10, 3, 9).toISOString()), TODAY)).toBeNull()
-    expect(staleCopyDay(copied(new Date(2026, 10, 1).toISOString(), 'mock'), TODAY)).toBeNull()
+  it('is null for today’s copy, sample data and an unreadable date', () => {
+    expect(staleCopyKey(copied(new Date(2026, 10, 3, 9).toISOString()), TODAY)).toBeNull()
+    expect(staleCopyKey(copied(new Date(2026, 10, 1).toISOString(), 'mock'), TODAY)).toBeNull()
+    expect(staleCopyKey(copied('not a date'), TODAY)).toBeNull()
   })
 })
 
@@ -255,6 +254,15 @@ describe('todayWork', () => {
         presets: [{ deckId: 'a', newPerDay: 0, reviewsPerDay: 1 }],
       } as unknown as NonNullable<AnkiData['fsrs']>
       expect(todayWork({ ...d, fsrs }, TODAY, 6)).toMatchObject({ cards: 2, heldBack: 1 })
+    })
+    it('holds back cards in day-long learning steps, which count as reviews', () => {
+      const d = withFsrs([])
+      const fsrs = {
+        ...d.fsrs!,
+        cards: [card('2026-11-03'), { ...card('2026-11-03'), state: 'learning' as const, interday: true }],
+        presets: [{ deckId: 'a', newPerDay: 0, reviewsPerDay: 1 }],
+      } as unknown as NonNullable<AnkiData['fsrs']>
+      expect(todayWork({ ...d, fsrs }, TODAY, 6)).toMatchObject({ cards: 1, heldBack: 1 })
     })
     it('lets new cards past a used-up review limit when Anki is set to', () => {
       const work = newDay([{ deckId: 'a', newPerDay: 10, reviewsPerDay: 1 }], { a: 100 }, {}, { newCardsIgnoreReviewLimit: true })

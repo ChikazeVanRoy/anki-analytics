@@ -3,7 +3,7 @@
 // shown as reached only when the review log or card counts show it.
 
 import type { AnkiData } from '../data/types'
-import { ankiDayKey, dayNumber, parseDateKey, toDateKey } from './dates'
+import { ankiDayKey, dayNumber, toDateKey } from './dates'
 import { formatInt, formatPct, formatRate } from './format'
 import { deckSummaries, lastNDays, MIN_RATE_SAMPLE, ratio, retentionSplit, type DayTotal } from './stats'
 
@@ -136,11 +136,11 @@ export function copiedOnEarlierDay(data: AnkiData, today: Date) {
   return !Number.isFinite(copied) || ankiDayKey(copied, data.dayStartHour) < toDateKey(today)
 }
 
-/** The Anki day real data was copied, when that's before `today`. Null for sample data or a current copy. */
-export function staleCopyDay(data: AnkiData, today: Date): Date | null {
+/** The Anki day real data was copied, when that's before `today`. Null for sample data, a current copy or an unreadable date. */
+export function staleCopyKey(data: AnkiData, today: Date): string | null {
   if (data.source !== 'anki' || !copiedOnEarlierDay(data, today)) return null
   const copied = Date.parse(data.generatedAt)
-  return Number.isFinite(copied) ? parseDateKey(ankiDayKey(copied, data.dayStartHour)) : null
+  return Number.isFinite(copied) ? ankiDayKey(copied, data.dayStartHour) : null
 }
 
 /**
@@ -154,12 +154,12 @@ export function todayWork(data: AnkiData, today: Date, seconds: number): TodayWo
   if (copiedOnEarlierDay(data, today)) return { stale: true }
   const day = dayNumber(toDateKey(today))
   const { fsrs } = data
-  // Learning and relearning cards aren't held back by the review limit, so only reviews are capped
+  // Cards in same-day learning steps aren't held back by the review limit; day-long steps count as reviews
   const due = new Map<string, { reviews: number; learning: number }>()
   for (const c of fsrs.cards) {
     if (c.buried || dayNumber(c.due) > day) continue
     const counts = due.get(c.deckId) ?? { reviews: 0, learning: 0 }
-    counts[c.state === 'review' ? 'reviews' : 'learning']++
+    counts[c.state === 'review' || c.interday ? 'reviews' : 'learning']++
     due.set(c.deckId, counts)
   }
   const pace = (deckId: string) => fsrs.behaviour.find((b) => b.deckId === deckId)?.secondsPerReview || seconds
@@ -223,7 +223,7 @@ export function homeInsight(data: AnkiData, byDate: Map<string, DayTotal>, today
     }
   }
 
-  const decks = deckSummaries(data, 30).filter(
+  const decks = deckSummaries(data, 30, today).filter(
     // A deck of mostly young cards recalls easily, so ranking it "strongest" would mislead
     (d) => d.retention.reviewCards.reviews >= MIN_RATE_SAMPLE * 3 && !retentionSplit(d.retention).matureThin,
   )

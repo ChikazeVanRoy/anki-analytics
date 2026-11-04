@@ -77,7 +77,7 @@ beforeAll(() => {
     CREATE TABLE decks (id INTEGER PRIMARY KEY, name TEXT, kind BLOB);
     CREATE TABLE deck_config (id INTEGER PRIMARY KEY, name TEXT, config BLOB);
     CREATE TABLE config (key TEXT PRIMARY KEY, val BLOB);
-    CREATE TABLE cards (id INTEGER PRIMARY KEY, did INTEGER, odid INTEGER DEFAULT 0, type INTEGER, queue INTEGER, due INTEGER, odue INTEGER DEFAULT 0, ivl INTEGER, data TEXT);
+    CREATE TABLE cards (id INTEGER PRIMARY KEY, did INTEGER, odid INTEGER DEFAULT 0, type INTEGER, queue INTEGER, due INTEGER, odue INTEGER DEFAULT 0, ivl INTEGER, mod INTEGER DEFAULT 0, data TEXT);
     CREATE TABLE revlog (id INTEGER PRIMARY KEY, cid INTEGER, ease INTEGER, time INTEGER, type INTEGER, lastIvl INTEGER, factor INTEGER);
     INSERT INTO config VALUES ('rollover', CAST('${ROLLOVER}' AS BLOB)), ('fsrs', CAST('true' AS BLOB));
   `)
@@ -116,7 +116,7 @@ beforeAll(() => {
   // Valid memory state, but a due value that can't be a date
   card.run(53, 5, 2, 2, -5, 3, data(3, 5, at(2026, 3, 10, 12)))
   // Card in a filtered deck: its home deck is odid and its real due day is odue; due is a queue position
-  db.prepare('INSERT INTO cards VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
+  db.prepare('INSERT INTO cards (id, did, odid, type, queue, due, odue, ivl, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
     17, 6, 1, 2, 2, -100000, dayNumber('2026-03-25') - crtDay, 10, data(12, 4, at(2026, 3, 13, 12)),
   )
 
@@ -346,6 +346,21 @@ describe('FSRS data', () => {
     expect(current.cards.some((c) => c.buried)).toBe(true)
   })
 
+  it('keeps a card buried if it changed today, even when lastUnburied is behind', () => {
+    const today = dayNumber(ankiDayKey(NOW, ROLLOVER)) - crtDay
+    const fromPhone = changed(
+      'phone-bury.anki2',
+      `UPDATE cards SET queue = -2, mod = ${Math.floor(NOW / 1000)} WHERE id = 11; INSERT INTO config VALUES ('lastUnburied', CAST('${today - 1}' AS BLOB))`,
+    )
+    expect(fromPhone.buriedNew).toEqual({ spanish: 1 })
+  })
+
+  it('marks cards in a day-long learning step', () => {
+    const interday = changed('interday.anki2', 'UPDATE cards SET queue = 3 WHERE id = 12')
+    expect(interday.cards.find((c) => c.due === '2026-04-09')).toMatchObject({ interday: true })
+    expect(fsrs().cards.find((c) => c.due === '2026-04-09')).not.toHaveProperty('interday')
+  })
+
   it('measures answer behaviour within the window', () => {
     const zh = fsrs().behaviour.find((b) => b.deckId === 'spanish')!
     expect(zh.firstRating).toEqual([1, 0, 1, 1]) // 13 Again, 12 Good, 15 Easy
@@ -437,7 +452,7 @@ describe('FSRS data with mixed presets and incomplete histories', () => {
       CREATE TABLE decks (id INTEGER PRIMARY KEY, name TEXT, kind BLOB);
       CREATE TABLE deck_config (id INTEGER PRIMARY KEY, name TEXT, config BLOB);
       CREATE TABLE config (key TEXT PRIMARY KEY, val BLOB);
-      CREATE TABLE cards (id INTEGER PRIMARY KEY, did INTEGER, odid INTEGER DEFAULT 0, type INTEGER, queue INTEGER, due INTEGER, odue INTEGER DEFAULT 0, ivl INTEGER, data TEXT);
+      CREATE TABLE cards (id INTEGER PRIMARY KEY, did INTEGER, odid INTEGER DEFAULT 0, type INTEGER, queue INTEGER, due INTEGER, odue INTEGER DEFAULT 0, ivl INTEGER, mod INTEGER DEFAULT 0, data TEXT);
       CREATE TABLE revlog (id INTEGER PRIMARY KEY, cid INTEGER, ease INTEGER, time INTEGER, type INTEGER, lastIvl INTEGER, factor INTEGER);
       INSERT INTO config VALUES ('rollover', CAST('${ROLLOVER}' AS BLOB)), ('fsrs', CAST('true' AS BLOB));
     `)

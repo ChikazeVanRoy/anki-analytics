@@ -5,12 +5,17 @@ import App from './App'
 import { mockData } from './data/mockData'
 import { messages } from './i18n'
 
+// The clock the page reads, so a test can cross midnight without stepping real intervals
+const clock = vi.hoisted(() => ({ now: null as number | null }))
+vi.mock('./app/useNow', () => ({ useNow: () => clock.now ?? Date.now() }))
+
 function respondWith(impl: () => Promise<Response>) {
   vi.stubGlobal('fetch', vi.fn(impl))
 }
 
 afterEach(() => {
   cleanup()
+  clock.now = null
   vi.useRealTimers()
   vi.unstubAllGlobals()
 })
@@ -75,6 +80,21 @@ describe('App data states', () => {
     render(<App />)
     await waitFor(() => expect(screen.getByText(messages.data.live)).toBeTruthy())
     expect(screen.queryByText(messages.data.sampleTitle)).toBeNull()
+  })
+
+  it('moves to the new day when Anki rolls over with the page left open', async () => {
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date(2026, 2, 10, 23, 59) })
+    clock.now = Date.now()
+    const live = JSON.stringify({ ...mockData, source: 'anki', dayStartHour: 0, generatedAt: new Date().toISOString() })
+    respondWith(async () => new Response(live, { status: 200 }))
+    const { rerender } = render(<App />)
+    const oldCopy = messages.home.status.stale('10 Mar')
+    await screen.findByText(/^Tue,? 10 Mar: /)
+    expect(screen.queryByText(oldCopy)).toBeNull()
+    vi.setSystemTime(new Date(2026, 2, 11, 0, 1))
+    clock.now = Date.now()
+    rerender(<App />)
+    expect(await screen.findByText(oldCopy)).toBeTruthy()
   })
 
   describe('refresh', () => {

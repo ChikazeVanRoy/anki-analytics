@@ -136,8 +136,8 @@ export const answerCounts = ({ reviews, passed, hard }: Retention['reviewCards']
   good: passed - hard,
 })
 
-export function summarize(data: AnkiData, days: number) {
-  const today = ankiToday(data)
+/** `today` sets where the windows end: normally now, or the copy's day when it's out of date. */
+export function summarize(data: AnkiData, days: number, today = ankiToday(data)) {
   const byDate = totalsByDate(data.daily)
   const range = lastNDays(days, 0, today)
   const inRange = new Set(range)
@@ -201,8 +201,8 @@ export interface DeckSummary {
   retention: Retention
 }
 
-export function deckSummaries(data: AnkiData, days: number): DeckSummary[] {
-  const inRange = new Set(lastNDays(days, 0, ankiToday(data)))
+export function deckSummaries(data: AnkiData, days: number, today = ankiToday(data)): DeckSummary[] {
+  const inRange = new Set(lastNDays(days, 0, today))
   return data.decks.map((deck) => {
     const stats = data.daily.filter((s) => s.deckId === deck.id && inRange.has(s.date))
     const reviews = stats.reduce((n, s) => n + s.reviews, 0)

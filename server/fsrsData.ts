@@ -121,10 +121,13 @@ export function readFsrsData(ctx: Context): FsrsData {
   const crtSecs = Number(db.prepare('SELECT crt FROM col').get()!.crt)
   const crtDay = dayNumber(ankiDayKey(crtSecs * 1000 + dayStartHour * 3_600_000, dayStartHour))
 
-  // Anki unburies when it first opens on a new day. Until then the file still says buried, but today it won't be
+  // Anki unburies when it first opens on a new day, so a card may still say buried from an earlier day. One
+  // changed today stays buried whatever `lastUnburied` says, as it may have been buried on another device
   const lastUnburied = readConfigJson(db, 'lastUnburied')
-  const buriedForToday = typeof lastUnburied !== 'number' || lastUnburied >= dayNumber(dayKey(ctx.now)) - crtDay
-  const isBuried = (queue: number) => buriedForToday && (queue === -2 || queue === -3)
+  const todayKey = dayKey(ctx.now)
+  const unburyPending = typeof lastUnburied === 'number' && lastUnburied < dayNumber(todayKey) - crtDay
+  const isBuried = (queue: number, modSecs: number) =>
+    (queue === -2 || queue === -3) && (!unburyPending || dayKey(modSecs * 1000) === todayKey)
 
   // --- Presets: each group shows the preset most of its cards use (limits, steps); cards keep their own ---
   const presetRows = new Map<number, { name: string; blob: Uint8Array }>()
@@ -167,7 +170,7 @@ export function readFsrsData(ctx: Context): FsrsData {
   const invalidDue: Record<string, number> = {}
   const storedState = new Map<number, MemoryState>()
   const add = (rec: Record<string, number>, k: string) => (rec[k] = (rec[k] ?? 0) + 1)
-  for (const r of db.prepare('SELECT id, did, odid, type, queue, due, odue, ivl, data FROM cards').all()) {
+  for (const r of db.prepare('SELECT id, did, odid, type, queue, due, odue, ivl, mod, data FROM cards').all()) {
     // A card in a filtered deck keeps its home deck in odid and its real due value in odue
     const filtered = Number(r.odid) !== 0
     const home = filtered ? Number(r.odid) : Number(r.did)
@@ -188,7 +191,7 @@ export function readFsrsData(ctx: Context): FsrsData {
     }
     if (type === 0) {
       add(newCards, group)
-      if (isBuried(queue)) add(buriedNew, group)
+      if (isBuried(queue, Number(r.mod))) add(buriedNew, group)
       continue
     }
     let data: { s?: unknown; d?: unknown; lrt?: unknown } = {}
@@ -220,7 +223,8 @@ export function readFsrsData(ctx: Context): FsrsData {
       interval: Math.max(0, Number(r.ivl)),
       state: type === 2 ? 'review' : type === 3 ? 'relearning' : 'learning',
       ...(presetIndex !== undefined && { preset: presetIndex }),
-      ...(isBuried(queue) && { buried: true }),
+      ...(isBuried(queue, Number(r.mod)) && { buried: true }),
+      ...(queue === 3 && { interday: true }),
     })
   }
 

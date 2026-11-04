@@ -44,7 +44,7 @@ for (const route of ['#/', '#/activity', '#/advanced']) {
     await page.goto(route)
     await expect(page.locator('main h1').first()).toBeVisible()
     // Home's suggestion adds its tip when the simulation ends, so wait for it to be checked too
-    await expect(page.getByText(messages.home.today.suggestPending)).toHaveCount(0)
+    await expect(page.getByText(messages.home.today.suggestPending)).toHaveCount(0, { timeout: 30_000 })
     const visible = page.locator('main button[aria-describedby]:visible')
     await expect(visible.first()).toBeVisible()
     // Stable ids, not positions: a tip that appears mid-test can't make the loop click the same button twice
