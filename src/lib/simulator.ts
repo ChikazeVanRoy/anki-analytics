@@ -12,7 +12,7 @@ import type { FsrsData } from '../data/types'
 import { dayNumber } from './dates'
 import { presetOfCard } from './fsrsStats'
 import { lapseBasis } from './gradingShift'
-import { nextInterval, retrievability, step, type Rating } from './fsrs'
+import { MATURE_DAYS, nextInterval, retrievability, step, type Rating } from './fsrs'
 
 export const SIM_DAYS = 365 // always simulate a year; shorter horizons are prefixes of the same run
 export const HORIZONS = [7, 30, 90, 180, 365] as const
@@ -146,13 +146,13 @@ export function splitNew(total: number, pools: number[]) {
   return out
 }
 
-/** Builds simulator inputs from the API's FSRS data, relative to Anki's `today`. */
 /**
  * Lapses of FSRS's own prediction blended into a measured lapse rate, so a rate from a few reviews stays near
  * FSRS's and one odd day can't swing a year's forecast. Plenty of lapses outweigh it.
  */
 export const LAPSE_PRIOR = 10
 
+/** Builds simulator inputs from the API's FSRS data, relative to Anki's `today`. */
 export function buildSimDecks(fsrs: FsrsData, todayKey: string): SimDeck[] {
   const today = dayNumber(todayKey)
   const basis = lapseBasis(fsrs)
@@ -226,7 +226,7 @@ export function simulate(allDecks: SimDeck[], settings: SimSettings): SimResult 
   const perRunDaily: Float64Array[] = []
   const perDeck = decks.map((d) => ({ deckId: d.deckId, existing: new Float64Array(H), fresh: new Float64Array(H) }))
   const study = Array.from({ length: H }, (_, i) => isStudyDay((settings.startWeekday + i) % 7, settings.studyDaysPerWeek))
-  const matureNow = decks.reduce((n, d) => n + d.cards.filter((c) => c.interval >= 21).length, 0)
+  const matureNow = decks.reduce((n, d) => n + d.cards.filter((c) => c.interval >= MATURE_DAYS).length, 0)
 
   for (let run = 0; run < R; run++) {
     const rand = rng(settings.seed + run * 7919)
@@ -261,11 +261,11 @@ export function simulate(allDecks: SimDeck[], settings: SimSettings): SimResult 
 
     const schedule = (c: number, day: number, di: number) => {
       const model = modelFor(decks[di], modelIx[c])
-      const wasMature = ivl[c] >= 21
+      const wasMature = ivl[c] >= MATURE_DAYS
       const raw = nextInterval(S[c], retentionOf(model), model.params)
       ivl[c] = fuzzInterval(Math.min(raw, model.maxInterval), model.maxInterval, rand())
       last[c] = day
-      if (wasMature !== ivl[c] >= 21) mature += ivl[c] >= 21 ? 1 : -1
+      if (wasMature !== ivl[c] >= MATURE_DAYS) mature += ivl[c] >= MATURE_DAYS ? 1 : -1
       const due = day + ivl[c]
       if (due < H) buckets[di][due].push(c)
     }

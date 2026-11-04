@@ -20,6 +20,7 @@ import { dayNumber, keyFromDayNumber } from '../lib/dates'
 import { formatInt, formatLongDate, formatPct, formatShortDate } from '../lib/format'
 import { buildInsights } from '../lib/insights'
 import type { MeasuredDefaults } from '../lib/measured'
+import { MATURE_DAYS } from '../lib/fsrs'
 import { lapseEvidence } from '../lib/fsrsStats'
 import { gradingShift, lapseBasis } from '../lib/gradingShift'
 import { deckLimits, defaultBudget, minutesAt, pilesUpAt, PLAN_PRESETS, planPresets, planSettings, standardSweep, type PlanPreset, type PlanPresetKey } from '../lib/plan'
@@ -874,5 +875,5 @@ function ScenarioCard({ title, question, tip, children }: { title: string; quest
 
 /** Mature cards today in the selected decks (interval of 21+ days). */
 function mature0(fsrs: FsrsData, deckIds: string[]) {
-  return fsrs.cards.filter((c) => deckIds.includes(c.deckId) && c.interval >= 21).length
+  return fsrs.cards.filter((c) => deckIds.includes(c.deckId) && c.interval >= MATURE_DAYS).length
 }

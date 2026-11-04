@@ -23,5 +23,12 @@ export function keyFromDayNumber(n: number): string {
   return new Date(n * 86_400_000).toISOString().slice(0, 10)
 }
 
+/** A date on the Anki day of a timestamp. Compares clock hours, as Anki does, so a clock change can't move a review's day. */
+export function ankiDate(ms: number, dayStartHour: number): Date {
+  const date = new Date(ms)
+  if (date.getHours() < dayStartHour) date.setDate(date.getDate() - 1)
+  return date
+}
+
 /** Anki day (YYYY-MM-DD) of a timestamp, given the hour at which Anki starts a new day. */
-export const ankiDayKey = (ms: number, dayStartHour: number) => toDateKey(new Date(ms - dayStartHour * 3_600_000))
+export const ankiDayKey = (ms: number, dayStartHour: number) => toDateKey(ankiDate(ms, dayStartHour))

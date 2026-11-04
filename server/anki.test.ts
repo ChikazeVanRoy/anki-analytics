@@ -2,7 +2,7 @@
 // The tables only have the columns the reader uses; settings blobs use Anki's real protobuf format.
 
 import { createHash } from 'node:crypto'
-import { copyFileSync, mkdtempSync, readFileSync, rmSync, utimesSync } from 'node:fs'
+import { copyFileSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync } from 'node:fs'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -16,7 +16,7 @@ import { parseSnapshot } from '../src/lib/snapshot.ts'
 import { readAnkiData, readDeckTops } from './anki.ts'
 import { createApiServer } from './app.ts'
 import type { DeckConfig } from './deckGroups.ts'
-import { readPreset, sampleDays } from './fsrsData.ts'
+import { fsrsHistory, readPreset, sampleDays } from './fsrsData.ts'
 import { parseProto } from './protobuf.ts'
 import { makeSnapshot, writeSnapshot } from './snapshot.ts'
 
@@ -607,7 +607,31 @@ describe('FSRS data with mixed presets and incomplete histories', () => {
   })
 })
 
+describe('fsrsHistory', () => {
+  const entry = (id: number, type: number, ease: number, factor: number) => ({ id, cid: 1, ease, type, time: 1000, lastIvl: 0, factor })
+
+  it('leaves out cram reviews that didn’t reschedule, as Anki does', () => {
+    const learned = entry(1, 0, 3, 0)
+    const rescheduled = entry(3, 3, 3, 2500)
+    expect(fsrsHistory([learned, entry(2, 3, 3, 0), rescheduled])).toEqual([learned, rescheduled])
+  })
+
+  it('starts after the last Forget and skips manual entries', () => {
+    const kept = entry(4, 0, 3, 0)
+    expect(fsrsHistory([entry(1, 0, 3, 0), entry(2, 4, 0, 0), entry(3, 4, 0, 2500), kept])).toEqual([kept])
+  })
+})
+
 describe('a saved snapshot', () => {
+  it('leaves nothing behind when it can’t be saved', () => {
+    const folder = mkdtempSync(join(tmpdir(), 'anki-analytics-snapshot-'))
+    const taken = join(folder, 'snapshot.json')
+    mkdirSync(taken) // a folder in the way, so the finished file can't be swapped in
+    expect(() => writeSnapshot({} as AnkiData, taken)).toThrow()
+    expect(readdirSync(folder)).toEqual(['snapshot.json'])
+    rmSync(folder, { recursive: true, force: true })
+  })
+
   it('gives exactly the numbers the live API sends for the same collection', async () => {
     const snapshotPath = join(dir, 'snapshot.json')
     const read = (p: string) => readAnkiData(p, NOW, { deckConfig: DECKS })

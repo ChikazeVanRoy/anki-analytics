@@ -16,12 +16,11 @@ import type {
   TroubleCard,
 } from '../src/data/types.ts'
 import { ankiDayKey, dayNumber, keyFromDayNumber } from '../src/lib/dates.ts'
-import { DEFAULT_PARAMS, replay, retrievability, toFsrs6Params, type MemoryState, type Rating } from '../src/lib/fsrs.ts'
+import { DEFAULT_PARAMS, MATURE_DAYS, replay, retrievability, toFsrs6Params, type MemoryState, type Rating } from '../src/lib/fsrs.ts'
 import { readConfigJson } from './ankiConfig.ts'
 import { cardTextReader } from './cardText.ts'
 import { firstBytes, firstFloat, firstVarint, floats, parseProto } from './protobuf.ts'
 
-const MATURE_DAYS = 21
 const WINDOW_DAYS = 180 // window for measured answer behaviour
 const BIN_EDGES = [0, 0.7, 0.8, 0.85, 0.9, 0.95, 1.0001]
 const KNOWLEDGE_POINTS = 60 // most days the knowledge curve is sampled on, per deck
@@ -109,16 +108,18 @@ function ankiVersion(): string | null {
   return m?.[1] ?? null
 }
 
-/** Review history Anki uses for FSRS: entries after the last "Forget" reset, without manual entries. */
 /** A manual entry with ease 0 and factor 0 is a "Forget" reset. */
 const isReset = (e: RevlogRow) => e.type === 4 && e.ease === 0 && e.factor === 0
+/** A filtered-deck answer with factor 0 didn't reschedule the card, so Anki leaves it out of FSRS. */
+const isCram = (e: RevlogRow) => e.type === 3 && e.factor === 0
 
+/** Review history Anki uses for FSRS: entries after the last "Forget" reset, without manual or cram entries. */
 export function fsrsHistory(entries: RevlogRow[]): RevlogRow[] {
   let start = 0
   entries.forEach((e, i) => {
     if (isReset(e)) start = i + 1
   })
-  return entries.slice(start).filter((e) => e.type <= 3 && e.ease >= 1 && e.ease <= 4)
+  return entries.slice(start).filter((e) => e.type <= 3 && e.ease >= 1 && e.ease <= 4 && !isCram(e))
 }
 
 /** The days to sample, oldest first, always ending today. */
@@ -252,7 +253,7 @@ export function readFsrsData(ctx: Context): FsrsData {
     cards.push(stored)
     cardById.set(Number(r.id), stored)
   }
-  const cardText = cardTextReader(db)
+  const cardText = cardTextReader(db, ctx.copiedAt)
   if (cards.length <= GARDEN_TEXT_CARDS) {
     for (const r of db.prepare(`SELECT ${CARD_TEXT_COLUMNS} FROM cards c JOIN notes n ON n.id = c.nid WHERE c.type != 0`).all()) {
       const card = cardById.get(Number(r.id))
@@ -302,7 +303,7 @@ export function readFsrsData(ctx: Context): FsrsData {
   let resetCards = 0
   let incompleteHistory = 0
   const today = dayNumber(dayKey(ctx.now))
-  const windowStart = today - WINDOW_DAYS
+  const windowStart = today - WINDOW_DAYS + 1
   const newToday: Record<string, number> = {}
   const reviewsToday: Record<string, number> = {}
   const behaviour = new Map<string, DeckBehaviour & { timeSum: number; timeN: number; learnN: number }>()

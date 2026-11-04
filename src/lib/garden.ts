@@ -7,6 +7,7 @@
 
 import type { Deck } from '../data/types'
 import { dayNumber } from './dates'
+import { MATURE_DAYS } from './fsrs'
 import { RISK_MARGIN, type CardNow } from './fsrsStats'
 
 /** `bud` and `wilt` need FSRS data. Without it, `flower` means a long interval rather than a proven card. */
@@ -39,8 +40,6 @@ const UNITS = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1_000, 2_000, 2_500,
 
 /** Plants for one stage: rounded, but a stage with any cards always gets at least one plant. */
 const plantsFor = (cards: number, unit: number) => (cards > 0 ? Math.max(1, Math.round(cards / unit)) : 0)
-
-const MATURE_DAYS = 21
 
 /**
  * A card's place in the garden. Needing water comes first: a proven card still needs its next review. Only cards

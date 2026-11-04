@@ -2,7 +2,7 @@
 // No React here, so they are easy to test and reuse.
 
 import type { AnkiData, DailyDeckStat, Deck } from '../data/types'
-import { parseDateKey, toDateKey } from './dates'
+import { ankiDate, parseDateKey, toDateKey } from './dates'
 
 export { parseDateKey, toDateKey } from './dates'
 
@@ -38,7 +38,7 @@ export function lastNDays(n: number, offset = 0, today = new Date()): string[] {
 
 /** "Today" in Anki terms: before the rollover hour it is still the previous day. */
 export function ankiToday(data: AnkiData): Date {
-  return new Date(Date.now() - data.dayStartHour * 3_600_000)
+  return ankiDate(Date.now(), data.dayStartHour)
 }
 
 /** Number of days a range covers. "All time" runs from the first review to today. */

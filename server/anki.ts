@@ -4,12 +4,11 @@
 import { statSync } from 'node:fs'
 import { DatabaseSync } from 'node:sqlite'
 import type { AnkiData, DailyDeckStat, Deck } from '../src/data/types.ts'
-import { toDateKey } from '../src/lib/dates.ts'
+import { ankiDayKey } from '../src/lib/dates.ts'
+import { MATURE_DAYS } from '../src/lib/fsrs.ts'
 import { readConfigJson } from './ankiConfig.ts'
 import { loadDeckColors, loadDeckConfig, OTHER, planDeckGroups, saveDeckColors, type DeckConfig } from './deckGroups.ts'
 import { readFsrsData } from './fsrsData.ts'
-
-const MATURE_DAYS = 21 // Anki's definition: interval of 21+ days
 
 export interface ReadOptions {
   /** How Anki decks are grouped (see deckGroups.ts); without it the most-studied top-level decks show. */
@@ -116,12 +115,10 @@ export function readAnkiData(path: string, now = Date.now(), { deckConfig = {}, 
       .all()
 
     const byKey = new Map<string, DailyDeckStat>()
-    const offsetMs = dayStartHour * 3_600_000
     for (const r of reviews) {
       // Skip excluded decks, and reviews of deleted cards (Anki no longer knows their deck)
       if (r.did == null || excludedDecks.has(Number(r.did))) continue
-      // Shift by the rollover hour so a 00:30 review counts towards the previous Anki day
-      const date = toDateKey(new Date(Number(r.ts) - offsetMs))
+      const date = ankiDayKey(Number(r.ts), dayStartHour) // a 00:30 review counts towards the previous Anki day
       const deckId = deckGroup.get(Number(r.did)) ?? OTHER.id
       const key = `${date}|${deckId}`
       const stat = byKey.get(key) ?? {
@@ -199,6 +196,10 @@ export function readAnkiData(path: string, now = Date.now(), { deckConfig = {}, 
 export function readCurrentStats(path: string): AnkiData {
   const previousColors = loadDeckColors()
   const data = readAnkiData(path, Date.now(), { deckConfig: loadDeckConfig(), previousColors })
-  saveDeckColors(data.decks, previousColors)
+  try {
+    saveDeckColors(data.decks, previousColors)
+  } catch (err) {
+    console.error('Deck colours could not be saved:', err) // the stats just read are still good
+  }
   return data
 }

@@ -10,21 +10,6 @@ import { deckSummaries, lastNDays, MIN_RATE_SAMPLE, ratio, retentionSplit, type 
 
 const studied = (byDate: Map<string, DayTotal>, key: string) => (byDate.get(key)?.reviews ?? 0) > 0
 
-/** Longest run of consecutive days with at least one review, across the whole history. */
-export function longestStreak(byDate: Map<string, DayTotal>): number {
-  const days = [...byDate]
-    .filter(([, t]) => t.reviews > 0)
-    .map(([d]) => dayNumber(d))
-    .sort((a, b) => a - b)
-  let best = 0
-  let run = 0
-  for (let i = 0; i < days.length; i++) {
-    run = i > 0 && days[i] === days[i - 1] + 1 ? run + 1 : 1
-    best = Math.max(best, run)
-  }
-  return best
-}
-
 const reviewsOn = (byDate: Map<string, DayTotal>, keys: string[]) =>
   keys.reduce((n, k) => n + (byDate.get(k)?.reviews ?? 0), 0)
 

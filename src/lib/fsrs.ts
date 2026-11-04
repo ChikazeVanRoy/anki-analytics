@@ -8,6 +8,9 @@
 
 export type Rating = 1 | 2 | 3 | 4 // Again, Hard, Good, Easy
 
+/** Anki's definition of a mature card: an interval of 21 days or more. */
+export const MATURE_DAYS = 21
+
 export interface MemoryState {
   stability: number
   difficulty: number

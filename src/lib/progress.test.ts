@@ -4,7 +4,6 @@ import {
   dayStatus,
   greetingPart,
   homeInsight,
-  longestStreak,
   milestones,
   longestWithRests,
   mascotMood,
@@ -58,21 +57,6 @@ beforeEach(() => {
   vi.setSystemTime(TODAY)
 })
 afterEach(() => vi.useRealTimers())
-
-describe('longestStreak', () => {
-  it('finds the longest run of consecutive review days anywhere in history', () => {
-    const byDate = totalsByDate(on([20, 19, 18, 17, 10, 9, 1, 0]))
-    expect(longestStreak(byDate)).toBe(4)
-  })
-  it('is 0 without reviews and ignores days with zero reviews', () => {
-    expect(longestStreak(new Map())).toBe(0)
-    expect(longestStreak(totalsByDate([...on([3]), ...on([2], 0), ...on([1])]))).toBe(1)
-  })
-  it('counts across month and DST boundaries by calendar day', () => {
-    const byDate = totalsByDate(['2026-10-24', '2026-10-25', '2026-10-26', '2026-11-01'].map((d) => stat(d, 'a', 1)))
-    expect(longestStreak(byDate)).toBe(3)
-  })
-})
 
 describe('weekComparison', () => {
   it('compares the last 7 days with the 7 before', () => {
