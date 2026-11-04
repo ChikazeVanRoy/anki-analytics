@@ -18,6 +18,7 @@ import {
   longestStreak,
   milestones,
   recentDays,
+  staleCopyDay,
   todayWork,
   weekComparison,
   type MilestoneTrack,
@@ -26,7 +27,7 @@ import {
 import { gardenBed, plantUnit, type GardenBed } from '../lib/garden'
 import { measuredDefaults } from '../lib/measured'
 import { routeHref, type Route } from '../lib/route'
-import { ankiToday, answerCounts, deckSummaries, retentionSplit, summarize, totalsByDate, type DeckSummary } from '../lib/stats'
+import { ankiToday, answerCounts, currentStreak, deckSummaries, retentionSplit, summarize, totalsByDate, type DeckSummary } from '../lib/stats'
 
 const m = messages.home
 
@@ -49,7 +50,10 @@ export function HomePage({ data }: { data: AnkiData }) {
 
   const [hour] = useState(() => new Date().getHours())
   const hasAny = data.daily.some((s) => s.reviews > 0)
-  const status = dayStatus(hasAny, week7.reviewsToday, week7.streak)
+  // A streak read from an old copy runs to the day it was made: reviews since then aren't in it, not missed
+  const copyDay = staleCopyDay(data, today)
+  const streak = useMemo(() => (copyDay ? currentStreak(byDate, copyDay) : week7.streak), [byDate, copyDay, week7.streak])
+  const status = dayStatus(hasAny, week7.reviewsToday, streak, !!copyDay)
   const todayMinutes = (byDate.get(toDateKey(today))?.seconds ?? 0) / 60
   const { reviewCards } = month.retention
   const split = retentionSplit(month.retention)
@@ -67,16 +71,19 @@ export function HomePage({ data }: { data: AnkiData }) {
             ? due && !due.stale && due.cards + due.newCards > 0
               ? m.status.doneMoreDue(week7.reviewsToday)
               : m.status.done(week7.reviewsToday)
-            : status === 'keep'
-              ? m.status.keep(week7.streak)
-              : status === 'start'
-                ? m.status.start
-                : m.status.empty
+            : status === 'stale'
+              ? m.status.stale
+              : status === 'keep'
+                ? m.status.keep(streak)
+                : status === 'start'
+                  ? m.status.start
+                  : m.status.empty
         }
         due={due}
         plan={plan}
-        streak={week7.streak}
+        streak={streak}
         best={best}
+        streakAsOf={copyDay && copyDay.toLocaleDateString(LOCALE, { day: 'numeric', month: 'short' })}
         sample={sample}
         copied={sample ? null : messages.data.copiedAt(formatCopiedAt(data.generatedAt))}
       />
@@ -86,8 +93,8 @@ export function HomePage({ data }: { data: AnkiData }) {
           label={m.kpi.today}
           icon={<CheckIcon size={18} className="text-good" />}
           tint="var(--color-good-soft)"
-          value={<CountUp value={week7.reviewsToday} format={formatInt} />}
-          hint={m.kpi.todaySub(todayMinutes)}
+          value={copyDay ? '—' : <CountUp value={week7.reviewsToday} format={formatInt} />}
+          hint={copyDay ? m.kpi.todayStale : m.kpi.todaySub(todayMinutes)}
         />
         <StatCard
           label={m.kpi.week}
@@ -190,6 +197,7 @@ function Hero({
   plan,
   streak,
   best,
+  streakAsOf,
   sample,
   copied,
 }: {
@@ -199,6 +207,7 @@ function Hero({
   plan: TodayPlan | null
   streak: number
   best: number
+  streakAsOf: string | null
   sample: boolean
   copied: string | null
 }) {
@@ -229,6 +238,7 @@ function Hero({
               <span className="font-bold text-sun-ink">{m.streak.label}</span>
             </p>
             {best > 0 && <p className="text-xs text-muted">{m.streak.best(best)}</p>}
+            {streakAsOf && <p className="text-xs text-muted">{m.streak.asOf(streakAsOf)}</p>}
           </div>
         </div>
       </div>

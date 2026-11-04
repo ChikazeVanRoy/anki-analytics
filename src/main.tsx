@@ -3,6 +3,13 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 
+// The weekly goal is gone; clear what it saved
+try {
+  localStorage.removeItem('anki-analytics.weekly-goal')
+} catch {
+  // Storage unavailable (private mode, blocked site data): nothing to clear
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />

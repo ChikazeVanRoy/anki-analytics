@@ -69,6 +69,7 @@ export const en = {
       doneMoreDue: (n: number) => `You’ve reviewed ${int(n)} ${plural(n, 'card', 'cards')} today, with more waiting when you’re ready.`,
       keep: (streak: number) => `Your ${streak}-day streak is waiting. A short session today keeps it going.`,
       start: 'Ready when you are. A short session today starts a new streak.',
+      stale: 'This copy is from an earlier day, so it can’t show what you’ve done since.',
       empty: 'Your progress will appear here after your first review in Anki.',
     },
     today: {
@@ -78,7 +79,7 @@ export const en = {
       dueTipLabel: 'About cards due',
       dueHeld: (n: number) => `${int(n)} more held back by your review limit`,
       dueTip:
-        'Reviews Anki will show today: cards due today or overdue, from the due dates stored when the collection was copied, up to each deck’s daily review limit. Buried cards are left out.',
+        'Cards Anki will show today: reviews due today or overdue, up to each deck’s daily review limit, plus learning and relearning cards, which that limit doesn’t hold back. From the due dates stored when the collection was copied. Buried cards are left out.',
       newLabel: 'New cards today',
       newSub: 'left under your Anki limits',
       newTipLabel: 'About new cards today',
@@ -101,10 +102,15 @@ export const en = {
         `From the Planner’s simulation of your real cards: the most new cards a day whose heaviest month in the next year stays within ${budget} minutes per study day. ${budget} minutes is your measured time per study day over the last 4 weeks, rounded up to 5. It assumes you keep your recent study days and pace. Nothing changes in Anki.`,
       planLink: 'Open the Planner',
     },
-    streak: { label: 'day streak', best: (n: number) => `Best: ${n} ${plural(n, 'day', 'days')}` },
+    streak: {
+      label: 'day streak',
+      best: (n: number) => `Best: ${n} ${plural(n, 'day', 'days')}`,
+      asOf: (date: string) => `As of ${date}`,
+    },
     kpi: {
       today: 'Reviewed today',
       todaySub: (minutes: number) => (minutes > 0 ? `about ${int(minutes)} min` : 'nothing yet today'),
+      todayStale: 'not in this copy',
       week: 'Last 7 days',
       weekSub: 'reviews in the last 7 days',
       weekVs: (pct: string, up: boolean) => `${up ? '▲' : '▼'} ${pct} vs the 7 days before`,

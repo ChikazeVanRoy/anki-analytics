@@ -121,6 +121,11 @@ export function readFsrsData(ctx: Context): FsrsData {
   const crtSecs = Number(db.prepare('SELECT crt FROM col').get()!.crt)
   const crtDay = dayNumber(ankiDayKey(crtSecs * 1000 + dayStartHour * 3_600_000, dayStartHour))
 
+  // Anki unburies when it first opens on a new day. Until then the file still says buried, but today it won't be
+  const lastUnburied = readConfigJson(db, 'lastUnburied')
+  const buriedForToday = typeof lastUnburied !== 'number' || lastUnburied >= dayNumber(dayKey(ctx.now)) - crtDay
+  const isBuried = (queue: number) => buriedForToday && (queue === -2 || queue === -3)
+
   // --- Presets: each group shows the preset most of its cards use (limits, steps); cards keep their own ---
   const presetRows = new Map<number, { name: string; blob: Uint8Array }>()
   for (const r of db.prepare('SELECT id, name, config FROM deck_config').all()) {
@@ -183,7 +188,7 @@ export function readFsrsData(ctx: Context): FsrsData {
     }
     if (type === 0) {
       add(newCards, group)
-      if (queue === -2 || queue === -3) add(buriedNew, group)
+      if (isBuried(queue)) add(buriedNew, group)
       continue
     }
     let data: { s?: unknown; d?: unknown; lrt?: unknown } = {}
@@ -215,7 +220,7 @@ export function readFsrsData(ctx: Context): FsrsData {
       interval: Math.max(0, Number(r.ivl)),
       state: type === 2 ? 'review' : type === 3 ? 'relearning' : 'learning',
       ...(presetIndex !== undefined && { preset: presetIndex }),
-      ...((queue === -2 || queue === -3) && { buried: true }),
+      ...(isBuried(queue) && { buried: true }),
     })
   }
 
@@ -280,6 +285,12 @@ export function readFsrsData(ctx: Context): FsrsData {
   for (const [cid, entries] of byCard) {
     const group = cardGroup.get(cid)!
     if (entries.some(isReset)) resetCards++
+    // Newest first, stopping at earlier days. From the full log: a later Forget doesn't refund the review limit
+    for (let i = entries.length - 1; i >= 0; i--) {
+      const entryDay = dayNumber(dayKey(entries[i].id))
+      if (entryDay < today) break
+      if (entryDay === today && entries[i].type === 1 && entries[i].ease >= 1) add(reviewsToday, group)
+    }
     const history = fsrsHistory(entries)
     if (history.length === 0) continue
     const days = history.map((e) => dayNumber(dayKey(e.id)))
@@ -352,9 +363,6 @@ export function readFsrsData(ctx: Context): FsrsData {
 
     // What counts against today's limits
     if (history[0].type === 0 && days[0] === today) add(newToday, group)
-    history.forEach((e, i) => {
-      if (e.type === 1 && days[i] === today) add(reviewsToday, group)
-    })
 
     // New-card behaviour: first answer, and same-day learning answers on the introduction day
     if (history[0].type === 0 && days[0] >= windowStart) {

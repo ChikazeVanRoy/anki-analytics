@@ -3,7 +3,7 @@
 // shown as reached only when the review log or card counts show it.
 
 import type { AnkiData } from '../data/types'
-import { ankiDayKey, dayNumber, toDateKey } from './dates'
+import { ankiDayKey, dayNumber, parseDateKey, toDateKey } from './dates'
 import { formatInt, formatPct, formatRate } from './format'
 import { deckSummaries, lastNDays, MIN_RATE_SAMPLE, ratio, retentionSplit, type DayTotal } from './stats'
 
@@ -95,11 +95,15 @@ export function milestones(data: AnkiData, byDate: Map<string, DayTotal>): Miles
 
 // ---------- Status and greeting ----------
 
-export type DayStatus = 'empty' | 'done' | 'keep' | 'start'
+export type DayStatus = 'empty' | 'stale' | 'done' | 'keep' | 'start'
 
-/** What to say at the top of Home: reviewed today, a streak to continue, a fresh start, or no data yet. */
-export function dayStatus(hasAnyReviews: boolean, reviewsToday: number, streak: number): DayStatus {
+/**
+ * What to say at the top of Home: reviewed today, a streak to continue, a fresh start, or no data yet. A copy
+ * from an earlier day can't say what's happened since, so `stale` comes before anything about today.
+ */
+export function dayStatus(hasAnyReviews: boolean, reviewsToday: number, streak: number, stale = false): DayStatus {
   if (!hasAnyReviews) return 'empty'
+  if (stale) return 'stale'
   if (reviewsToday > 0) return 'done'
   return streak > 0 ? 'keep' : 'start'
 }
@@ -132,6 +136,13 @@ export function copiedOnEarlierDay(data: AnkiData, today: Date) {
   return !Number.isFinite(copied) || ankiDayKey(copied, data.dayStartHour) < toDateKey(today)
 }
 
+/** The Anki day real data was copied, when that's before `today`. Null for sample data or a current copy. */
+export function staleCopyDay(data: AnkiData, today: Date): Date | null {
+  if (data.source !== 'anki' || !copiedOnEarlierDay(data, today)) return null
+  const copied = Date.parse(data.generatedAt)
+  return Number.isFinite(copied) ? parseDateKey(ankiDayKey(copied, data.dayStartHour)) : null
+}
+
 /**
  * What's left today, from FSRS card data, following Anki's limits per deck group. Reviews come first; unless
  * Anki's "New cards ignore review limit" is on, new cards count towards the review limit and get what's left of it.
@@ -143,29 +154,34 @@ export function todayWork(data: AnkiData, today: Date, seconds: number): TodayWo
   if (copiedOnEarlierDay(data, today)) return { stale: true }
   const day = dayNumber(toDateKey(today))
   const { fsrs } = data
-  const due = new Map<string, number>()
+  // Learning and relearning cards aren't held back by the review limit, so only reviews are capped
+  const due = new Map<string, { reviews: number; learning: number }>()
   for (const c of fsrs.cards) {
-    if (!c.buried && dayNumber(c.due) <= day) due.set(c.deckId, (due.get(c.deckId) ?? 0) + 1)
+    if (c.buried || dayNumber(c.due) > day) continue
+    const counts = due.get(c.deckId) ?? { reviews: 0, learning: 0 }
+    counts[c.state === 'review' ? 'reviews' : 'learning']++
+    due.set(c.deckId, counts)
   }
+  const pace = (deckId: string) => fsrs.behaviour.find((b) => b.deckId === deckId)?.secondsPerReview || seconds
   const work = { cards: 0, heldBack: 0, newCards: 0, seconds: 0 }
-  for (const [deckId, count] of due) {
+  for (const [deckId, { reviews, learning }] of due) {
     if (fsrs.presets.some((p) => p.deckId === deckId)) continue
-    work.cards += count // no preset read for this group, so no limit to apply
-    work.seconds += count * (fsrs.behaviour.find((b) => b.deckId === deckId)?.secondsPerReview || seconds)
+    work.cards += reviews + learning // no preset read for this group, so no limit to apply
+    work.seconds += (reviews + learning) * pace(deckId)
   }
   for (const p of fsrs.presets) {
     const started = fsrs.newToday?.[p.deckId] ?? 0
     const ignoreLimit = !!fsrs.newCardsIgnoreReviewLimit
     const reviewRoom = Math.max(0, p.reviewsPerDay - (fsrs.reviewsToday?.[p.deckId] ?? 0) - (ignoreLimit ? 0 : started))
-    const dueHere = due.get(p.deckId) ?? 0
-    const shown = Math.min(dueHere, reviewRoom)
+    const { reviews, learning } = due.get(p.deckId) ?? { reviews: 0, learning: 0 }
+    const shown = Math.min(reviews, reviewRoom)
     const available = Math.max(0, (fsrs.newCards[p.deckId] ?? 0) - (fsrs.buriedNew?.[p.deckId] ?? 0))
     const newLeft = Math.min(Math.max(0, p.newPerDay - started), available, ignoreLimit ? Infinity : reviewRoom - shown)
-    const b = fsrs.behaviour.find((x) => x.deckId === p.deckId)
-    work.cards += shown
-    work.heldBack += dueHere - shown
+    const firstDayAnswers = Math.max(1, fsrs.behaviour.find((b) => b.deckId === p.deckId)?.learningReviewsPerNewCard ?? 1)
+    work.cards += shown + learning
+    work.heldBack += reviews - shown
     work.newCards += newLeft
-    work.seconds += (shown + newLeft * Math.max(1, b?.learningReviewsPerNewCard ?? 1)) * (b?.secondsPerReview || seconds)
+    work.seconds += (shown + learning + newLeft * firstDayAnswers) * pace(p.deckId)
   }
   return { stale: false, cards: work.cards, heldBack: work.heldBack, newCards: work.newCards, minutes: work.seconds / 60 }
 }

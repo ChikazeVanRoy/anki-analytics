@@ -43,17 +43,18 @@ for (const route of ['#/', '#/activity', '#/advanced']) {
     await useRealShapedData(page)
     await page.goto(route)
     await expect(page.locator('main h1').first()).toBeVisible()
-    // Home's suggestion adds a tip when its simulation ends, which would shift the buttons counted below
+    // Home's suggestion adds its tip when the simulation ends, so wait for it to be checked too
     await expect(page.getByText(messages.home.today.suggestPending)).toHaveCount(0)
-    const buttons = page.locator('main button[aria-describedby]:visible')
-    await expect(buttons.first()).toBeVisible()
+    const visible = page.locator('main button[aria-describedby]:visible')
+    await expect(visible.first()).toBeVisible()
+    // Stable ids, not positions: a tip that appears mid-test can't make the loop click the same button twice
+    const ids = await visible.evaluateAll((buttons) => buttons.map((b) => b.getAttribute('aria-describedby')!))
     const width = page.viewportSize()!.width
     const height = page.viewportSize()!.height
-    for (let i = 0; i < (await buttons.count()); i++) {
-      const button = buttons.nth(i)
+    for (const id of ids) {
+      const button = page.locator(`button[aria-describedby="${id}"]`)
       await button.scrollIntoViewIfNeeded()
       await button.click()
-      const id = await button.getAttribute('aria-describedby')
       const tip = page.locator(`[id="${id}"]`)
       await expect(tip).toBeVisible()
       const box = (await tip.boundingBox())!

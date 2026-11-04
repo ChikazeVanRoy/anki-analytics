@@ -180,6 +180,34 @@ describe('Home decks', () => {
   })
 })
 
+describe('Home on a copy from an earlier day', () => {
+  const dayAgo = (n: number) => {
+    const d = new Date()
+    d.setDate(d.getDate() - n)
+    return d
+  }
+  const oldCopy = () => {
+    const base = realShapedData()
+    const daily = [3, 4, 5].map((n) => ({ ...base.daily[0], date: toDateKey(dayAgo(n)), reviews: 10 }))
+    return { ...base, daily, dayStartHour: 0, generatedAt: dayAgo(3).toISOString() }
+  }
+
+  it('keeps the streak as of the copy, not broken by days the copy can’t see', () => {
+    render(<HomePage data={oldCopy()} />)
+    const card = screen.getByText(messages.home.streak.label).closest('div') as HTMLElement
+    expect(card.textContent).toContain('3')
+    expect(screen.getByText(/^As of /)).toBeTruthy()
+    expect(screen.getByText(messages.home.status.stale)).toBeTruthy()
+    expect(screen.queryByText(messages.home.status.start)).toBeNull()
+  })
+
+  it('doesn’t say nothing was reviewed today', () => {
+    render(<HomePage data={oldCopy()} />)
+    expect(screen.getByText(messages.home.kpi.todayStale)).toBeTruthy()
+    expect(screen.queryByText('nothing yet today')).toBeNull()
+  })
+})
+
 describe('Home Today limits', () => {
   it('says when the review limit holds cards back', () => {
     const data = realShapedData()

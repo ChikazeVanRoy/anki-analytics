@@ -320,6 +320,32 @@ describe('FSRS data', () => {
     expect(changed.newCardsIgnoreReviewLimit).toBe(true)
   })
 
+  /** A throwaway copy of the fixture with extra SQL applied. */
+  function changed(name: string, sql: string, now = NOW) {
+    const other = join(dir, name)
+    copyFileSync(path, other)
+    const db = new DatabaseSync(other)
+    db.exec(sql)
+    db.close()
+    return readAnkiData(other, now, { deckConfig: DECKS }).fsrs!
+  }
+
+  it('keeps a review in today’s count after the card is reset with Forget', () => {
+    const reset = `INSERT INTO revlog VALUES (${at(2026, 3, 10, 13, 30)}, 12, 0, 0, 4, 0, 0)`
+    expect(changed('forget.anki2', reset, at(2026, 3, 10, 14)).reviewsToday).toEqual({ spanish: 2 })
+  })
+
+  it('ignores buried flags Anki will clear when it next opens on a new day', () => {
+    const today = dayNumber(ankiDayKey(NOW, ROLLOVER)) - crtDay
+    const bury = (lastUnburied: number) => `UPDATE cards SET queue = -2 WHERE id = 11; INSERT INTO config VALUES ('lastUnburied', CAST('${lastUnburied}' AS BLOB))`
+    const yesterday = changed('old-bury.anki2', bury(today - 1))
+    expect(yesterday.buriedNew).toEqual({})
+    expect(yesterday.cards.some((c) => c.buried)).toBe(false)
+    const current = changed('new-bury.anki2', bury(today))
+    expect(current.buriedNew).toEqual({ spanish: 1 })
+    expect(current.cards.some((c) => c.buried)).toBe(true)
+  })
+
   it('measures answer behaviour within the window', () => {
     const zh = fsrs().behaviour.find((b) => b.deckId === 'spanish')!
     expect(zh.firstRating).toEqual([1, 0, 1, 1]) // 13 Again, 12 Good, 15 Easy
