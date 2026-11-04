@@ -29,12 +29,40 @@ function matches(...pgrepArgs: string[]) {
 // hit unrelated processes such as macOS's "voicebankingd".
 const ankiIsRunning = () => matches('-x', '-i', 'anki') || matches('-f', 'Anki\\.app/Contents/')
 
+const findProfiles = () =>
+  existsSync(ANKI_DIR) ? readdirSync(ANKI_DIR).filter((name) => existsSync(join(ANKI_DIR, name, 'collection.anki2'))) : []
+
+export interface AnkiStatus {
+  ankiRunning: boolean
+  /** Anki is closed and its collection is newer than the copy, so a refresh would bring in new reviews. */
+  updateAvailable: boolean
+  /** When Anki's collection last changed (ms), or null if it can't be found. */
+  sourceModified: number | null
+}
+
+/** A refresh only helps once Anki is closed, and only if its collection changed after the copy was made. */
+export function canUpdate(running: boolean, cleanClose: boolean, sourceModified: number | null, copyModified: number | null) {
+  if (running || !cleanClose || sourceModified === null) return false
+  return copyModified === null || sourceModified > copyModified
+}
+
+const modified = (path: string) => (existsSync(path) ? statSync(path).mtimeMs : null)
+
+/** Whether a refresh is worth offering. Only looks at file dates: it never opens Anki's collection. */
+export function ankiStatus(profileName = process.env.ANKI_PROFILE): AnkiStatus {
+  const ankiRunning = ankiIsRunning()
+  const profiles = findProfiles()
+  const profile = profileName ?? (profiles.length === 1 ? profiles[0] : undefined)
+  const source = profile && profiles.includes(profile) ? join(ANKI_DIR, profile, 'collection.anki2') : null
+  const sourceModified = source ? modified(source) : null
+  const cleanClose = !!source && !existsSync(`${source}-wal`)
+  return { ankiRunning, sourceModified, updateAvailable: canUpdate(ankiRunning, cleanClose, sourceModified, modified(COLLECTION_COPY)) }
+}
+
 export function copyCollection(profileName = process.env.ANKI_PROFILE): { profile: string; bytes: number } {
   if (ankiIsRunning()) throw new CopyError('Anki is running. Quit Anki completely, then try again.')
 
-  const profiles = existsSync(ANKI_DIR)
-    ? readdirSync(ANKI_DIR).filter((name) => existsSync(join(ANKI_DIR, name, 'collection.anki2')))
-    : []
+  const profiles = findProfiles()
   const profile = profileName ?? (profiles.length === 1 ? profiles[0] : undefined)
   if (!profile) throw new CopyError(`Found profiles: ${profiles.join(', ') || 'none'}. Set ANKI_PROFILE=<name>.`)
   // Only accept an existing profile folder name, so ANKI_PROFILE can't point outside Anki's folder (e.g. "../..")

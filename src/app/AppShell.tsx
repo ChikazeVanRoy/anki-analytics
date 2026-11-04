@@ -23,13 +23,16 @@ interface ShellProps {
   refreshing: boolean
   refreshError: string | null
   onDismissError: () => void
+  /** Anki has closed with reviews this copy doesn't have. */
+  updateReady: boolean
+  onDismissUpdate: () => void
   theme: ThemeChoice
   onCycleTheme: () => void
   children: ReactNode
 }
 
 export function AppShell(props: ShellProps) {
-  const { route, data, fallbackReason, fallbackKind, onRefresh, refreshing, refreshError, onDismissError, theme, onCycleTheme, children } = props
+  const { route, data, fallbackReason, fallbackKind, onRefresh, refreshing, refreshError, onDismissError, updateReady, onDismissUpdate, theme, onCycleTheme, children } = props
   const sample = data.source === 'mock'
   const copied = formatCopiedAt(data.generatedAt)
 
@@ -130,6 +133,27 @@ export function AppShell(props: ShellProps) {
             <button
               type="button"
               onClick={onDismissError}
+              aria-label={m.data.dismiss}
+              className="grid size-8 place-items-center rounded-full text-muted hover:bg-surface hover:text-ink"
+            >
+              <CloseIcon size={16} />
+            </button>
+          </div>
+        )}
+
+        {updateReady && !refreshing && (
+          <div role="status" className="animate-rise mt-5 flex flex-wrap items-center gap-3 rounded-3xl border border-good/30 bg-good-soft px-5 py-3 text-sm text-ink">
+            <span className="min-w-0 flex-1 font-semibold">{m.data.updateReady}</span>
+            <button
+              type="button"
+              onClick={onRefresh}
+              className="inline-flex h-9 items-center gap-2 rounded-xl bg-brand px-3 font-bold text-brand-ink transition-all active:scale-95"
+            >
+              <RefreshIcon size={16} /> {m.data.updateNow}
+            </button>
+            <button
+              type="button"
+              onClick={onDismissUpdate}
               aria-label={m.data.dismiss}
               className="grid size-8 place-items-center rounded-full text-muted hover:bg-surface hover:text-ink"
             >

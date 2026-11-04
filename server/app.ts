@@ -1,5 +1,6 @@
 // The local API's request handling, separate from index.ts (which only starts it) so it can be tested.
 //   GET  /api/stats    -> AnkiData from the current copy
+//   GET  /api/status   -> whether Anki is open, and whether a refresh would bring in new reviews
 //   POST /api/refresh  -> re-copy the collection from Anki, then return fresh AnkiData
 
 import { existsSync } from 'node:fs'
@@ -7,7 +8,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AnkiData } from '../src/data/types.ts'
 import { readAnkiData } from './anki.ts'
 import { DeckConfigError, loadDeckColors, loadDeckConfig, saveDeckColors } from './deckGroups.ts'
-import { COLLECTION_COPY, copyCollection, CopyError } from './collection.ts'
+import { ankiStatus, COLLECTION_COPY, copyCollection, CopyError, type AnkiStatus } from './collection.ts'
 
 const ALLOWED_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]'])
 
@@ -29,6 +30,7 @@ export interface ApiDeps {
   collectionPath: string
   read: (path: string) => AnkiData
   copy: () => { profile: string; bytes: number }
+  status: () => AnkiStatus
   log: (message: string) => void
 }
 
@@ -43,6 +45,7 @@ const defaults: ApiDeps = {
     return data
   },
   copy: copyCollection,
+  status: ankiStatus,
   log: console.log,
 }
 
@@ -68,6 +71,8 @@ export function createApiServer(overrides: Partial<ApiDeps> = {}): Server {
     if (!isAllowedHost(req.headers.host)) return send(res, 403, { error: 'Forbidden host' })
 
     if (req.method === 'GET' && req.url === '/api/stats') return sendStats(res)
+
+    if (req.method === 'GET' && req.url === '/api/status') return send(res, 200, deps.status())
 
     if (req.method === 'POST' && req.url === '/api/refresh') {
       // A custom header can't be sent cross-site without a CORS preflight, which this server never

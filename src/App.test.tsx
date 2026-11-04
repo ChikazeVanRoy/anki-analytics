@@ -85,8 +85,9 @@ describe('App data states', () => {
       vi.stubGlobal('fetch', fetchMock)
       render(<App />)
       fireEvent.click(await screen.findByRole('button', { name: new RegExp(messages.data.refresh) }))
-      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
-      const [url, init] = fetchMock.mock.calls[1] as unknown as [string, RequestInit]
+      const refreshCall = () => (fetchMock.mock.calls as unknown as [string, RequestInit][]).find(([u]) => u === '/api/refresh')
+      await waitFor(() => expect(refreshCall()).toBeTruthy())
+      const [url, init] = refreshCall()!
       expect(url).toBe('/api/refresh')
       expect(init.method).toBe('POST')
       expect((init.headers as Record<string, string>)['X-Requested-By']).toBe('anki-analytics')

@@ -7,6 +7,7 @@ import { useTheme } from './app/useTheme'
 import { DeckColors } from './data/deckColors'
 import type { AnkiData } from './data/types'
 import { useAnkiData } from './data/useAnkiData'
+import { useUpdateOffer } from './data/useUpdateOffer'
 import { messages } from './i18n'
 import { ankiDayKey } from './lib/dates'
 import { ankiToday, type RangeKey } from './lib/stats'
@@ -20,6 +21,7 @@ const AdvancedPage = lazy(() => import('./pages/AdvancedPage').then((m) => ({ de
 
 export default function App() {
   const { state, refresh, refreshing, refreshError, clearRefreshError } = useAnkiData()
+  const { updateReady, dismissUpdate } = useUpdateOffer(state.status === 'ready' ? state.data.generatedAt : undefined)
   const theme = useTheme()
   const route = useRoute()
   // Lifted so the Activity range survives switching sections
@@ -43,6 +45,8 @@ export default function App() {
       onRefresh={refresh}
       refreshing={refreshing}
       refreshError={refreshError}
+      updateReady={updateReady}
+      onDismissUpdate={dismissUpdate}
       onDismissError={clearRefreshError}
       theme={theme.choice}
       onCycleTheme={theme.cycle}

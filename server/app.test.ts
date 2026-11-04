@@ -10,7 +10,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { AnkiData } from '../src/data/types.ts'
 import { readConfigJson } from './ankiConfig.ts'
 import { createApiServer, isAllowedHost } from './app.ts'
-import { CopyError } from './collection.ts'
+import { canUpdate, CopyError } from './collection.ts'
 import { DeckConfigError } from './deckGroups.ts'
 
 const dir = mkdtempSync(join(tmpdir(), 'anki-analytics-api-'))
@@ -143,5 +143,36 @@ describe('readConfigJson', () => {
   it('returns undefined for missing or corrupt values instead of throwing', () => {
     expect(readConfigJson(db, 'missing')).toBeUndefined()
     expect(readConfigJson(db, 'broken')).toBeUndefined()
+  })
+})
+
+describe('GET /api/status', () => {
+  const status = { ankiRunning: false, updateAvailable: true, sourceModified: 1000 }
+
+  it('reports whether a refresh is worth offering', async () => {
+    const { server, port } = await start({ status: () => status })
+    expect(await call(port, '/api/status')).toEqual({ status: 200, body: status })
+    server.close()
+  })
+
+  it('refuses other hosts, like every other route', async () => {
+    const { server, port } = await start({ status: () => status })
+    expect((await call(port, '/api/status', { host: 'evil.example' })).status).toBe(403)
+    server.close()
+  })
+})
+
+describe('canUpdate', () => {
+  it('offers a refresh once Anki has closed with newer reviews', () => {
+    expect(canUpdate(false, true, 200, 100)).toBe(true)
+  })
+  it('offers the first copy when there is none', () => {
+    expect(canUpdate(false, true, 200, null)).toBe(true)
+  })
+  it('stays quiet while Anki is open, after an unclean close, or with nothing new', () => {
+    expect(canUpdate(true, true, 200, 100)).toBe(false)
+    expect(canUpdate(false, false, 200, 100)).toBe(false)
+    expect(canUpdate(false, true, 100, 100)).toBe(false)
+    expect(canUpdate(false, true, null, 100)).toBe(false)
   })
 })
