@@ -11,6 +11,7 @@
 import type { FsrsData } from '../data/types'
 import { dayNumber } from './dates'
 import { presetOfCard } from './fsrsStats'
+import { lapseBasis } from './gradingShift'
 import { nextInterval, retrievability, step, type Rating } from './fsrs'
 
 export const SIM_DAYS = 365 // always simulate a year; shorter horizons are prefixes of the same run
@@ -154,8 +155,9 @@ export function buildSimDecks(fsrs: FsrsData, todayKey: string): SimDeck[] {
       const sum = xs.reduce((a, x) => a + x, 0)
       return sum > 0 ? xs.map((x) => x / sum) : fallback
     }
-    // Lapse calibration: observed lapses vs FSRS's expectation, smoothed by half a lapse
-    const cal = fsrs.calibration.filter((c) => c.deckId === p.deckId)
+    // Lapse calibration: observed lapses vs FSRS's expectation, smoothed by half a lapse. After a grading
+    // change only the answers since then count, as the older ones describe a habit that has ended
+    const cal = lapseBasis(fsrs).filter((c) => c.deckId === p.deckId)
     const observed = cal.reduce((n, c) => n + c.reviews - c.passed, 0)
     const expected = cal.reduce((n, c) => n + c.reviews - c.predicted, 0)
     // Cards on a different preset from the group's keep their own parameters, target and maximum interval

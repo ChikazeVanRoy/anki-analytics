@@ -102,6 +102,15 @@ export interface CalibrationPoint {
   maturePredicted: number
 }
 
+/** The same replayed reviews per day, so a change in how you answer can be dated. */
+export interface CalibrationDay {
+  date: string // Anki day, YYYY-MM-DD
+  deckId: string
+  reviews: number
+  passed: number
+  predicted: number // sum of predicted recall probabilities
+}
+
 /** Predicted-vs-actual recall, grouped by predicted probability. */
 export interface CalibrationBin {
   deckId: string
@@ -153,6 +162,7 @@ export interface FsrsData {
    */
   incompleteHistory?: number
   calibration: CalibrationPoint[]
+  calibrationDaily?: CalibrationDay[]
   calibrationBins: CalibrationBin[]
   behaviour: DeckBehaviour[]
   /** How closely replaying the review log through our FSRS code reproduces Anki's stored states. */

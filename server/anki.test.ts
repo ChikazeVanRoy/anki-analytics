@@ -497,6 +497,16 @@ describe('FSRS data with mixed presets and incomplete histories', () => {
     expect(f.presets.find((p) => p.deckId === 'spanish')!.presetId).toBe(10)
   })
 
+  it('keeps a daily record of the same reviews as the monthly calibration', () => {
+    const f = fsrs()
+    const total = (rows: { reviews: number; passed: number; predicted: number }[]) =>
+      rows.reduce((t, r) => ({ reviews: t.reviews + r.reviews, passed: t.passed + r.passed, predicted: t.predicted + r.predicted }), { reviews: 0, passed: 0, predicted: 0 })
+    expect(total(f.calibrationDaily!).reviews).toBeGreaterThan(0)
+    expect(total(f.calibrationDaily!).reviews).toBe(total(f.calibration).reviews)
+    expect(total(f.calibrationDaily!).passed).toBe(total(f.calibration).passed)
+    expect(total(f.calibrationDaily!).predicted).toBeCloseTo(total(f.calibration).predicted)
+  })
+
   it('leaves cards whose history doesn’t start with learning out of calibration', () => {
     const f = fsrs()
     expect(f.incompleteHistory).toBe(1)

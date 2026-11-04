@@ -10,7 +10,8 @@ import type { AnkiData } from '../data/types'
 import { LOCALE, messages } from '../i18n'
 import { parseDateKey, toDateKey } from '../lib/dates'
 import { deckFinish, type DeckFinish } from '../lib/deckPace'
-import { changeDelta, formatCopiedAt, formatInt, formatMinutes, formatPct, formatRate, SAME_RELATIVE } from '../lib/format'
+import { changeDelta, formatCopiedAt, formatInt, formatMinutes, formatPct, formatRate, formatShortDate, SAME_RELATIVE } from '../lib/format'
+import { shiftWithin } from '../lib/gradingShift'
 import {
   copiedOnEarlierDay,
   dayStatus,
@@ -28,7 +29,7 @@ import {
 import { gardenBed, plantUnit, type GardenBed } from '../lib/garden'
 import { measuredDefaults } from '../lib/measured'
 import { routeHref, type Route } from '../lib/route'
-import { ankiToday, answerCounts, deckSummaries, retentionSplit, summarize, totalsByDate, type DeckSummary } from '../lib/stats'
+import { ankiToday, answerCounts, deckSummaries, lastNDays, retentionSplit, summarize, totalsByDate, type DeckSummary } from '../lib/stats'
 
 const m = messages.home
 
@@ -60,6 +61,7 @@ export function HomePage({ data }: { data: AnkiData }) {
   const todayMinutes = (byDate.get(toDateKey(today))?.seconds ?? 0) / 60
   const { reviewCards } = month.retention
   const split = retentionSplit(month.retention)
+  const shift = shiftWithin(data, lastNDays(30, 0, asOf)[0])
   const fsrsOn = !!data.fsrs?.enabled
   const sample = data.source === 'mock'
   const shownDecks = data.decks.filter((d) => d.totalCards + d.suspendedCards > 0)
@@ -134,6 +136,7 @@ export function HomePage({ data }: { data: AnkiData }) {
                     ? m.kpi.rememberedYoungNote(split.mature.reviews)
                     : m.kpi.rememberedSplit(split.young.reviews > 0 ? formatRate(split.young.rate) : '—', formatRate(split.mature.rate))}
                 </span>
+                {shift && <span className="mt-0.5 block font-semibold text-ink-2">{m.kpi.rememberedShift(formatRate(shift.rate), formatShortDate(shift.date))}</span>}
               </>
             )
           }

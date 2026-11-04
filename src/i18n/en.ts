@@ -121,6 +121,7 @@ export const en = {
       rememberedSub: (n: number) => `of ${int(n)} scheduled reviews, last 30 days`,
       rememberedYoungNote: (knownReviews: number) =>
         knownReviews === 0 ? 'None from cards known well yet' : `Only ${int(knownReviews)} from cards known well`,
+      rememberedShift: (rate: string, date: string) => `Your answers changed on ${date}: ${rate} since then`,
       rememberedSplit: (learning: string, known: string) => `learning ${learning} · known well ${known}`,
       rememberedNone: 'no scheduled reviews in the last 30 days',
       rememberedTip:
@@ -189,6 +190,7 @@ export const en = {
     rememberedTip:
       'Scheduled reviews (not new cards or learning steps) not answered Again: Anki’s true retention. Hard counts as remembered. “Known well” means the card’s previous interval was 21 days or more.',
     rememberedSub: (reviews: number) => `of ${int(reviews)} scheduled reviews`,
+    rememberedShift: (rate: string, date: string) => `your answers changed on ${date}: ${rate} since then`,
     rememberedKnown: (rate: string) => `cards known well ${rate}`,
     rememberedThin: 'too few reviews of cards known well to rate them',
     rememberedNone: 'no scheduled reviews in this period',
@@ -245,6 +247,7 @@ export const en = {
         under: 'FSRS is underestimating your memory',
         over: 'FSRS is overestimating your memory',
         fits: 'FSRS predicts you well',
+        shifted: 'Your answers changed, so it’s too early to judge FSRS',
       },
       summary: (actual: string, predicted: string, reviews: number) =>
         `You remembered ${actual} of ${int(reviews)} scheduled reviews; FSRS expected ${predicted}.`,
@@ -255,6 +258,14 @@ export const en = {
         optimised: 'Your parameters are already optimised. The gap may close with more reviews, and optimising again later is worth a try.',
       },
       hard: 'Hard counts as a pass, so pressing Hard after forgetting widens this gap.',
+      counted: (date: string) => `That counts reviews since ${date} only.`,
+      shiftChange: (date: string, before: string, after: string) =>
+        `You forgot ${before} of scheduled reviews before ${date} and ${after} since, far more than FSRS’s estimates explain. Most likely you changed how you grade, or how you study, so older answers no longer describe you.`,
+      shiftHold: (left: number) =>
+        `Hold off optimising for now: ${int(left)} more ${plural(left, 'review', 'reviews')} will show whether the new pattern lasts, and optimising today would mostly learn from your older answers.`,
+      shiftOptimise: (date: string) =>
+        `Anki’s optimiser also reads your older answers. Its “Ignore cards reviewed before” setting can leave out those before ${date}.`,
+      tableMixes: (date: string) => `These tables and the curve cover your whole history, including answers from before ${date}.`,
       fewLapses: (n: number) => `With only ${int(n)} forgotten ${plural(n, 'review', 'reviews')} so far, this may still shift.`,
       planner: 'In the Planner, the “Your lapse rate” model allows for this gap.',
     },

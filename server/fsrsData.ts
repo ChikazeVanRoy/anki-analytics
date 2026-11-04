@@ -6,6 +6,7 @@ import type { DatabaseSync } from 'node:sqlite'
 import type {
   CardPreset,
   CalibrationBin,
+  CalibrationDay,
   CalibrationPoint,
   DeckBehaviour,
   DeckPreset,
@@ -261,6 +262,7 @@ export function readFsrsData(ctx: Context): FsrsData {
   }
 
   const calib = new Map<string, CalibrationPoint>()
+  const calibDays = new Map<string, CalibrationDay>()
   const bins = new Map<string, CalibrationBin>()
   const validation = { cards: 0, stabilityMatched: 0, difficultyMatched: 0 }
   let resetCards = 0
@@ -349,6 +351,13 @@ export function readFsrsData(ctx: Context): FsrsData {
         if (passed) p.maturePassed++
       }
       calib.set(key, p)
+      const date = keyFromDayNumber(days[i])
+      const dayKeyed = `${date}|${group}`
+      const d = calibDays.get(dayKeyed) ?? { date, deckId: group, reviews: 0, passed: 0, predicted: 0 }
+      d.reviews++
+      d.predicted += predicted[i]
+      if (passed) d.passed++
+      calibDays.set(dayKeyed, d)
       const bi = BIN_EDGES.findIndex((edge, j) => predicted[i] >= edge && predicted[i] < BIN_EDGES[j + 1])
       const binKey = `${group}|${bi}`
       const bin = bins.get(binKey) ?? {
@@ -395,6 +404,7 @@ export function readFsrsData(ctx: Context): FsrsData {
     incompleteHistory,
     cardPresets,
     calibration: [...calib.values()].sort((a, b) => a.month.localeCompare(b.month)),
+    calibrationDaily: [...calibDays.values()].sort((a, b) => a.date.localeCompare(b.date) || a.deckId.localeCompare(b.deckId)),
     calibrationBins: [...bins.values()].sort((a, b) => a.deckId.localeCompare(b.deckId) || a.from - b.from),
     behaviour: [...behaviour.values()]
       .filter((b) => b.timeN > 0 || b.newCardsIntroduced > 0)

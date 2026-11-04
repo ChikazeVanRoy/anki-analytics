@@ -3,6 +3,7 @@
 import type { CalibrationBin, CalibrationPoint, FsrsCard, FsrsData } from '../data/types'
 import { dayNumber } from './dates'
 import { DEFAULT_PARAMS, difficultyPercent, retrievability } from './fsrs'
+import { gradingShift, type GradingShift } from './gradingShift'
 
 export interface Bin {
   label: string
@@ -164,21 +165,36 @@ export function paramsSourceOf(fsrs: FsrsData): ParamsSource {
 }
 
 export interface FsrsVerdict {
-  kind: 'thin' | 'under' | 'over' | 'fits'
+  /** `shifted`: your answers changed recently and too few have followed to judge FSRS on them alone. */
+  kind: 'thin' | 'under' | 'over' | 'fits' | 'shifted'
   actual: number
   predicted: number
   reviews: number
   lapses: number
   params: ParamsSource
+  /** The change the numbers above start from: with one, they only count the reviews since it. */
+  shift: GradingShift | null
 }
 
-/** One plain answer to "does FSRS fit me?", from replayed reviews: did you remember more or less than it expected? */
+/**
+ * One plain answer to "does FSRS fit me?", from replayed reviews: did you remember more or less than it expected?
+ * A pooled rate would blend two grading habits, so after a change only the reviews since it count.
+ */
 export function fsrsVerdict(fsrs: FsrsData): FsrsVerdict {
-  const { reviews, actual, predicted } = retentionComparison(fsrs.calibration, 'all')
+  const shift = gradingShift(fsrs.calibrationDaily ?? [])
+  const params = paramsSourceOf(fsrs)
+  const span = shift?.after ?? {
+    reviews: fsrs.calibration.reduce((n, p) => n + p.reviews, 0),
+    passed: fsrs.calibration.reduce((n, p) => n + p.passed, 0),
+    predicted: fsrs.calibration.reduce((n, p) => n + p.predicted, 0),
+  }
+  const { reviews } = span
+  const actual = rate(span.passed, reviews)
+  const predicted = rate(span.predicted, reviews)
   const gap = actual - predicted
-  const kind = reviews < VERDICT_MIN_REVIEWS ? 'thin' : gap >= VERDICT_GAP ? 'under' : gap <= -VERDICT_GAP ? 'over' : 'fits'
-  const lapses = fsrs.calibration.reduce((n, p) => n + p.reviews - p.passed, 0)
-  return { kind, actual, predicted, reviews, lapses, params: paramsSourceOf(fsrs) }
+  const kind =
+    shift && !shift.settled ? 'shifted' : reviews < VERDICT_MIN_REVIEWS ? 'thin' : gap >= VERDICT_GAP ? 'under' : gap <= -VERDICT_GAP ? 'over' : 'fits'
+  return { kind, actual, predicted, reviews, lapses: reviews - span.passed, params, shift }
 }
 
 /** Monthly actual vs predicted retention, all decks combined. */
@@ -212,7 +228,7 @@ export function calibrationCurve(bins: CalibrationBin[]) {
 }
 
 /** Lapses vs review-card reviews for the given decks only (the evidence behind the lapse ratio). */
-export function lapseEvidence(points: CalibrationPoint[], deckIds: string[]) {
+export function lapseEvidence(points: { deckId: string; reviews: number; passed: number }[], deckIds: string[]) {
   const ps = points.filter((p) => deckIds.includes(p.deckId))
   return {
     reviews: ps.reduce((n, p) => n + p.reviews, 0),

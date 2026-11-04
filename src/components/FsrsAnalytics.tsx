@@ -14,7 +14,7 @@ import {
 } from 'recharts'
 import { useDeckColor } from '../data/deckColors'
 import type { Deck, FsrsData } from '../data/types'
-import { formatInt, formatPct, formatRate } from '../lib/format'
+import { formatInt, formatLongDate, formatPct, formatRate } from '../lib/format'
 import { difficultyPercent } from '../lib/fsrs'
 import {
   calibrationCurve,
@@ -32,6 +32,7 @@ import {
   type FsrsVerdict,
   type MemorySummary,
 } from '../lib/fsrsStats'
+import { forgotRate, SHIFT_SETTLED_REVIEWS } from '../lib/gradingShift'
 import { calibrationColors, chart } from '../lib/theme'
 import { ChartTooltip } from './ChartTooltip'
 import { CheckIcon, InfoIcon, WarningIcon } from './icons'
@@ -163,8 +164,9 @@ function SummaryTable({ rows, decks }: { rows: MemorySummary[]; decks: Deck[] })
 /** The page's answer first: does FSRS fit you, and what to do about it. The charts below are the evidence. */
 function VerdictCard({ verdict }: { verdict: FsrsVerdict }) {
   const m = messages.advanced.verdict
-  const { kind, actual, predicted, reviews, lapses, params } = verdict
+  const { kind, actual, predicted, reviews, lapses, params, shift } = verdict
   const off = kind === 'under' || kind === 'over'
+  const shiftDate = shift ? formatLongDate(shift.date) : ''
   return (
     <section aria-labelledby="fsrs-verdict" className="animate-rise rounded-3xl bg-brand-soft p-5 sm:p-6">
       <div className="flex items-start gap-3">
@@ -181,13 +183,21 @@ function VerdictCard({ verdict }: { verdict: FsrsVerdict }) {
           </h2>
           <p className="mt-1 text-sm font-semibold text-ink-2">
             {kind === 'thin' ? m.thin(reviews) : m.summary(formatRate(actual), formatRate(predicted), reviews)}
+            {shift && ` ${m.counted(shiftDate)}`}
           </p>
+          {shift && (
+            <p className="mt-2 text-sm leading-relaxed text-ink-2">
+              {m.shiftChange(shiftDate, formatRate(forgotRate(shift.before)), formatRate(forgotRate(shift.after)))}
+            </p>
+          )}
+          {kind === 'shifted' && shift && <p className="mt-2 text-sm leading-relaxed font-bold text-ink">{m.shiftHold(SHIFT_SETTLED_REVIEWS - reviews)}</p>}
           {off && (
             <>
               <p className="mt-2 text-sm leading-relaxed font-bold text-ink">{m.action[params]}</p>
               <p className="mt-2 text-xs leading-relaxed text-ink-2">
                 {kind === 'under' && `${m.hard} `}
                 {lapses < VERDICT_FEW_LAPSES && `${m.fewLapses(lapses)} `}
+                {shift && `${m.shiftOptimise(shiftDate)} `}
                 {m.planner}
               </p>
             </>
@@ -205,7 +215,6 @@ export function FsrsAnalytics({ fsrs, decks: allDecks, todayKey }: Props) {
   const now = useMemo(() => cardsNow(fsrs, todayKey), [fsrs, todayKey])
   const summaries = [...deckIds.map((id) => memorySummary(now, id)), memorySummary(now, 'all')]
   const all = summaries[summaries.length - 1]
-  const retention = retentionComparison(fsrs.calibration, 'all')
   const verdict = fsrsVerdict(fsrs)
   const perDeckRetention = deckIds.map((id) => retentionComparison(fsrs.calibration, id))
   const trend = monthlyTrend(fsrs.calibration)
@@ -270,8 +279,8 @@ export function FsrsAnalytics({ fsrs, decks: allDecks, todayKey }: Props) {
           />
           <Metric
             label="Actually remembered vs FSRS expected"
-            value={`${formatRate(retention.actual)} vs ${formatRate(retention.predicted)}`}
-            sub={`${formatInt(retention.reviews)} review-card reviews${firstMonth ? ` since ${firstMonth}` : ''} · target ${sameTarget ? formatPct(target, 0) : 'varies'}`}
+            value={`${formatRate(verdict.actual)} vs ${formatRate(verdict.predicted)}`}
+            sub={`${formatInt(verdict.reviews)} review-card reviews${verdict.shift ? ` since ${formatLongDate(verdict.shift.date)}` : firstMonth ? ` since ${firstMonth}` : ''} · target ${sameTarget ? formatPct(target, 0) : 'varies'}`}
             tip="Actual: share of reviews of graduated cards not answered Again. Predicted: FSRS’s recall probability just before each of those reviews, reconstructed by replaying your review log (the same way Anki computes memory states)."
           />
           <Metric
@@ -349,6 +358,11 @@ export function FsrsAnalytics({ fsrs, decks: allDecks, todayKey }: Props) {
         subtitle="What you actually remembered, compared with what FSRS expected and your target."
         actions={<SourceBadge kind="mixed" />}
       >
+        {verdict.shift && (
+          <div className="mb-4">
+            <Notice>{messages.advanced.verdict.tableMixes(formatLongDate(verdict.shift.date))}</Notice>
+          </div>
+        )}
         {/* min-w-0: a grid item won't shrink below its content, so the wide table would stretch the page on a phone */}
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="min-w-0 rounded-2xl bg-surface-2 p-4">

@@ -9,7 +9,8 @@ import { StatCard } from '../components/StatCard'
 import { SourceBadge } from '../components/ui'
 import type { AnkiData } from '../data/types'
 import { messages } from '../i18n'
-import { changeDelta, formatInt, formatMinutes, formatPct, formatRate, SAME_POINTS, SAME_RELATIVE } from '../lib/format'
+import { changeDelta, formatInt, formatMinutes, formatPct, formatRate, formatShortDate, SAME_POINTS, SAME_RELATIVE } from '../lib/format'
+import { shiftWithin } from '../lib/gradingShift'
 import {
   activeYears,
   againRateSeries,
@@ -18,6 +19,7 @@ import {
   bucketFor,
   deckSummaries,
   hardShareSeries,
+  lastNDays,
   RANGE_OPTIONS,
   rangeDays,
   retentionSplit,
@@ -58,6 +60,7 @@ export function ActivityPage({ data, range, onRangeChange }: Props) {
   const { reviewCards, mature } = summary.retention
   const { matureThin } = retentionSplit(summary.retention)
   const minutes = decks.reduce((n, d) => n + d.minutes, 0)
+  const shift = shiftWithin(data, lastNDays(days, 0, today)[0])
 
   return (
     <div className="space-y-6">
@@ -110,6 +113,7 @@ export function ActivityPage({ data, range, onRangeChange }: Props) {
               <>
                 {m.rememberedSub(reviewCards.reviews)}
                 <span className="mt-0.5 block">{matureThin ? m.rememberedThin : m.rememberedKnown(formatRate(mature.rate))}</span>
+                {shift && <span className="mt-0.5 block font-semibold text-ink-2">{m.rememberedShift(formatRate(shift.rate), formatShortDate(shift.date))}</span>}
               </>
             )
           }

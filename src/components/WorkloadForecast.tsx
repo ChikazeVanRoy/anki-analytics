@@ -21,6 +21,7 @@ import { formatInt, formatLongDate, formatPct, formatShortDate } from '../lib/fo
 import { buildInsights } from '../lib/insights'
 import type { MeasuredDefaults } from '../lib/measured'
 import { lapseEvidence } from '../lib/fsrsStats'
+import { gradingShift, lapseBasis } from '../lib/gradingShift'
 import { defaultBudget, PLAN_PRESETS, planPresets, planSettings, standardSweep, type PlanPreset, type PlanPresetKey } from '../lib/plan'
 import { buildSimDecks, HORIZONS, presetRetentionLabel, type SimDay, type SimSettings } from '../lib/simulator'
 import { chart, forecast } from '../lib/theme'
@@ -148,8 +149,9 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
       : []
   const pool = settings.deckIds.reduce((n, id) => n + (fsrs.newCards[id] ?? 0), 0)
   // Lapse evidence for the selected decks only, matching the ratios listed for them
-  const { reviews: calibrationReviews, lapses: observedLapses } = lapseEvidence(fsrs.calibration, deckIds)
+  const { reviews: calibrationReviews, lapses: observedLapses } = lapseEvidence(lapseBasis(fsrs), deckIds)
   const selectedSimDecks = simDecks.filter((d) => deckIds.includes(d.deckId))
+  const shiftDate = gradingShift(fsrs.calibrationDaily ?? [])?.date
 
   const minutesPerStudyDay = summary ? toMin(summary.avgPerStudyDay) : 0
   const heaviest = year ? toMin(year.maxWindowPerStudyDay) : 0
@@ -700,7 +702,8 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
               <li>
                 Your measured lapse rate is about{' '}
                 {selectedSimDecks.map((d) => `${Math.round(d.failRatio * 100)}% of FSRS’s expectation for ${deckNames[d.deckId]}`).join(' and ')}
-                , from {formatInt(observedLapses)} {observedLapses === 1 ? 'lapse' : 'lapses'} in {formatInt(calibrationReviews)} review-card reviews.
+                , from {formatInt(observedLapses)} {observedLapses === 1 ? 'lapse' : 'lapses'} in {formatInt(calibrationReviews)} review-card reviews
+                {shiftDate && ` since your answers changed on ${formatLongDate(shiftDate)}`}.
                 {observedLapses < 20 && ' With this few lapses, the “Your lapse rate” model rests on limited evidence.'}
               </li>
             </ul>
