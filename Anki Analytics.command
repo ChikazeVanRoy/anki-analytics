@@ -14,6 +14,12 @@ fail() {
   exit 1
 }
 
+# Its icon and hidden extension aren't kept by Git, so it sets them on itself: after a fresh clone, or a pull that
+# replaced this file. Only for looks, so a failure here never stops the app starting.
+if ! xattr "${0:A}" 2>/dev/null | grep -q com.apple.ResourceFork; then
+  osascript -l JavaScript scripts/finder-look.js "${0:A}" "$PWD/scripts/launcher-icon.png" >/dev/null 2>&1
+fi
+
 running() { curl -sf -o /dev/null $URL/api/status }
 # Only the launcher's own server: a dev API on this port (npm run dev) isn't ours to stop
 listener() { lsof -ti tcp:$ANKI_ANALYTICS_PORT -sTCP:LISTEN }

@@ -21,7 +21,9 @@ npm run build             # type-check + production build
 
 Or double-click **`Anki Analytics.command`** in Finder: it installs the dependencies and builds the app when
 needed, starts it in the background on http://localhost:5174 and opens it in your browser. You can close the
-Terminal window straight away. To stop the app, double-click **`Stop Anki Analytics.command`**. Drag the launcher
+Terminal window straight away. To stop the app, double-click **`Stop Anki Analytics.command`**. The first
+double-click also gives the launcher its icon and hides its `.command` extension in Finder (Git can't store either,
+so it sets them on itself, and again if a `git pull` replaces the file). Drag the launcher
 to the right-hand side of the Dock for one-click launching. If macOS says it can't be opened (it does for files
 downloaded as a ZIP), right-click it and choose **Open** once. Its log is `data/server.log`. Stop it before
 running `npm run dev`, which needs the same API port. If `npm run dev` is already running, the launcher opens that
