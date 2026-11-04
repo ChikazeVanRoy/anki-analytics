@@ -4,10 +4,12 @@ import { ErrorBoundary } from './app/ErrorBoundary'
 import { useRoute } from './app/useRoute'
 import { useNow } from './app/useNow'
 import { useTheme } from './app/useTheme'
+import { SessionRecap } from './components/SessionRecap'
 import { DeckColors } from './data/deckColors'
 import type { AnkiData } from './data/types'
 import { copiedOnEarlierDay } from './lib/progress'
 import { useAnkiData } from './data/useAnkiData'
+import { useSessionRecap } from './data/useSessionRecap'
 import { useUpdateOffer } from './data/useUpdateOffer'
 import { messages } from './i18n'
 import { ankiDayKey } from './lib/dates'
@@ -40,6 +42,7 @@ export default function App() {
     // A refresh already running will bring this in, or report why it can't
     if (!refreshing) void refresh()
   }, [attempt, refreshing, refresh])
+  const { recap, dismissRecap } = useSessionRecap(real)
   const decks = state.status === 'ready' ? state.data.decks : undefined
   const deckColors = useMemo(() => deckColorMap(decks ?? []), [decks])
 
@@ -64,6 +67,7 @@ export default function App() {
       theme={theme.choice}
       onCycleTheme={theme.cycle}
     >
+      {recap && <SessionRecap recap={recap} onClose={dismissRecap} />}
       <DeckColors.Provider value={deckColors}>
         <ErrorBoundary key={route}>
           <Suspense fallback={<PageSkeleton />}>

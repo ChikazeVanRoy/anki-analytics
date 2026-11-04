@@ -62,6 +62,18 @@ export const en = {
     mixedTip: 'Mixes what you actually answered with FSRS’s estimates. The labels say which is which.',
   },
   answers: { good: 'Good or Easy', hard: 'Hard', again: 'Again' },
+  recap: {
+    title: 'Nice session!',
+    sub: 'Here’s what you’ve done since your last visit.',
+    reviews: 'reviews',
+    minutes: 'minutes',
+    newCards: 'new cards',
+    streak: 'day streak',
+    bloomed: (n: number) => `${int(n)} ${plural(n, 'card', 'cards')} just proved ${plural(n, 'itself', 'themselves')} and bloomed!`,
+    badges: (n: number) => `${plural(n, 'New badge', 'New badges')}!`,
+    close: 'Keep going',
+    sound: 'Play a sound',
+  },
   home: {
     greeting: { morning: 'Good morning', afternoon: 'Good afternoon', evening: 'Good evening' },
     status: {

@@ -209,6 +209,28 @@ input[type='range'] {
   box-shadow: 0 0 0 var(--color-brand-deep);
 }
 
+/* A bit of paper in the session recap */
+.confetti {
+  position: absolute;
+  top: -1rem;
+  width: 0.5rem;
+  height: 0.8rem;
+  border-radius: 2px;
+  animation-name: confetti-fall;
+  animation-timing-function: ease-in;
+  animation-fill-mode: both;
+}
+@keyframes confetti-fall {
+  from {
+    opacity: 1;
+    transform: translateY(0) rotate(0deg);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(32rem) rotate(540deg);
+  }
+}
+
 /* Skeleton block for loading states */
 .skeleton {
   border-radius: 1rem;
