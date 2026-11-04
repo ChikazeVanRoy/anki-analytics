@@ -14,8 +14,10 @@ export default defineConfig({
   reporter: 'list',
   use: { baseURL: `http://localhost:${PORT}`, channel: 'chrome', headless: true },
   projects: [
-    { name: 'desktop', use: { viewport: { width: 1280, height: 800 } } },
-    { name: 'phone', use: { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true } },
+    { name: 'desktop', testIgnore: 'pwa.e2e.ts', use: { viewport: { width: 1280, height: 800 } } },
+    { name: 'phone', testIgnore: 'pwa.e2e.ts', use: { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true } },
+    // Needs the service worker, so it builds the app and runs its own server on synthetic data
+    { name: 'pwa', testMatch: 'pwa.e2e.ts', use: { viewport: { width: 390, height: 844 } } },
   ],
   webServer: { command: `npx vite --port ${PORT} --strictPort`, port: PORT, reuseExistingServer: false },
 })

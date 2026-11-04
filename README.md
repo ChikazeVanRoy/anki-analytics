@@ -114,11 +114,19 @@ rate also stays near FSRS's prediction until there are enough lapses to go on.
 - `src/index.css`: design tokens (colours as `light-dark()` pairs, type, motion)
 - `*.test.ts`: tests next to the code they cover; server tests use a tiny fake collection, never your data
 
+## Installing it
+
+The built app is a PWA: `manifest.webmanifest` lets it be added to a home screen, and a service worker (`src/sw.js`, built
+to `dist/sw.js`) saves the app and the latest snapshot, so it opens with the server stopped. Live stats are never
+saved by it, and it only runs in the built app, not under `npm run dev`.
+
 ## Privacy
 
 Everything stays local; the API only answers requests addressed to this machine. Trouble cards show the text of
 a few of your notes, and the garden shows studied cards' text when you tap a plant. Both are read from the local
-copy and shown only in your browser, which also remembers your last visit's totals for the session recap.
+copy and shown only in your browser, which also remembers your last visit's totals for the session recap. The built
+app's browser storage also keeps the latest snapshot, note text included, so deleting `data/snapshot.json` doesn't
+remove that copy; clearing the site's data does.
 Personal Anki data (`/data/`, `*.anki2`, `*.colpkg`, …) and your deck config (`anki-analytics.config.json`)
 are git-ignored and must never be committed.
 

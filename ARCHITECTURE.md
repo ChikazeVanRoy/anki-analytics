@@ -211,6 +211,7 @@ Notes from the code:
 | `lib/plan.ts` | The Planner's defaults, paces and sweep, shared with the Today plan on Home |
 | `lib/deckPace.ts` | Home: a deck's projected finish from the measured pace of new cards |
 | `lib/route.ts` | Section names and URL hashes |
+| `sw.js`, `app/registerServiceWorker.ts` | Service worker (built with this build's file list by the plugin in `vite.config.ts`): saves the app and latest snapshot for offline use; never touches `/api/*` |
 | `data/useAnkiData.ts` | Fetches `/api/stats`, falls back to `/snapshot.json`, then mock data; runs `POST /api/refresh` |
 | `data/useTodayPlan.ts` | Runs the simulator's scenarios for Home, once per copy of the collection |
 | `data/useUpdateOffer.ts` | Polls `/api/status` and offers a refresh when Anki has closed or a new Anki day has started |
