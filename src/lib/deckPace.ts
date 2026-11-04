@@ -35,3 +35,26 @@ export function deckFinish(data: AnkiData, deckId: string, today: Date): DeckFin
   const perDay = introduced / days
   return { kind: 'date', date: keyFromDayNumber(todayNumber + Math.ceil(remaining / perDay)), perDay, remaining, introduced, days }
 }
+
+/**
+ * New cards you've actually been starting: per calendar day, and per study day as the simulator counts them, in
+ * total and by deck. Sums the decks' own paces, so it's the pace behind their finish dates. Null when no deck has
+ * enough history.
+ */
+export function currentPace(data: AnkiData, today: Date, studyDaysPerWeek: number) {
+  const byDeck: Record<string, number> = {}
+  let perDay = 0
+  for (const d of data.decks) {
+    const finish = deckFinish(data, d.id, today)
+    if (finish?.kind !== 'date') continue
+    perDay += finish.perDay
+    byDeck[d.id] = (finish.perDay * 7) / studyDaysPerWeek
+  }
+  return perDay > 0 ? { perDay, perStudyDay: (perDay * 7) / studyDaysPerWeek, byDeck } : null
+}
+
+/** The day the last of `remaining` new cards would be started at `perStudyDay`, or null at no pace at all. */
+export function finishAt(remaining: number, perStudyDay: number, studyDaysPerWeek: number, today: Date): string | null {
+  if (perStudyDay <= 0) return null
+  return keyFromDayNumber(dayNumber(toDateKey(today)) + Math.ceil((remaining / perStudyDay) * (7 / studyDaysPerWeek)))
+}

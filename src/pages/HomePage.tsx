@@ -28,6 +28,7 @@ import {
 } from '../lib/progress'
 import { gardenBed, plantUnit, type GardenBed } from '../lib/garden'
 import { measuredDefaults } from '../lib/measured'
+import { limitRange } from '../lib/plan'
 import { routeHref, type Route } from '../lib/route'
 import { ankiToday, answerCounts, deckSummaries, lastNDays, retentionSplit, summarize, totalsByDate, type DeckSummary } from '../lib/stats'
 
@@ -311,16 +312,27 @@ function PlanSuggestion({ plan }: { plan: TodayPlan }) {
       </p>
     )
   }
-  const { budget, max } = plan
+  const { budget, max, altMax, current, finish } = plan
+  const range = limitRange(max, altMax)
+  const minutes = current ? [...new Set(current.minutes.map((v) => formatInt(v)))].join('–') : ''
+  const finishMonth = finish ? parseDateKey(finish).toLocaleDateString(LOCALE, { month: 'short', year: 'numeric' }) : null
+  // Only when your real pace is the bigger number: otherwise there's no gap to explain
+  const ahead = current && max && current.newPerDay > max.value
   return (
     <p className="mt-2 text-xs text-ink-2">
       {!max
         ? t.suggestNone(budget)
         : max.value === 0
           ? t.suggestNoRoom(budget)
-          : max.capped
-            ? t.suggestCapped(max.value, budget)
-            : t.suggest(max.value, budget)}
+          : range
+            ? range[0] === 0
+              ? t.suggestUpTo(range[1], budget)
+              : t.suggestRange(range[0], range[1], budget)
+            : max.capped
+              ? t.suggestCapped(max.value, budget)
+              : t.suggest(max.value, budget)}
+      {max && max.value > 0 && finishMonth && ` ${t.suggestFinish(max.value, finishMonth)}`}
+      {ahead && ` ${t.suggestCurrent(current.newPerDay, minutes)}`}
       <InfoTip label={t.suggestTipLabel}>{t.suggestTip(budget)}</InfoTip>
     </p>
   )

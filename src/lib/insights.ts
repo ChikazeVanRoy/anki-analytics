@@ -1,5 +1,6 @@
 // Plain-language answers built only from measured data and the simulator's outputs.
 
+import { messages } from '../i18n'
 import { formatInt } from './format'
 import type { HorizonSummary } from './simulator'
 
@@ -21,6 +22,8 @@ export interface InsightInputs {
   /** The scenarios the sustainable limit is read from, if not all of them. Keeps it equal to the plan shown on Home. */
   capacitySweep?: { value: number; year: HorizonSummary }[]
   deckNames: Record<string, string>
+  /** The same scenarios with the other recall model, and the names of the two models (the one in use first). */
+  otherRecall?: { sweep: { value: number; year: HorizonSummary }[]; used: string; other: string }
 }
 
 const mins = (reviews: number, secs: number) => (reviews * secs) / 60
@@ -89,6 +92,20 @@ export function buildInsights(x: InsightInputs): Insight[] {
     basis: `Interpolated between simulated scenarios (${capacity.map((s) => s.value).join(', ')} new/day, one year each). Change the time budget to see a different answer.`,
     tone: max && max.value >= x.newPerDay ? 'good' : 'neutral',
   })
+
+  // 2b. How far that answer depends on the recall model. No limit at all means even no new cards won't fit
+  if (x.otherRecall && max) {
+    const other = maxSustainableNewPerDay(x.otherRecall.sweep, x.budgetMinutes, x.secondsPerReview)
+    const m = messages.planner.sure
+    if (other?.value !== max.value) {
+      out.push({
+        question: m.question,
+        answer: m.answer(max.value, x.otherRecall.used, other?.value ?? 0, x.otherRecall.other),
+        basis: m.basis,
+        tone: 'neutral',
+      })
+    }
+  }
 
   // 3. Deck burden
   const decks = x.horizon.perDeck.map((d) => ({ ...d, total: d.existing + d.fresh }))

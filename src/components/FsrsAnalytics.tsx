@@ -14,7 +14,7 @@ import {
 } from 'recharts'
 import { useDeckColor } from '../data/deckColors'
 import type { Deck, FsrsData } from '../data/types'
-import { formatInt, formatLongDate, formatPct, formatRate } from '../lib/format'
+import { formatInt, formatPct, formatRate, formatShortDate } from '../lib/format'
 import { difficultyPercent } from '../lib/fsrs'
 import {
   calibrationCurve,
@@ -166,7 +166,7 @@ function VerdictCard({ verdict }: { verdict: FsrsVerdict }) {
   const m = messages.advanced.verdict
   const { kind, actual, predicted, reviews, lapses, params, shift } = verdict
   const off = kind === 'under' || kind === 'over'
-  const shiftDate = shift ? formatLongDate(shift.date) : ''
+  const shiftDate = shift ? formatShortDate(shift.date) : ''
   return (
     <section aria-labelledby="fsrs-verdict" className="animate-rise rounded-3xl bg-brand-soft p-5 sm:p-6">
       <div className="flex items-start gap-3">
@@ -280,7 +280,7 @@ export function FsrsAnalytics({ fsrs, decks: allDecks, todayKey }: Props) {
           <Metric
             label="Actually remembered vs FSRS expected"
             value={`${formatRate(verdict.actual)} vs ${formatRate(verdict.predicted)}`}
-            sub={`${formatInt(verdict.reviews)} review-card reviews${verdict.shift ? ` since ${formatLongDate(verdict.shift.date)}` : firstMonth ? ` since ${firstMonth}` : ''} · target ${sameTarget ? formatPct(target, 0) : 'varies'}`}
+            sub={`${formatInt(verdict.reviews)} review-card reviews${verdict.shift ? ` since ${formatShortDate(verdict.shift.date)}` : firstMonth ? ` since ${firstMonth}` : ''} · target ${sameTarget ? formatPct(target, 0) : 'varies'}`}
             tip="Actual: share of reviews of graduated cards not answered Again. Predicted: FSRS’s recall probability just before each of those reviews, reconstructed by replaying your review log (the same way Anki computes memory states)."
           />
           <Metric
@@ -360,7 +360,7 @@ export function FsrsAnalytics({ fsrs, decks: allDecks, todayKey }: Props) {
       >
         {verdict.shift && (
           <div className="mb-4">
-            <Notice>{messages.advanced.verdict.tableMixes(formatLongDate(verdict.shift.date))}</Notice>
+            <Notice>{messages.advanced.verdict.tableMixes(formatShortDate(verdict.shift.date))}</Notice>
           </div>
         )}
         {/* min-w-0: a grid item won't shrink below its content, so the wide table would stretch the page on a phone */}

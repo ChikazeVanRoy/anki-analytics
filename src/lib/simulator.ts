@@ -147,17 +147,24 @@ export function splitNew(total: number, pools: number[]) {
 }
 
 /** Builds simulator inputs from the API's FSRS data, relative to Anki's `today`. */
+/**
+ * Lapses of FSRS's own prediction blended into a measured lapse rate, so a rate from a few reviews stays near
+ * FSRS's and one odd day can't swing a year's forecast. Plenty of lapses outweigh it.
+ */
+export const LAPSE_PRIOR = 10
+
 export function buildSimDecks(fsrs: FsrsData, todayKey: string): SimDeck[] {
   const today = dayNumber(todayKey)
+  const basis = lapseBasis(fsrs)
   return fsrs.presets.map((p) => {
     const b = fsrs.behaviour.find((x) => x.deckId === p.deckId)
     const norm = (xs: number[], fallback: number[]) => {
       const sum = xs.reduce((a, x) => a + x, 0)
       return sum > 0 ? xs.map((x) => x / sum) : fallback
     }
-    // Lapse calibration: observed lapses vs FSRS's expectation, smoothed by half a lapse. After a grading
-    // change only the answers since then count, as the older ones describe a habit that has ended
-    const cal = lapseBasis(fsrs).filter((c) => c.deckId === p.deckId)
+    // Lapse calibration: observed lapses vs FSRS's expectation. After a grading change only the answers since
+    // then count, as the older ones describe a habit that has ended
+    const cal = basis.filter((c) => c.deckId === p.deckId)
     const observed = cal.reduce((n, c) => n + c.reviews - c.passed, 0)
     const expected = cal.reduce((n, c) => n + c.reviews - c.predicted, 0)
     // Cards on a different preset from the group's keep their own parameters, target and maximum interval
@@ -194,7 +201,7 @@ export function buildSimDecks(fsrs: FsrsData, todayKey: string): SimDeck[] {
       // Fallbacks are FSRS's published defaults, used only if a deck has no measured history
       firstRating: norm(b?.firstRating ?? [], [0.24, 0.094, 0.495, 0.171]),
       passRating: norm(b?.passRating ?? [], [0.224, 0.631, 0.145]),
-      failRatio: expected > 0 ? Math.min(Math.max((observed + 0.5) / expected, 0.01), 3) : 1,
+      failRatio: expected > 0 ? Math.min(Math.max((observed + LAPSE_PRIOR) / (expected + LAPSE_PRIOR), 0.01), 3) : 1,
       learningReviewsPerNewCard: b && b.newCardsIntroduced > 0 ? b.learningReviewsPerNewCard : 1 + p.learnSteps.length,
       ...(models.length > 0 && { models }),
       cards,

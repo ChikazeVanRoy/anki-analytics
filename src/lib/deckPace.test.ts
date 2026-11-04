@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { AnkiData, DailyDeckStat } from '../data/types'
 import { realShapedData } from '../test/fsrsFixture'
-import { deckFinish } from './deckPace'
+import { currentPace, deckFinish, finishAt } from './deckPace'
 
 const TODAY = new Date(2026, 10, 4)
 
@@ -60,4 +60,32 @@ describe('deckFinish', () => {
   it('shows nothing without real FSRS data', () => {
     expect(deckFinish({ ...realShapedData(), fsrs: undefined }, 'language', TODAY)).toBeNull()
   })
+})
+
+describe('currentPace', () => {
+  const today = new Date(2026, 2, 31)
+  const data = (introduced: number) =>
+    ({
+      decks: [{ id: 'a' }],
+      daily: [{ deckId: 'a', date: '2026-03-02', reviews: 5 }],
+      fsrs: { enabled: true, windowDays: 180, newCards: { a: 100 }, behaviour: [{ deckId: 'a', newCardsIntroduced: introduced }] },
+    }) as unknown as AnkiData
+
+  it('turns the decks’ pace into cards per study day', () => {
+    const pace = currentPace(data(60), today, 5)!
+    expect(pace.perDay).toBeCloseTo(2)
+    expect(pace.perStudyDay).toBeCloseTo(2.8)
+    expect(pace.byDeck.a).toBeCloseTo(2.8)
+  })
+
+  it('has no pace without enough history', () => expect(currentPace(data(1), today, 5)).toBeNull())
+})
+
+describe('finishAt', () => {
+  const today = new Date(2026, 2, 1)
+  it('counts rest days', () => {
+    expect(finishAt(70, 10, 7, today)).toBe('2026-03-08')
+    expect(finishAt(50, 10, 5, today)).toBe('2026-03-08')
+  })
+  it('has no date at no pace', () => expect(finishAt(70, 0, 7, today)).toBeNull())
 })

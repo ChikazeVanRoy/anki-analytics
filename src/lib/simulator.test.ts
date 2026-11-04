@@ -3,6 +3,7 @@ import type { FsrsData } from '../data/types'
 import { DEFAULT_PARAMS } from './fsrs'
 import {
   buildSimDecks,
+  LAPSE_PRIOR,
   fuzzInterval,
   isStudyDay,
   presetRetentionLabel,
@@ -202,7 +203,7 @@ describe('buildSimDecks', () => {
     const [d] = buildSimDecks(fsrs, '2026-03-10')
     expect(d.firstRating).toEqual([0.25, 0.25, 0.25, 0.25])
     expect(d.passRating).toEqual([0.25, 0.5, 0.25])
-    expect(d.failRatio).toBeCloseTo(1.5 / 10) // (1 observed + 0.5) / 10 expected
+    expect(d.failRatio).toBeCloseTo((1 + LAPSE_PRIOR) / (10 + LAPSE_PRIOR)) // 1 observed, 10 expected, kept near FSRS's
     expect(d).toMatchObject({ reviewLimit: 200, maxInterval: 365, newPool: 50, learnSteps: 2, relearnSteps: 1, learningReviewsPerNewCard: 1.8 })
     expect(d.models).toBeUndefined() // one preset: every card uses the deck's settings
     expect(d.cards.map((c) => c.m)).toEqual([-1, -1])

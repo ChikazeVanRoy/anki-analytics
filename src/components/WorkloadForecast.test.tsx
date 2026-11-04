@@ -96,8 +96,8 @@ async function settle(load = defaultLoad) {
   throw new Error('The plan never settled')
 }
 
-const show = (fsrs = fsrsFixture()) =>
-  render(<WorkloadForecast fsrs={fsrs} decks={mockData.decks} todayKey="2026-11-04" startWeekday={2} measured={measured} />)
+const show = (fsrs = fsrsFixture(), currentByDeck?: Record<string, number> | null) =>
+  render(<WorkloadForecast fsrs={fsrs} decks={mockData.decks} todayKey="2026-11-04" startWeekday={2} measured={measured} currentByDeck={currentByDeck} />)
 
 const pace = (name: string) => screen.getByRole('radio', { name: new RegExp(name) })
 const setSlider = (name: string, value: number) =>
@@ -132,6 +132,41 @@ describe('Planner paces', () => {
     expect(pace('Relaxed').textContent).toContain(m.newCards(0))
     expect(pace('Push').textContent).toContain(m.newCards(15))
     expect(screen.getByText(/^At 10 new cards a day, 5 days a week/)).toBeTruthy()
+  })
+
+  it('opens on the pace you’re actually keeping, with what it costs at its peak', async () => {
+    show(fsrsFixture(), { language: 30, science: 10 })
+    const settled = await settle()
+    expect(settled.settings).toMatchObject({ newPerDay: 40, runs: 24 })
+    expect(pace('Current').getAttribute('aria-checked')).toBe('true')
+    // 40 + 8 × 40 = 360 reviews at 15 s each
+    expect(pace('Current').textContent).toContain(m.heaviest(90))
+    expect(screen.getByText(/^At 40 new cards a day/)).toBeTruthy()
+    expect(screen.queryByText(/To follow this in Anki/)).toBeNull()
+  })
+
+  it('counts only the selected deck’s pace, and falls back to Steady for a deck without one', async () => {
+    show(fsrsFixture(), { language: 30, science: 10 })
+    await settle()
+    fireEvent.click(screen.getByRole('radio', { name: 'Language' }))
+    expect((await settle()).settings.newPerDay).toBe(30)
+    fireEvent.click(screen.getByRole('radio', { name: 'Other decks' }))
+    expect((await settle()).settings.newPerDay).toBe(10)
+    expect(pace('Steady').getAttribute('aria-checked')).toBe('true')
+  })
+
+  it('has no Current pace without enough history', async () => {
+    show(fsrsFixture(), null)
+    await settle()
+    expect(screen.queryByRole('radio', { name: /Current/ })).toBeNull()
+  })
+
+  it('turns a chosen pace into per-deck limits for Anki', async () => {
+    show(fsrsFixture(), { language: 30, science: 10 })
+    await settle()
+    fireEvent.click(pace('Steady'))
+    await settle()
+    expect(screen.getByText(/To follow this in Anki/).textContent).toContain('Language 4 (now 20)')
   })
 
   it('sets the limit when a pace is picked', async () => {

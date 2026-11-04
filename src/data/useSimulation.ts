@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { SCENARIO_NEW_PER_DAY } from '../lib/plan'
 import { retentionScenarioValues, type SimDeck, type SimSettings } from '../lib/simulator'
 import type { SimRequest, SimResponse } from '../lib/simulator.worker'
@@ -22,6 +22,9 @@ export function useSimulation(decks: SimDeck[], settings: SimSettings, enabled =
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const key = JSON.stringify(settings)
+  // The other recall model's sweep covers every new-card limit, so a change of pace or run size can't affect it
+  const otherKey = JSON.stringify({ ...settings, newPerDay: 0, runs: 0 })
+  const otherRecall = useRef<{ key: string; decks: SimDeck[]; result: Scenarios['otherRecall'] } | null>(null)
   const selected = decks.filter((d) => settings.deckIds.includes(d.deckId))
   /** Nothing to simulate: no deck presets, or no selected deck with cards. Shown instead of a spinner. */
   const unavailable = selected.length === 0 || selected.every((d) => d.cards.length === 0 && d.newPool === 0)
@@ -49,7 +52,9 @@ export function useSimulation(decks: SimDeck[], settings: SimSettings, enabled =
           setMain(e.data)
           setMainFor({ key, decks })
         } else {
-          setScenarios(e.data)
+          const reused = otherRecall.current?.key === otherKey && otherRecall.current.decks === decks
+          if (!reused) otherRecall.current = { key: otherKey, decks, result: e.data.otherRecall }
+          setScenarios({ ...e.data, otherRecall: otherRecall.current!.result })
           setScenariosFor({ key, decks })
           setRunning(false)
           worker?.terminate()
@@ -63,13 +68,14 @@ export function useSimulation(decks: SimDeck[], settings: SimSettings, enabled =
         scenarioNewPerDay: withCurrent(SCENARIO_NEW_PER_DAY, current.newPerDay),
         scenarioRetention: retentionScenarioValues(decks, current),
         scenarioRuns: 8,
+        otherRecallNewPerDay: otherRecall.current?.key === otherKey && otherRecall.current.decks === decks ? [] : SCENARIO_NEW_PER_DAY,
       } satisfies SimRequest)
     }, 250)
     return () => {
       clearTimeout(timer)
       worker?.terminate()
     }
-  }, [decks, key, unavailable, enabled])
+  }, [decks, key, otherKey, unavailable, enabled])
 
   // A run cancelled because the selection became empty never reports back, so don't keep showing "updating"
   const current = (run: typeof mainFor) => run?.key === key && run.decks === decks

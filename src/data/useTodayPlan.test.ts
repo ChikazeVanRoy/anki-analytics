@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { HorizonSummary } from '../lib/simulator'
 import { realShapedData } from '../test/fsrsFixture'
 import { mockData } from './mockData'
-import { useTodayPlan } from './useTodayPlan'
+import { useTodayPlan, type TodayPlan } from './useTodayPlan'
 
 class FakeWorker {
   static created = 0
@@ -26,10 +26,10 @@ const point = (value: number, minutes: number) => ({
   value,
   byHorizon: { 365: { maxWindowPerStudyDay: minutes, backlogEnd: 0 } as HorizonSummary },
 })
-const answer = () =>
+const answer = (extra = {}) =>
   act(() =>
     FakeWorker.last.onmessage!({
-      data: { id: FakeWorker.last.posted!.id, kind: 'scenarios', retention: [], newPerDay: [point(0, 1), point(10, 2), point(20, 3)] },
+      data: { id: FakeWorker.last.posted!.id, kind: 'scenarios', retention: [], newPerDay: [point(0, 1), point(10, 2), point(20, 3)], ...extra },
     }),
   )
 
@@ -58,6 +58,19 @@ describe('useTodayPlan', () => {
     await act(() => vi.advanceTimersByTimeAsync(300))
     answer()
     expect(hook.result.current).toMatchObject({ status: 'ready', max: { value: 20, capped: true } })
+  })
+
+  it('adds the other recall model, your real pace and when you’d finish', async () => {
+    const data = { ...realShapedData(), generatedAt: new Date(Date.now() + 5).toISOString() }
+    const hook = renderHook(() => useTodayPlan(data, today))
+    await act(() => vi.advanceTimersByTimeAsync(300))
+    // Reviews per study day of 2 at 0 new, rising to 4000 at 20: a long way over any budget here
+    answer({ otherRecall: [point(0, 1), point(10, 100_000), point(20, 200_000)] })
+    const plan = hook.result.current as Extract<TodayPlan, { status: 'ready' }>
+    expect(plan.altMax?.value).toBe(0)
+    expect(plan.finish).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    expect(plan.current?.newPerDay).toBeGreaterThan(0)
+    expect(plan.current!.minutes[1]).toBeGreaterThan(plan.current!.minutes[0])
   })
 
   it('doesn’t simulate again when Home is reopened on the same copy', async () => {

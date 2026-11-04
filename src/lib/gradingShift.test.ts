@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AnkiData, CalibrationDay, FsrsData } from '../data/types'
-import { buildSimDecks } from './simulator'
+import { buildSimDecks, LAPSE_PRIOR } from './simulator'
 import { fsrsVerdict } from './fsrsStats'
 import { gradingShift, lapseBasis, shiftWithin, SHIFT_MIN_SIDE, SHIFT_SETTLED_REVIEWS } from './gradingShift'
 
@@ -120,6 +120,6 @@ describe('grading changes in the verdict and lapse rate', () => {
   it('measures the Planner’s lapse rate from reviews since the change', () => {
     expect(lapseBasis(fsrsWith(changed)).reduce((n, d) => n + d.reviews, 0)).toBe(120)
     const [deck] = buildSimDecks(fsrsWith(changed), '2026-03-13')
-    expect(deck.failRatio).toBeCloseTo(16.5 / 12)
+    expect(deck.failRatio).toBeCloseTo((16 + LAPSE_PRIOR) / (12 + LAPSE_PRIOR))
   })
 })

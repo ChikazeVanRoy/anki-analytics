@@ -5,12 +5,14 @@ import { WorkloadForecast } from '../components/WorkloadForecast'
 import type { AnkiData } from '../data/types'
 import { messages } from '../i18n'
 import { toDateKey } from '../lib/dates'
+import { currentPace } from '../lib/deckPace'
 import { measuredDefaults } from '../lib/measured'
 import { FsrsMissing } from './FsrsGate'
 import { PageHeader } from './PageHeader'
 
 export function PlannerPage({ data, today }: { data: AnkiData; today: Date }) {
   const measured = useMemo(() => measuredDefaults(data, today), [data, today])
+  const pace = useMemo(() => currentPace(data, today, measured.studyDaysPerWeek), [data, today, measured])
   return (
     <div className="space-y-6">
       <PageHeader
@@ -25,6 +27,7 @@ export function PlannerPage({ data, today }: { data: AnkiData; today: Date }) {
           todayKey={toDateKey(today)}
           startWeekday={(today.getDay() + 6) % 7}
           measured={measured}
+          currentByDeck={pace?.byDeck ?? null}
         />
       ) : (
         <FsrsMissing data={data} icon={<PlannerIcon size={30} />} title={messages.fsrsMissing.planner} />

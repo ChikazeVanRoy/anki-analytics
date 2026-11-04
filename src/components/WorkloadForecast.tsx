@@ -22,7 +22,7 @@ import { buildInsights } from '../lib/insights'
 import type { MeasuredDefaults } from '../lib/measured'
 import { lapseEvidence } from '../lib/fsrsStats'
 import { gradingShift, lapseBasis } from '../lib/gradingShift'
-import { defaultBudget, PLAN_PRESETS, planPresets, planSettings, standardSweep, type PlanPreset, type PlanPresetKey } from '../lib/plan'
+import { deckLimits, defaultBudget, minutesAt, PLAN_PRESETS, planPresets, planSettings, standardSweep, type PlanPreset, type PlanPresetKey } from '../lib/plan'
 import { buildSimDecks, HORIZONS, presetRetentionLabel, type SimDay, type SimSettings } from '../lib/simulator'
 import { chart, forecast } from '../lib/theme'
 import { ChartTooltip } from './ChartTooltip'
@@ -36,7 +36,11 @@ interface Props {
   todayKey: string
   startWeekday: number
   measured: MeasuredDefaults
+  /** The new cards you've actually been starting per study day, by deck. Null: not enough history to say. */
+  currentByDeck?: Record<string, number> | null
 }
+
+type Pace = PlanPresetKey | 'current' | number
 
 const SERIES = [
   { key: 'known', label: 'Already scheduled', color: forecast.known, estimated: false },
@@ -65,18 +69,19 @@ function timeline(days: SimDay[], horizon: number, todayKey: string) {
   return { rows, weekly: size > 1 }
 }
 
-export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday, measured }: Props) {
+export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday, measured, currentByDeck = null }: Props) {
   const deckColor = useDeckColor()
   const decks = allDecks.filter((d) => fsrs.presets.some((p) => p.deckId === d.id))
   const deckNames = Object.fromEntries(decks.map((d) => [d.id, d.name]))
+  const hasCurrent = !!currentByDeck && decks.some((d) => currentByDeck[d.id])
   const simDecks = useMemo(() => buildSimDecks(fsrs, todayKey), [fsrs, todayKey])
 
   const [deckSel, setDeckSel] = useState<string>('all')
   const [horizon, setHorizon] = useState<number>(90)
-  // A pace follows the time budget; a number from the slider stays put. 30 is only the first run's stand-in
-  const [pace, setPace] = useState<PlanPresetKey | number>('steady')
+  // Opens on what you're actually doing. A pace follows the time budget; a number from the slider stays put.
+  // 30 is only the first run's stand-in
+  const [chosenPace, setPace] = useState<Pace>(hasCurrent ? 'current' : 'steady')
   const [presets, setPresets] = useState<PlanPreset[] | null>(null)
-  const newPerDay = typeof pace === 'number' ? pace : (presets?.find((p) => p.key === pace)?.newPerDay ?? 30)
   // Desired retention: each deck's own preset value by default, or one custom value for all selected decks
   const [retentionMode, setRetentionMode] = useState<'preset' | 'custom'>('preset')
   const [retention, setRetention] = useState(Math.round((fsrs.presets[0]?.desiredRetention ?? 0.9) * 100) / 100)
@@ -86,6 +91,12 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
   const [recall, setRecall] = useState<SimSettings['recall']>('fsrs')
 
   const deckIds = deckSel === 'all' ? decks.map((d) => d.id) : [deckSel]
+  // Only the selected decks' pace counts; a deck without enough history has none, so it falls back to Steady
+  const currentNewPerDay = Math.round(deckIds.reduce((n, id) => n + (currentByDeck?.[id] ?? 0), 0)) || null
+  const pace = chosenPace === 'current' && currentNewPerDay === null ? 'steady' : chosenPace
+  const newPerDay =
+    typeof pace === 'number' ? pace : pace === 'current' ? currentNewPerDay! : (presets?.find((p) => p.key === pace)?.newPerDay ?? 30)
+  const paceKnown = !!presets || typeof pace === 'number' || pace === 'current'
   const presetValues = [...new Set(fsrs.presets.filter((p) => deckIds.includes(p.deckId)).map((p) => Math.round(p.desiredRetention * 100)))]
   const presetLabel = presetRetentionLabel(presetValues.map((v) => v / 100))
   // The retention bar to highlight: the custom value, or the presets' value when they all agree
@@ -93,7 +104,7 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
   const settings: SimSettings = {
     ...planSettings(deckIds, studyDays, startWeekday),
     // Until a pace is known this run only feeds the scenarios, and its own results are never shown
-    ...(presets || typeof pace === 'number' ? {} : { runs: 8 }),
+    ...(paceKnown ? {} : { runs: 8 }),
     newPerDay,
     desiredRetention: retentionMode === 'custom' ? retention : undefined,
     recall,
@@ -101,7 +112,7 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
   const { main, scenarios, running, settled, error, unavailable } = useSimulation(simDecks, settings)
   // Nothing is shown until the first plan is in, or the stand-in's numbers would appear under the pace's label
   const [planShown, setPlanShown] = useState(false)
-  if (!planShown && settled && (presets || typeof pace === 'number')) setPlanShown(true)
+  if (!planShown && settled && paceKnown) setPlanShown(true)
   const updating = running || !settled
   const fittedPresets = useMemo(
     () => (scenarios?.newPerDay ? planPresets(standardSweep(scenarios.newPerDay), budget, secs) : null),
@@ -145,13 +156,19 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
           sweep: scenarios.newPerDay.map((s) => ({ value: s.value, year: s.byHorizon[365] })),
           capacitySweep: standardSweep(scenarios.newPerDay),
           deckNames,
+          otherRecall: scenarios.otherRecall && {
+            sweep: standardSweep(scenarios.otherRecall),
+            used: messages.planner.recall[recall],
+            other: messages.planner.recall[recall === 'fsrs' ? 'calibrated' : 'fsrs'],
+          },
         })
       : []
   const pool = settings.deckIds.reduce((n, id) => n + (fsrs.newCards[id] ?? 0), 0)
   // Lapse evidence for the selected decks only, matching the ratios listed for them
-  const { reviews: calibrationReviews, lapses: observedLapses } = lapseEvidence(lapseBasis(fsrs), deckIds)
+  const shiftDate = useMemo(() => gradingShift(fsrs.calibrationDaily ?? [])?.date, [fsrs])
+  const basis = useMemo(() => lapseBasis(fsrs), [fsrs])
+  const { reviews: calibrationReviews, lapses: observedLapses } = lapseEvidence(basis, deckIds)
   const selectedSimDecks = simDecks.filter((d) => deckIds.includes(d.deckId))
-  const shiftDate = gradingShift(fsrs.calibrationDaily ?? [])?.date
 
   const minutesPerStudyDay = summary ? toMin(summary.avgPerStudyDay) : 0
   const heaviest = year ? toMin(year.maxWindowPerStudyDay) : 0
@@ -174,7 +191,34 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
       className="lg:col-span-2"
     >
       <div className="space-y-5">
-        <PacePicker presets={presets} pace={pace} newPerDay={newPerDay} onPick={setPace} />
+        <PacePicker
+          presets={presets}
+          pace={pace}
+          newPerDay={newPerDay}
+          onPick={setPace}
+          current={
+            currentNewPerDay === null
+              ? null
+              : {
+                  newPerDay: currentNewPerDay,
+                  minutes: scenarios?.newPerDay ? minutesAt(standardSweep(scenarios.newPerDay), currentNewPerDay, secs) : null,
+                }
+          }
+        />
+        {pace !== 'current' && newPerDay > 0 && (
+          <p className="text-xs leading-relaxed font-semibold text-ink-2">
+            {messages.planner.pace.limits(
+              deckLimits(
+                newPerDay,
+                fsrs.presets
+                  .filter((p) => deckIds.includes(p.deckId))
+                  .map((p) => ({ deckId: p.deckId, pool: fsrs.newCards[p.deckId] ?? 0, current: p.newPerDay })),
+              )
+                .map((l) => messages.planner.pace.limit(deckNames[l.deckId] ?? l.deckId, l.newPerDay, l.current))
+                .join(', '),
+            )}
+          </p>
+        )}
         <Slider
           label="Daily time budget"
           size="lg"
@@ -260,7 +304,8 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
               />
               <p className="mt-2 text-xs leading-relaxed text-muted">
                 <span className="font-bold text-ink-2">FSRS prediction</span> draws lapses from FSRS’s recall probability.{' '}
-                <span className="font-bold text-ink-2">Your lapse rate</span> scales them to how often you actually pressed Again.
+                <span className="font-bold text-ink-2">Your lapse rate</span> scales them to how often you actually pressed
+                Again, staying close to FSRS’s prediction until there are enough lapses to go on.
               </p>
             </div>
           </div>
@@ -365,7 +410,7 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
                   />
                   <Metric label="Minutes per study day" value={formatInt(minutesPerStudyDay)} sub={`at ${secs} s per review`} />
                   <Metric
-                    label="Cards known well"
+                    label="Cards at 21+ days"
                     value={formatInt(summary.matureEnd)}
                     sub={`${formatInt(mature0(fsrs, settings.deckIds))} today → end of period`}
                     tip="Cards with a scheduled interval of 21 days or more at the end of the period (Anki’s “mature”)."
@@ -700,10 +745,10 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
                 schedule.
               </li>
               <li>
-                Your measured lapse rate is about{' '}
+                The “Your lapse rate” model uses about{' '}
                 {selectedSimDecks.map((d) => `${Math.round(d.failRatio * 100)}% of FSRS’s expectation for ${deckNames[d.deckId]}`).join(' and ')}
-                , from {formatInt(observedLapses)} {observedLapses === 1 ? 'lapse' : 'lapses'} in {formatInt(calibrationReviews)} review-card reviews
-                {shiftDate && ` since your answers changed on ${formatLongDate(shiftDate)}`}.
+                , based on {formatInt(observedLapses)} {observedLapses === 1 ? 'lapse' : 'lapses'} in {formatInt(calibrationReviews)} review-card reviews
+                {shiftDate && messages.planner.sinceChange(formatShortDate(shiftDate))}. It stays near FSRS’s prediction until there are enough lapses to go on.
                 {observedLapses < 20 && ' With this few lapses, the “Your lapse rate” model rests on limited evidence.'}
               </li>
             </ul>
@@ -720,11 +765,13 @@ function PacePicker({
   pace,
   newPerDay,
   onPick,
+  current,
 }: {
   presets: PlanPreset[] | null
-  pace: PlanPresetKey | number
+  pace: Pace
   newPerDay: number
-  onPick: (pace: PlanPresetKey) => void
+  onPick: (pace: PlanPresetKey | 'current') => void
+  current: { newPerDay: number; minutes: number | null } | null
 }) {
   const m = messages.planner.pace
   return (
@@ -733,7 +780,22 @@ function PacePicker({
         {m.label}
         <InfoTip label={`About ${m.label}`}>{m.tip}</InfoTip>
       </p>
-      <div role="radiogroup" aria-label={m.label} className="grid grid-cols-3 gap-2">
+      <div role="radiogroup" aria-label={m.label} className={`grid gap-2 ${current ? 'grid-cols-2' : 'grid-cols-3'}`}>
+        {current && (
+          <button
+            type="button"
+            role="radio"
+            aria-checked={pace === 'current'}
+            onClick={() => onPick('current')}
+            className={`rounded-2xl border-2 px-2 py-2.5 text-center transition-colors ${
+              pace === 'current' ? 'border-brand bg-brand-soft' : 'border-transparent bg-surface-2 hover:border-line'
+            }`}
+          >
+            <span className="block text-sm font-extrabold text-ink">{m.current}</span>
+            <span className="mt-0.5 block text-sm font-bold text-ink tabular-nums">{m.newCards(current.newPerDay)}</span>
+            {current.minutes !== null ? <span className="block text-xs text-muted">{m.heaviest(current.minutes)}</span> : <span className="skeleton mx-auto mt-1.5 block h-3 w-14" aria-hidden />}
+          </button>
+        )}
         {PLAN_PRESETS.map(({ key }) => {
           const preset = presets?.find((p) => p.key === key)
           const selected = pace === key
