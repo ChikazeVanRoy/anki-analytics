@@ -61,13 +61,13 @@ Four sections (`#/`, `#/activity`, `#/planner`, `#/advanced`), simple first and 
 
 | Section | What it answers | Source |
 |---|---|---|
-| **Home** | How am I doing today? Streak, key numbers, last two weeks, one insight, deck progress, milestones | **Measured** from your review log and card counts |
+| **Home** | What should I do today? Today plan, weekly goal, key numbers, last two weeks, one insight, deck progress, milestones | **Measured** from your review log and card counts; the suggested new-card limit and deck finish dates are labelled **projections** |
 | **Activity** | When and how much did I study, and am I forgetting less? Heatmap, review charts, deck comparison | **Measured** from your review log |
 | **Planner** | How much work is coming, and how many new cards can I sustain? | **Projection**: Monte Carlo simulation with FSRS-6 scheduling on your real cards |
 | **Advanced** | How strong are my memories, and does FSRS predict me well? Stability, difficulty, recall, risk, calibration | **Measured** card states (as Anki stored them) + the FSRS-6 forgetting curve; past predictions replayed from the review log |
 
 Measured, projected and sample data look different (solid badge, dashed badge and edges, amber banner).
-Milestones only count what the data shows (lifetime reviews, longest streak, cards known well) and nothing
+Milestones only count what the data shows (lifetime reviews, days studied, cards known well) and nothing
 rewards a single heavy day. Light and dark themes follow the system, with a toggle in the header.
 
 The replay reproduces every memory state that Anki 26.9.3's own engine computes (checked review by review on a real
@@ -79,7 +79,7 @@ Forecast assumptions and limits are listed in the app under "How the forecast wo
 ## Structure
 
 - `server/`: local API
-  - `app.ts`: request handling (`GET /api/stats`, `POST /api/refresh`, Host-header check); `index.ts` starts it
+  - `app.ts`: request handling (`GET /api/stats`, `GET /api/status`, `POST /api/refresh`, Host-header check); `index.ts` starts it
   - `anki.ts`: daily totals and card counts
   - `deckGroups.ts`: which dashboard deck each Anki deck belongs to, and the optional config file
   - `fsrsData.ts`: FSRS states, presets (decoded with `protobuf.ts`), review-log replay, measured behaviour

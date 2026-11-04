@@ -192,9 +192,9 @@ export const en = {
     hardEyebrow: 'Grading habits',
     hardLabel: 'Answered Hard',
     hardSub: (share: string, period: string, basis: string) =>
-      `${share} of scheduled reviews were Hard, ${period} · ${basis}. Hard counts as remembered, so pressing it after forgetting lifts Remembered.`,
+      `${share} of scheduled reviews were Hard, ${period}. The line shows a ${basis}. Hard counts as remembered, so pressing it after forgetting lifts Remembered.`,
     hardRolling: '7-day rolling average',
-    hardPer: (bucket: string) => `per ${bucket}`,
+    hardPer: (bucket: string) => `${bucket}ly figure`,
     hardNone: 'No scheduled reviews in this period.',
     hardThin: 'Too few scheduled reviews in this period to draw a trend.',
     noChange: 'no change',

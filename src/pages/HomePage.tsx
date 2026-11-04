@@ -285,12 +285,12 @@ function WeekGoalCard({ week, onChange }: { week: WeekGoal; onChange: (by: numbe
   const hint = week.met ? g.met : week.reachable ? g.left(week.goal - week.done) : g.nextWeek
   const stepClass = 'grid size-8 place-items-center rounded-xl bg-surface-2 text-base leading-none font-black text-ink-2 hover:text-ink disabled:opacity-40'
   return (
-    <section aria-label={g.label} className="shrink-0 self-start rounded-2xl bg-surface px-3.5 py-3 shadow-card sm:self-auto">
+    <section aria-label={g.label} className="shrink-0 rounded-2xl bg-surface px-3.5 py-3 shadow-card">
       <p className="text-sm text-ink">
         <span className="text-xl font-black tabular-nums">{g.progress(week.done, week.goal)}</span> <span className="font-bold text-ink-2">{g.unit}</span>
         <InfoTip label={`About ${g.label}`}>{g.tip}</InfoTip>
       </p>
-      <ol className="mt-2 flex gap-1.5">
+      <ol className="mt-2 flex justify-between gap-1.5">
         {week.days.map((d) => {
           const date = parseDateKey(d.date)
           return (
