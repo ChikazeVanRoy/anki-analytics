@@ -43,6 +43,8 @@ for (const route of ['#/', '#/activity', '#/advanced']) {
     await useRealShapedData(page)
     await page.goto(route)
     await expect(page.locator('main h1').first()).toBeVisible()
+    // Home's suggestion adds a tip when its simulation ends, which would shift the buttons counted below
+    await expect(page.getByText(messages.home.today.suggestPending)).toHaveCount(0)
     const buttons = page.locator('main button[aria-describedby]:visible')
     await expect(buttons.first()).toBeVisible()
     const width = page.viewportSize()!.width
