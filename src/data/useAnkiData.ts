@@ -51,7 +51,8 @@ async function request(url: string, timeoutMs: number, init?: RequestInit): Prom
     const body = await res.json().catch(() => null)
     // No JSON body means the dev proxy had nothing to forward to. 503 (no copy yet) and 409 (Anki is open) are
     // fixed by closing Anki and refreshing; any other error comes from the server and is in its terminal.
-    if (!body) throw new ApiError('api-down', m.apiDown)
+    // 404: this device has no route to the API, which is how the server answers your phone
+    if (!body || res.status === 404) throw new ApiError('api-down', m.apiDown)
     if (!res.ok) throw new ApiError(res.status === 503 || res.status === 409 ? 'collection' : 'server', body.error ?? m.serverError)
     return body
   } finally {

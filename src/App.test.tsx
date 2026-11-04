@@ -81,6 +81,20 @@ describe('a saved snapshot', () => {
     expect(screen.queryByText(messages.data.sampleTitle)).toBeNull()
   })
 
+  it('treats no route to the API, as on your phone, like a server that’s out of reach', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) =>
+        url === '/snapshot.json' ? new Response(JSON.stringify({ version: SNAPSHOT_VERSION, data: stats })) : new Response('{"error":"Not found"}', { status: 404 }),
+      ),
+    )
+    render(<App />)
+    await screen.findByText(messages.data.snapshotTitle)
+    expect(screen.queryByRole('button', { name: messages.data.refresh })).toBeNull()
+    expect(screen.queryByText(/Not found/)).toBeNull()
+    expect(screen.getByText(new RegExp(messages.data.footerSnapshot))).toBeTruthy()
+  })
+
   it('still says why live data failed, so a broken config can be fixed', async () => {
     vi.stubGlobal(
       'fetch',

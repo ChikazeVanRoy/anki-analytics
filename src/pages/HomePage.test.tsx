@@ -230,6 +230,13 @@ describe('Home Today limits', () => {
 })
 
 describe('next step on a saved snapshot', () => {
+  it('doesn’t ask you to update a copy, which you can’t do from a snapshot', async () => {
+    const old = new Date(Date.now() - 3 * 86_400_000).toISOString()
+    render(<HomePage data={{ ...realShapedData(), generatedAt: old }} fromSnapshot />)
+    expect(await screen.findByText(messages.home.next.snapshotRefresh)).toBeTruthy()
+    expect(screen.queryByText(messages.home.next.refresh)).toBeNull()
+  })
+
   it('doesn’t promise an update when Anki closes, as nothing is watching it', async () => {
     render(<HomePage data={realShapedData()} fromSnapshot />)
     expect(await screen.findByText(messages.home.next.snapshotSub)).toBeTruthy()

@@ -14,6 +14,22 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+describe('on a device with no route to the API', () => {
+  it('stops asking', async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi.fn(async () => new Response('{}', { status: 404 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const hook = renderHook(() => useUpdateOffer('copy', false))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000)
+    })
+    expect(fetchMock).toHaveBeenCalledOnce()
+    hook.unmount()
+    vi.useRealTimers()
+    vi.unstubAllGlobals()
+  })
+})
+
 describe('useUpdateOffer', () => {
   it('stays quiet while there’s nothing new', async () => {
     vi.stubGlobal('fetch', answer(false))

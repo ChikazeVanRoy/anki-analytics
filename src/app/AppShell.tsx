@@ -183,7 +183,7 @@ export function AppShell(props: ShellProps) {
         </main>
 
         <footer className="pt-4 pb-10 text-center text-xs text-muted">
-          {sample ? m.data.footerSample : `${m.data.footerLive} ${m.data.copiedAt(copied)}.`}
+          {sample ? m.data.footerSample : `${fromSnapshot ? m.data.footerSnapshot : m.data.footerLive} ${m.data.copiedAt(copied)}.`}
         </footer>
       </div>
 

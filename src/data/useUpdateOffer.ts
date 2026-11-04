@@ -22,6 +22,8 @@ export function useUpdateOffer(copiedAt: string | undefined, newDay: boolean) {
       if (document.hidden) return
       try {
         const res = await fetch('/api/status')
+        // This device has no route to the API, as on your phone, so there will never be anything to offer
+        if (res.status === 404) return clearInterval(timer)
         const body = res.ok ? ((await res.json()) as { ankiRunning: boolean; updateAvailable: boolean; sourceModified: number | null; copyModified?: number | null }) : null
         // The launcher's sync replaced the copy since this page read it
         const copied = !!body?.copyModified && !body.ankiRunning && !!copiedAt && Math.floor(body.copyModified) > Date.parse(copiedAt)

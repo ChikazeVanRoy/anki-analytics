@@ -309,7 +309,7 @@ function Hero({
 function NextUp({ step, fromSnapshot }: { step: NextStep; fromSnapshot: boolean }) {
   const n = m.next
   const title =
-    step.kind === 'reviews' ? n.reviews(step.cards, step.minutes) : step.kind === 'new' ? n.fresh(step.cards, step.minutes) : step.kind === 'done' ? n.done : n.refresh
+    step.kind === 'reviews' ? n.reviews(step.cards, step.minutes) : step.kind === 'new' ? n.fresh(step.cards, step.minutes) : step.kind === 'done' ? n.done : fromSnapshot ? n.snapshotRefresh : n.refresh
   const sub = step.kind === 'done' ? n.doneSub : fromSnapshot ? n.snapshotSub : step.kind === 'refresh' ? n.refreshSub : n.sub
   return (
     <div className="relative mt-4 rounded-2xl bg-surface p-4 shadow-card">
