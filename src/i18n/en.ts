@@ -125,6 +125,9 @@ export const en = {
       label: 'day streak',
       best: (n: number) => `Best: ${n} ${plural(n, 'day', 'days')}`,
       asOf: (date: string) => `As of ${date}`,
+      rests: (n: number) => `Includes ${n} rest ${plural(n, 'day', 'days')}`,
+      restTipLabel: 'About rest days',
+      restTip: 'Study days in a row. One missed day a week doesn’t break it, so you can take a day off without losing your streak.',
     },
     kpi: {
       today: 'Reviewed today',

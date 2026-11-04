@@ -3,7 +3,7 @@
 // shown as reached only when the review log or card counts show it.
 
 import type { AnkiData } from '../data/types'
-import { ankiDayKey, dayNumber, toDateKey } from './dates'
+import { ankiDayKey, dayNumber, keyFromDayNumber, toDateKey } from './dates'
 import { formatInt, formatPct, formatRate } from './format'
 import { shiftWithin } from './gradingShift'
 import { deckSummaries, lastNDays, MIN_RATE_SAMPLE, ratio, retentionSplit, type DayTotal } from './stats'
@@ -48,6 +48,61 @@ export function recentDays(byDate: Map<string, DayTotal>, today: Date, n = 14) {
     reviews: byDate.get(date)?.reviews ?? 0,
     minutes: (byDate.get(date)?.seconds ?? 0) / 60,
   }))
+}
+
+/** A single missed day keeps a streak alive, at most once in any 7 days. */
+const REST_GAP = 7
+
+/**
+ * The streak with rest days: study days in a run where a missed day is forgiven if none was in the 6 days after
+ * it. Like the plain streak, today doesn't break it before you've studied.
+ */
+export function streakWithRests(byDate: Map<string, DayTotal>, today: Date): { days: number; rests: number } {
+  const todayNumber = dayNumber(toDateKey(today))
+  const on = (n: number) => studied(byDate, keyFromDayNumber(n))
+  let n = on(todayNumber) ? todayNumber : todayNumber - 1
+  let days = 0
+  let rests = 0
+  let lastRest = Infinity
+  for (; ; n--) {
+    if (on(n)) {
+      days++
+      continue
+    }
+    // The run ends at two missed days in a row, or a second rest too soon after the last
+    if (!on(n - 1) || lastRest - n < REST_GAP) break
+    lastRest = n
+    rests++
+  }
+  return { days, rests: days ? rests : 0 }
+}
+
+/** The longest streak with rest days, across the whole history, in study days. */
+export function longestWithRests(byDate: Map<string, DayTotal>): number {
+  const days = [...byDate]
+    .filter(([, t]) => t.reviews > 0)
+    .map(([d]) => dayNumber(d))
+    .sort((a, b) => a - b)
+  let best = 0
+  let run = 0
+  let sinceRest = 0 // study days after the last rest: where a run restarts if the next rest comes too soon
+  let lastRest = -Infinity
+  for (let i = 0; i < days.length; i++) {
+    const gap = i > 0 ? days[i] - days[i - 1] : Infinity
+    if (gap === 1) {
+      run++
+      sinceRest++
+    } else if (gap === 2) {
+      run = days[i] - 1 - lastRest >= REST_GAP ? run + 1 : sinceRest + 1
+      sinceRest = 1
+      lastRest = days[i] - 1
+    } else {
+      run = sinceRest = 1
+      lastRest = -Infinity
+    }
+    best = Math.max(best, run)
+  }
+  return best
 }
 
 // ---------- Milestones ----------
@@ -109,6 +164,15 @@ export function dayStatus(hasAnyReviews: boolean, reviewsToday: number, streak: 
   if (stale) return 'stale'
   if (reviewsToday > 0) return 'done'
   return streak > 0 ? 'keep' : 'start'
+}
+
+export type MascotMood = 'cheer' | 'happy' | 'curious' | 'sleepy'
+
+/** How Sprig looks: never disappointed, whatever the day. */
+export function mascotMood(status: DayStatus, nothingLeft: boolean): MascotMood {
+  if (status === 'stale' || status === 'empty') return 'sleepy'
+  if (status === 'done') return nothingLeft ? 'cheer' : 'happy'
+  return 'curious'
 }
 
 /** Greeting by local clock hour. */

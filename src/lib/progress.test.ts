@@ -6,14 +6,17 @@ import {
   homeInsight,
   longestStreak,
   milestones,
+  longestWithRests,
+  mascotMood,
   milestoneTrack,
+  streakWithRests,
   nextStep,
   recentDays,
   staleCopyKey,
   todayWork,
   weekComparison,
 } from './progress'
-import { lastNDays, totalsByDate } from './stats'
+import { lastNDays, toDateKey, totalsByDate } from './stats'
 
 const TODAY = new Date(2026, 10, 3, 12) // 3 Nov 2026, noon
 
@@ -323,5 +326,48 @@ describe('nextStep', () => {
   it('never promises less than a minute, and asks for a refresh on an old copy', () => {
     expect(nextStep(work(1, 0, 0.1))).toMatchObject({ minutes: 1 })
     expect(nextStep({ stale: true })).toEqual({ kind: 'refresh' })
+  })
+})
+
+describe('streaks with rest days', () => {
+  const today = new Date(2026, 2, 31)
+  const days = (...ago: number[]) =>
+    new Map(ago.map((n) => [toDateKey(new Date(2026, 2, 31 - n)), { reviews: 5, again: 0, seconds: 60 }]))
+
+  it('forgives one missed day and counts study days only', () => {
+    expect(streakWithRests(days(0, 1, 3, 4), today)).toEqual({ days: 4, rests: 1 })
+  })
+
+  it('ends at two missed days in a row', () => {
+    expect(streakWithRests(days(0, 1, 4, 5), today)).toEqual({ days: 2, rests: 0 })
+  })
+
+  it('allows one rest in any 7 days, not two', () => {
+    expect(streakWithRests(days(0, 1, 2, 4, 5, 7, 8), today)).toEqual({ days: 5, rests: 1 })
+    expect(streakWithRests(days(0, 1, 2, 4, 5, 6, 7, 8, 9, 11), today)).toEqual({ days: 10, rests: 2 })
+  })
+
+  it('isn’t broken by today before you’ve studied, or by a rest yesterday', () => {
+    expect(streakWithRests(days(1, 2), today)).toEqual({ days: 2, rests: 0 })
+    expect(streakWithRests(days(2, 3), today)).toEqual({ days: 2, rests: 1 })
+  })
+
+  it('has no streak with no reviews', () => expect(streakWithRests(new Map(), today)).toEqual({ days: 0, rests: 0 }))
+
+  it('finds the longest run the same way', () => {
+    expect(longestWithRests(days(0, 1, 3, 4, 5))).toBe(5)
+    expect(longestWithRests(days(0, 1, 3, 5))).toBe(3)
+    expect(longestWithRests(days(0, 1, 2, 4, 5, 6, 7, 8, 9, 11))).toBe(10)
+    expect(longestWithRests(new Map())).toBe(0)
+  })
+})
+
+describe('mascotMood', () => {
+  it('follows the day, and has no sad face', () => {
+    expect(mascotMood('done', true)).toBe('cheer')
+    expect(mascotMood('done', false)).toBe('happy')
+    expect(mascotMood('keep', false)).toBe('curious')
+    expect(mascotMood('start', false)).toBe('curious')
+    expect(mascotMood('stale', false)).toBe('sleepy')
   })
 })

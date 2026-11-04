@@ -2,6 +2,7 @@ import { useMemo, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { ActivityIcon, ArrowRightIcon, BrainIcon, CheckIcon, Flame, LayersIcon, SparkleIcon, TrophyIcon } from '../components/icons'
 import { AnswerBar } from '../components/AnswerBar'
 import { GardenLegend, GardenPlot } from '../components/MemoryGarden'
+import { Mascot } from '../components/Mascot'
 import { StatCard } from '../components/StatCard'
 import { CountUp, Disclosure, InfoTip, ProgressBar, SourceBadge } from '../components/ui'
 import { useDeckColor } from '../data/deckColors'
@@ -17,13 +18,16 @@ import {
   dayStatus,
   greetingPart,
   homeInsight,
-  longestStreak,
+  longestWithRests,
+  mascotMood,
   milestones,
   nextStep,
   recentDays,
   staleCopyKey,
+  streakWithRests,
   todayWork,
   weekComparison,
+  type MascotMood,
   type MilestoneTrack,
   type NextStep,
   type TodayWork,
@@ -46,7 +50,8 @@ export function HomePage({ data }: { data: AnkiData }) {
   const week7 = useMemo(() => summarize(data, 7, asOf), [data, asOf])
   const month = useMemo(() => summarize(data, 30, asOf), [data, asOf])
   const week = useMemo(() => weekComparison(byDate, asOf), [byDate, asOf])
-  const best = useMemo(() => longestStreak(byDate), [byDate])
+  const best = useMemo(() => longestWithRests(byDate), [byDate])
+  const streak = useMemo(() => streakWithRests(byDate, asOf), [byDate, asOf])
   const recent = useMemo(() => recentDays(byDate, asOf, 14), [byDate, asOf])
   const tracks = useMemo(() => milestones(data, byDate), [data, byDate])
   const insight = useMemo(() => homeInsight(data, byDate, asOf), [data, byDate, asOf])
@@ -59,7 +64,7 @@ export function HomePage({ data }: { data: AnkiData }) {
 
   const [hour] = useState(() => new Date().getHours())
   const hasAny = data.daily.some((s) => s.reviews > 0)
-  const status = dayStatus(hasAny, week7.reviewsToday, week7.streak, stale)
+  const status = dayStatus(hasAny, week7.reviewsToday, streak.days, stale)
   const copyLabel = copyKey ? parseDateKey(copyKey).toLocaleDateString(LOCALE, { day: 'numeric', month: 'short' }) : null
   const todayMinutes = (byDate.get(toDateKey(today))?.seconds ?? 0) / 60
   const { reviewCards } = month.retention
@@ -83,14 +88,16 @@ export function HomePage({ data }: { data: AnkiData }) {
             : status === 'stale'
               ? m.status.stale(copyLabel)
               : status === 'keep'
-                ? m.status.keep(week7.streak)
+                ? m.status.keep(streak.days)
                 : status === 'start'
                   ? m.status.start
                   : m.status.empty
         }
         due={due}
         plan={plan}
-        streak={week7.streak}
+        streak={streak.days}
+        rests={streak.rests}
+        mood={mascotMood(status, !!due && !due.stale && due.cards + due.newCards === 0)}
         best={best}
         streakAsOf={copyLabel}
         sample={sample}
@@ -212,6 +219,8 @@ function Hero({
   due,
   plan,
   streak,
+  rests,
+  mood,
   best,
   streakAsOf,
   sample,
@@ -222,6 +231,8 @@ function Hero({
   due: TodayWork | null
   plan: TodayPlan | null
   streak: number
+  rests: number
+  mood: MascotMood
   best: number
   streakAsOf: string | null
   sample: boolean
@@ -233,13 +244,16 @@ function Hero({
       style={{ backgroundImage: 'linear-gradient(120deg, var(--color-hero-from), var(--color-hero-to))' }}
     >
       <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
-        <div className="max-w-xl">
+        <div className="flex max-w-xl items-center gap-3">
+          <Mascot mood={mood} size={64} />
+          <div className="min-w-0">
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-black tracking-tight text-ink sm:text-[1.75rem]">{greeting}</h1>
             {sample && <SourceBadge kind="sample" />}
           </div>
           <p className="mt-1 text-sm font-semibold text-ink-2 sm:text-base">{status}</p>
           {copied && <p className="mt-2 text-xs text-ink-2">{copied}</p>}
+          </div>
         </div>
         <div className="flex shrink-0 items-center gap-2 self-start rounded-2xl bg-surface px-3.5 py-2.5 shadow-card sm:self-auto">
           <Flame lit={streak > 0} size={30} />
@@ -249,7 +263,9 @@ function Hero({
                 <CountUp value={streak} format={formatInt} />
               </span>{' '}
               <span className="font-bold text-sun-ink">{m.streak.label}</span>
+              <InfoTip label={m.streak.restTipLabel}>{m.streak.restTip}</InfoTip>
             </p>
+            {rests > 0 && <p className="text-xs text-muted">{m.streak.rests(rests)}</p>}
             {best > 0 && <p className="text-xs text-muted">{m.streak.best(best)}</p>}
             {streakAsOf && <p className="text-xs text-muted">{m.streak.asOf(streakAsOf)}</p>}
           </div>
