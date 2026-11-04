@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
   Area,
   Bar,
@@ -13,6 +13,7 @@ import {
   YAxis,
 } from 'recharts'
 import { useDeckColor } from '../data/deckColors'
+import { messages } from '../i18n'
 import type { Deck, FsrsData } from '../data/types'
 import { SCENARIO_NEW_PER_DAY, useSimulation } from '../data/useSimulation'
 import { dayNumber, keyFromDayNumber } from '../lib/dates'
@@ -20,7 +21,7 @@ import { formatInt, formatLongDate, formatPct, formatShortDate } from '../lib/fo
 import { buildInsights } from '../lib/insights'
 import type { MeasuredDefaults } from '../lib/measured'
 import { lapseEvidence } from '../lib/fsrsStats'
-import { defaultBudget, planSettings, standardSweep } from '../lib/plan'
+import { defaultBudget, PLAN_PRESETS, planPresets, planSettings, standardSweep, type PlanPreset, type PlanPresetKey } from '../lib/plan'
 import { buildSimDecks, HORIZONS, presetRetentionLabel, type SimDay, type SimSettings } from '../lib/simulator'
 import { chart, forecast } from '../lib/theme'
 import { ChartTooltip } from './ChartTooltip'
@@ -71,7 +72,10 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
 
   const [deckSel, setDeckSel] = useState<string>('all')
   const [horizon, setHorizon] = useState<number>(90)
-  const [newPerDay, setNewPerDay] = useState(30)
+  // A pace follows the time budget; a number from the slider stays put. 30 is only the first run's stand-in
+  const [pace, setPace] = useState<PlanPresetKey | number>('steady')
+  const [presets, setPresets] = useState<PlanPreset[] | null>(null)
+  const newPerDay = typeof pace === 'number' ? pace : (presets?.find((p) => p.key === pace)?.newPerDay ?? 30)
   // Desired retention: each deck's own preset value by default, or one custom value for all selected decks
   const [retentionMode, setRetentionMode] = useState<'preset' | 'custom'>('preset')
   const [retention, setRetention] = useState(Math.round((fsrs.presets[0]?.desiredRetention ?? 0.9) * 100) / 100)
@@ -92,6 +96,13 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
     recall,
   }
   const { main, scenarios, running, error, unavailable } = useSimulation(simDecks, settings)
+  const fittedPresets = useMemo(
+    () => (scenarios?.newPerDay ? planPresets(standardSweep(scenarios.newPerDay), budget, secs) : null),
+    [scenarios, budget, secs],
+  )
+  useEffect(() => {
+    if (fittedPresets) setPresets(fittedPresets)
+  }, [fittedPresets])
   const summary = main?.byHorizon[horizon]
   const year = main?.byHorizon[365]
   const toMin = (reviews: number) => (reviews * secs) / 60
@@ -156,15 +167,7 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
       className="lg:col-span-2"
     >
       <div className="space-y-5">
-        <Slider
-          label="New cards per day"
-          size="lg"
-          value={newPerDay}
-          min={0}
-          max={100}
-          onChange={setNewPerDay}
-          hint={`Total across the selected decks, split evenly while each still has new cards (${formatInt(pool)} available).`}
-        />
+        <PacePicker presets={presets} pace={pace} newPerDay={newPerDay} onPick={setPace} />
         <Slider
           label="Daily time budget"
           size="lg"
@@ -188,8 +191,16 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
           options={[{ value: 'all', label: decks.length === 2 ? 'Both' : 'All' }, ...decks.map((d) => ({ value: d.id, label: d.name }))]}
           onChange={setDeckSel}
         />
-        <Disclosure title="Fine-tune the simulation" subtitle="Study days, answer speed, retention target and recall model">
+        <Disclosure title="Fine-tune the simulation" subtitle="New cards, study days, answer speed, retention target and recall model">
           <div className="space-y-5 pt-2">
+            <Slider
+              label="New cards per day"
+              value={newPerDay}
+              min={0}
+              max={100}
+              onChange={setPace}
+              hint={`Total across the selected decks, split evenly while each still has new cards (${formatInt(pool)} available).`}
+            />
             <Slider
               label="Study days per week"
               value={studyDays}
@@ -265,6 +276,22 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
 
   return (
     <div className="space-y-6">
+      {/* Phones and tablets: the controls and their results are a long way apart, so the result stays in view */}
+      {!status && summary && (
+        <div data-testid="plan-summary" className="sticky top-[4.5rem] z-30 lg:hidden">
+          <div className="flex items-center gap-3 rounded-2xl border border-line bg-surface/95 px-4 py-2.5 shadow-pop backdrop-blur-lg">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-extrabold text-ink tabular-nums">{messages.planner.summary.load(minutesPerStudyDay, summary.avgPerStudyDay)}</p>
+              <p className="text-xs text-muted">{messages.planner.summary.detail(newPerDay, verdict?.label ?? messages.planner.pace.label)}</p>
+            </div>
+            {running ? (
+              <RefreshIcon size={18} spinning />
+            ) : (
+              verdict && <span className={verdict.tone === 'good' ? 'text-good' : 'text-warning'}>{verdict.tone === 'good' ? <CheckIcon size={18} /> : <WarningIcon size={18} />}</span>
+            )}
+          </div>
+        </div>
+      )}
       <div className="grid gap-6 lg:grid-cols-5">
         {controls}
 
@@ -675,6 +702,58 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
           </Disclosure>
         </>
       )}
+    </div>
+  )
+}
+
+/** One tap sets a sensible new-card limit; the exact number lives under "Fine-tune". */
+function PacePicker({
+  presets,
+  pace,
+  newPerDay,
+  onPick,
+}: {
+  presets: PlanPreset[] | null
+  pace: PlanPresetKey | number
+  newPerDay: number
+  onPick: (pace: PlanPresetKey) => void
+}) {
+  const m = messages.planner.pace
+  return (
+    <div>
+      <p className="mb-1.5 text-sm font-semibold text-ink-2">
+        {m.label}
+        <InfoTip label={`About ${m.label}`}>{m.tip}</InfoTip>
+      </p>
+      <div role="radiogroup" aria-label={m.label} className="grid grid-cols-3 gap-2">
+        {PLAN_PRESETS.map(({ key }) => {
+          const preset = presets?.find((p) => p.key === key)
+          const selected = pace === key
+          return (
+            <button
+              key={key}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              onClick={() => onPick(key)}
+              className={`rounded-2xl border-2 px-2 py-2.5 text-center transition-colors ${
+                selected ? 'border-brand bg-brand-soft' : 'border-transparent bg-surface-2 hover:border-line'
+              }`}
+            >
+              <span className="block text-sm font-extrabold text-ink">{m[key]}</span>
+              {preset ? (
+                <>
+                  <span className="mt-0.5 block text-sm font-bold text-ink tabular-nums">{m.newCards(preset.newPerDay)}</span>
+                  <span className="block text-xs text-muted">{m.fits(preset.minutes)}</span>
+                </>
+              ) : (
+                <span className="skeleton mx-auto mt-1.5 block h-7 w-14" aria-hidden />
+              )}
+            </button>
+          )
+        })}
+      </div>
+      {typeof pace === 'number' && <p className="mt-2 text-xs font-bold text-ink-2">{m.custom(newPerDay)}</p>}
     </div>
   )
 }

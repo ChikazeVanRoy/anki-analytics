@@ -116,3 +116,30 @@ test('picking the last day on the Home chart stays on screen', async ({ page }) 
   expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize()!.width)
   await expectNoSidewaysScroll(page)
 })
+
+test('a Planner pace sets the new-card limit, and the sliders are one tap away', async ({ page }) => {
+  await useRealShapedData(page)
+  await page.goto('#/planner')
+  const push = page.getByRole('radio', { name: /Push/ })
+  await expect(push).toContainText('new')
+  await push.click()
+  await expect(push).toHaveAttribute('aria-checked', 'true')
+  await page.getByText('Fine-tune the simulation').click()
+  await page.getByRole('slider', { name: 'New cards per day' }).fill('7')
+  await expect(page.getByText(messages.planner.pace.custom(7))).toBeVisible()
+  await expect(push).toHaveAttribute('aria-checked', 'false')
+})
+
+test('the Planner result stays in view while scrolling on small screens', async ({ page }, info) => {
+  await useRealShapedData(page)
+  await page.goto('#/planner')
+  const summary = page.getByTestId('plan-summary')
+  if (info.project.name === 'desktop') {
+    await expect(page.getByRole('heading', { name: 'What to expect' })).toBeVisible()
+    return expect(summary).toBeHidden()
+  }
+  await expect(summary).toContainText('reviews')
+  await page.evaluate(() => window.scrollTo(0, 1500))
+  await expect.poll(async () => (await summary.boundingBox())!.y).toBeLessThan(100)
+  await expect(summary).toBeInViewport()
+})

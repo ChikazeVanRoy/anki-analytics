@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
-import { InfoTip } from './ui'
+import { InfoTip, Slider } from './ui'
 
 afterEach(cleanup)
 
@@ -42,5 +42,12 @@ describe('InfoTip', () => {
   it('links the tooltip to its button for screen readers', () => {
     render(<InfoTip>Explanation</InfoTip>)
     expect(screen.getByRole('button').getAttribute('aria-describedby')).toBe(tip().id)
+  })
+})
+
+describe('Slider', () => {
+  it('names the slider, not the tip beside it', () => {
+    render(<Slider label="Budget" value={5} min={0} max={10} onChange={() => {}} hint="Why" />)
+    expect(screen.getByRole('slider', { name: 'Budget' })).toBeTruthy()
   })
 })

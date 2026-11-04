@@ -205,6 +205,20 @@ export const en = {
     title: 'Planner',
     subtitle: 'Simulations of your real cards, so you can plan a workload you’ll enjoy keeping.',
     subtitleSample: 'Simulates your real cards once your Anki data is connected.',
+    pace: {
+      label: 'Pace',
+      relaxed: 'Relaxed',
+      steady: 'Steady',
+      push: 'Push',
+      newCards: (n: number) => `≈ ${int(n)} new`,
+      fits: (minutes: number) => `fits ${int(minutes)} min`,
+      custom: (n: number) => `Custom: ${int(n)} new ${plural(n, 'card', 'cards')} a day`,
+      tip: 'Each pace is the most new cards a day whose heaviest month in a simulated year fits a share of your time budget: 60% for Relaxed, all of it for Steady, 150% for Push. A projection, and nothing changes in Anki.',
+    },
+    summary: {
+      load: (minutes: number, reviews: number) => `≈ ${int(minutes)} min a day · ${int(reviews)} reviews`,
+      detail: (newPerDay: number, verdict: string) => `At ${int(newPerDay)} new a day · ${verdict}`,
+    },
   },
   advanced: {
     title: 'Advanced',

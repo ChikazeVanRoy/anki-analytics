@@ -176,16 +176,19 @@ interface SliderProps {
 }
 
 export function Slider({ label, value, min, max, step = 1, format = String, onChange, hint, size = 'md' }: SliderProps) {
+  // Not a wrapping <label>: it would name the first control inside it, which is the tip's button, not the slider
+  const id = useId()
   return (
-    <label className="block">
-      <span className="flex items-baseline justify-between gap-2 text-sm font-semibold text-ink-2">
+    <div>
+      <div className="flex items-baseline justify-between gap-2 text-sm font-semibold text-ink-2">
         <span>
-          {label}
+          <label htmlFor={id}>{label}</label>
           {hint && <InfoTip label={`About ${label}`}>{hint}</InfoTip>}
         </span>
         <span className={`font-extrabold text-ink tabular-nums ${size === 'lg' ? 'text-2xl' : 'text-base'}`}>{format(value)}</span>
-      </span>
+      </div>
       <input
+        id={id}
         type="range"
         min={min}
         max={max}
@@ -194,7 +197,7 @@ export function Slider({ label, value, min, max, step = 1, format = String, onCh
         onChange={(e) => onChange(Number(e.target.value))}
         className="mt-2 h-6 w-full cursor-pointer"
       />
-    </label>
+    </div>
   )
 }
 
