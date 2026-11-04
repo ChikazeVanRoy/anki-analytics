@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { CalibrationPoint, FsrsData } from '../data/types'
 import { DEFAULT_PARAMS, retrievability } from './fsrs'
-import { calibrationCurve, cardsNow, histogram, lapseEvidence, memorySummary, retentionComparison, STABILITY_BINS } from './fsrsStats'
+import { calibrationCurve, cardsNow, fsrsVerdict, histogram, lapseEvidence, memorySummary, paramsSourceOf, retentionComparison, STABILITY_BINS } from './fsrsStats'
 import type { HorizonSummary } from './simulator'
 import { buildInsights, maxSustainableNewPerDay } from './insights'
 
@@ -153,5 +153,33 @@ describe('insights', () => {
     expect(out[2].answer).toContain('Spanish: 400 of 500')
     expect(out[3].answer).toContain('30 new/day adds about 20 reviews')
     expect(out[3].answer).toContain('10 new/day removes about 20 reviews')
+  })
+})
+
+describe('fsrsVerdict', () => {
+  const point = (reviews: number, passed: number, predicted: number) =>
+    ({ month: '2026-10', deckId: 'a', reviews, passed, predicted, matureReviews: 0, maturePassed: 0, maturePredicted: 0 })
+  const fsrs = (p: ReturnType<typeof point>, paramsSource: 'default' | 'optimised' = 'default') =>
+    ({ calibration: [p], presets: [{ paramsSource }] }) as unknown as FsrsData
+
+  it('says FSRS underestimates you when you remember clearly more than it expected', () => {
+    expect(fsrsVerdict(fsrs(point(500, 490, 440)))).toMatchObject({ kind: 'under', lapses: 10, params: 'default' })
+  })
+
+  it('says FSRS overestimates you when you remember clearly less', () => {
+    expect(fsrsVerdict(fsrs(point(500, 400, 450), 'optimised'))).toMatchObject({ kind: 'over', params: 'optimised' })
+  })
+
+  it('calls a small gap a fit', () => {
+    expect(fsrsVerdict(fsrs(point(500, 450, 445))).kind).toBe('fits')
+  })
+
+  it('won’t judge from too few reviews', () => {
+    expect(fsrsVerdict(fsrs(point(99, 99, 80))).kind).toBe('thin')
+  })
+
+  it('reads the presets cards use, not only the deck groups’', () => {
+    const f = { calibration: [], presets: [{ paramsSource: 'default' }], cardPresets: [{ paramsSource: 'optimised' }, { paramsSource: 'default' }] } as unknown as FsrsData
+    expect(paramsSourceOf(f)).toBe('mixed')
   })
 })

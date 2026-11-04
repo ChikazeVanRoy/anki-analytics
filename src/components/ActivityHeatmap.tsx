@@ -1,19 +1,21 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { messages } from '../i18n'
-import { formatInt, formatLongDate } from '../lib/format'
-import { buildWeeks, level, replayStarts, revealedAt, runningTotals, thresholds, type HeatCell, type HeatmapView } from '../lib/heatmap'
+import { formatInt, formatLongDate, formatShortDate } from '../lib/format'
+import { buildWeeks, level, replayStarts, revealedAt, runningTotals, thresholds, weeksThatFit, weekWindow, type HeatCell, type HeatmapView } from '../lib/heatmap'
 import { prefersReducedMotion } from '../lib/motion'
 import type { DayTotal } from '../lib/stats'
 import { heatmapLevels } from '../lib/theme'
-import { PlayIcon, StopIcon } from './icons'
+import { ChevronIcon, PlayIcon, StopIcon } from './icons'
 import { Panel } from './Panel'
-import { ScrollRegion } from './ui'
 
 const CELL = 12
 const GAP = 3
 const STEP = CELL + GAP
+const LABELS = 32 // weekday labels and the gap after them
 const REPLAY_MS = 3200
 const m = messages.activity
+const PAGE_BUTTON =
+  'inline-flex items-center gap-1 rounded-xl bg-surface-2 px-2.5 py-1.5 text-xs font-bold text-ink-2 transition-colors hover:bg-brand-soft hover:text-brand-strong disabled:opacity-40'
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 interface ActivityHeatmapProps {
@@ -25,16 +27,35 @@ interface ActivityHeatmapProps {
 
 export function ActivityHeatmap({ byDate, today, years }: ActivityHeatmapProps) {
   const [view, setView] = useState<HeatmapView>('last12')
-  const weeks = useMemo(() => buildWeeks(byDate, view, today), [byDate, view, today])
+  const allWeeks = useMemo(() => buildWeeks(byDate, view, today), [byDate, view, today])
+
+  // As many weeks as fit, with no sideways scrolling; Earlier and Later page through the rest
+  const boxRef = useRef<HTMLDivElement>(null)
+  const [width, setWidth] = useState(Infinity)
+  useLayoutEffect(() => {
+    const el = boxRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const measure = () => setWidth(el.clientWidth)
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+  const [page, setPage] = useState(0)
+  const capacity = weeksThatFit(width, STEP, GAP, LABELS)
+  const { weeks, older, newer } = useMemo(() => weekWindow(allWeeks, capacity, page), [allWeeks, capacity, page])
   const cells = useMemo(() => weeks.flat().filter((c): c is HeatCell => c !== null), [weeks])
+  const paged = older || newer
+
   // Memoized: the replay re-renders on every animation frame
   const { t, total, activeDays } = useMemo(
     () => ({
-      t: thresholds(cells.map((c) => c.reviews)),
+      // Colours come from the whole view, so a day keeps its shade on every page
+      t: thresholds(allWeeks.flat().flatMap((c) => (c ? [c.reviews] : []))),
       total: cells.reduce((n, c) => n + c.reviews, 0),
       activeDays: cells.filter((c) => c.reviews > 0).length,
     }),
-    [cells],
+    [allWeeks, cells],
   )
 
   // Replay: fill the calendar day by day, oldest first. `shown` is how many days are revealed (null = all).
@@ -43,7 +64,6 @@ export function ActivityHeatmap({ byDate, today, years }: ActivityHeatmapProps) 
   const running = useMemo(() => runningTotals(cells), [cells])
   const starts = useMemo(() => replayStarts(cells), [cells])
   const order = useMemo(() => new Map(cells.map((c, i) => [c.date, i])), [cells])
-  const column = useMemo(() => new Map(weeks.flatMap((w, i) => w.flatMap((c) => (c ? [[c.date, i] as const] : [])))), [weeks])
   // Date formatting is slow; done once per view, not on every replay frame
   const dateLabels = useMemo(() => new Map(cells.map((c) => [c.date, formatLongDate(c.date)])), [cells])
   const playing = shown !== null
@@ -62,25 +82,16 @@ export function ActivityHeatmap({ byDate, today, years }: ActivityHeatmapProps) 
   }, [playing, starts])
   const changeView = (v: HeatmapView) => {
     setShown(null)
+    setPage(0)
     setView(v)
+  }
+  const turnPage = (by: number) => {
+    setShown(null)
+    setPage((p) => p + by)
   }
   const replayDay = playing && shown > 0 ? cells[shown - 1] : null
 
   const [hover, setHover] = useState<{ cell: HeatCell; x: number; y: number } | null>(null)
-  const scrollRef = useRef<HTMLDivElement>(null)
-
-  // On narrow screens the grid scrolls horizontally: show the most recent weeks, and during a replay keep
-  // the day being filled in view (it starts from the oldest weeks on the left)
-  useLayoutEffect(() => {
-    const el = scrollRef.current
-    if (!el) return
-    if (shown === null) {
-      el.scrollLeft = el.scrollWidth
-      return
-    }
-    const col = shown > 0 ? (column.get(cells[shown - 1].date) ?? 0) : 0
-    el.scrollLeft = Math.max(0, 32 + (col + 1) * STEP - el.clientWidth)
-  }, [view, shown, column, cells])
 
   // Label the first column of each month (by the month of the column's first visible day)
   const monthLabels: { i: number; label: string }[] = []
@@ -94,8 +105,9 @@ export function ActivityHeatmap({ byDate, today, years }: ActivityHeatmapProps) 
     }
   })
 
-  const width = weeks.length * STEP - GAP
-  const period = view === 'last12' ? 'over the last year' : `in ${view}`
+  const gridWidth = weeks.length * STEP - GAP
+  const range = cells.length ? m.calendarRange(formatShortDate(cells[0].date), formatShortDate(cells[cells.length - 1].date)) : ''
+  const period = paged ? `from ${range}` : view === 'last12' ? 'over the last year' : `in ${view}`
   const views: HeatmapView[] = ['last12', ...years]
 
   return (
@@ -139,20 +151,28 @@ export function ActivityHeatmap({ byDate, today, years }: ActivityHeatmapProps) 
             </button>
           ))}
         </div>
-        {!reduced && total > 0 && (
-          <button
-            type="button"
-            onClick={() => setShown(playing ? null : 0)}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-surface-2 px-3 py-1 text-xs font-bold text-ink-2 transition-colors hover:bg-brand-soft hover:text-brand-strong"
-          >
-            {playing ? <StopIcon size={14} /> : <PlayIcon size={14} />}
-            {playing ? m.stopReplay : m.replay}
-          </button>
-        )}
+        <div className="flex items-center gap-1.5">
+          {paged && (
+            <>
+              <button type="button" disabled={!older} onClick={() => turnPage(1)} className={PAGE_BUTTON}>
+                <ChevronIcon size={14} className="rotate-180" /> {m.earlier}
+              </button>
+              <button type="button" disabled={!newer} onClick={() => turnPage(-1)} className={PAGE_BUTTON}>
+                {m.later} <ChevronIcon size={14} />
+              </button>
+            </>
+          )}
+          {!reduced && total > 0 && (
+            <button type="button" onClick={() => setShown(playing ? null : 0)} className={PAGE_BUTTON}>
+              {playing ? <StopIcon size={14} /> : <PlayIcon size={14} />}
+              {playing ? m.stopReplay : m.replay}
+            </button>
+          )}
+        </div>
       </div>
 
-      <ScrollRegion ref={scrollRef} label={m.calendarRegion} className="relative pb-1">
-        <div className="relative flex gap-2" style={{ width: width + 32 }}>
+      <div ref={boxRef} className="relative pb-1">
+        <div className="relative flex gap-2" style={{ width: gridWidth + LABELS }}>
           <div className="flex flex-col pt-5 text-[10px] text-muted" style={{ gap: GAP, width: 24 }} aria-hidden>
             {['Mon', '', 'Wed', '', 'Fri', '', ''].map((d, i) => (
               <span key={i} style={{ height: CELL, lineHeight: `${CELL}px` }}>
@@ -208,7 +228,7 @@ export function ActivityHeatmap({ byDate, today, years }: ActivityHeatmapProps) 
             )}
           </div>
         </div>
-      </ScrollRegion>
+      </div>
     </Panel>
   )
 }

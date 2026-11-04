@@ -147,6 +147,39 @@ export function retentionComparison(points: CalibrationPoint[], deckId: string |
   }
 }
 
+/** Below this many replayed reviews, a gap between actual and predicted says little. */
+export const VERDICT_MIN_REVIEWS = 100
+/** A gap this large (in rate, so 0.03 = 3 points) counts as a mis-fit. */
+export const VERDICT_GAP = 0.03
+/** Below this many lapses the verdict says the picture may still shift. */
+export const VERDICT_FEW_LAPSES = 20
+
+export type ParamsSource = 'default' | 'optimised' | 'mixed'
+
+/** Whether the presets cards actually use have optimised FSRS parameters. A deck group can mix presets. */
+export function paramsSourceOf(fsrs: FsrsData): ParamsSource {
+  const used = fsrs.cardPresets?.length ? fsrs.cardPresets : fsrs.presets
+  if (used.every((p) => p.paramsSource === 'default')) return 'default'
+  return used.every((p) => p.paramsSource === 'optimised') ? 'optimised' : 'mixed'
+}
+
+export interface FsrsVerdict {
+  kind: 'thin' | 'under' | 'over' | 'fits'
+  actual: number
+  predicted: number
+  reviews: number
+  lapses: number
+  params: ParamsSource
+}
+
+/** One plain answer to "does FSRS fit me?", from replayed reviews: did you remember more or less than it expected? */
+export function fsrsVerdict(fsrs: FsrsData): FsrsVerdict {
+  const { reviews, actual, predicted } = retentionComparison(fsrs.calibration, 'all')
+  const gap = actual - predicted
+  const kind = reviews < VERDICT_MIN_REVIEWS ? 'thin' : gap >= VERDICT_GAP ? 'under' : gap <= -VERDICT_GAP ? 'over' : 'fits'
+  return { kind, actual, predicted, reviews, lapses: Math.round(reviews * (1 - actual)), params: paramsSourceOf(fsrs) }
+}
+
 /** Monthly actual vs predicted retention, all decks combined. */
 export function monthlyTrend(points: CalibrationPoint[]) {
   const months = [...new Set(points.map((p) => p.month))].sort()

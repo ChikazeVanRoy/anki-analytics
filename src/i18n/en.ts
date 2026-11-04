@@ -196,7 +196,9 @@ export const en = {
     compareWith: (days: number) => `Changes compare with the previous ${days} days.`,
     compareNone: (days: number) => `No reviews in the previous ${days} days, so there’s nothing to compare with yet.`,
     deckThin: (n: number) => `only ${int(n)}, too few to rate`,
-    calendarRegion: 'Study calendar',
+    earlier: 'Earlier',
+    later: 'Later',
+    calendarRange: (from: string, to: string) => `${from} to ${to}`,
     replay: 'Replay',
     stopReplay: 'Stop',
     replayTotal: (date: string) => `reviews by ${date}`,
@@ -225,6 +227,26 @@ export const en = {
     subtitle: 'The FSRS memory model behind your schedule, for when you want the details.',
     summaryRegion: 'Deck summary table',
     recallRegion: 'Recall check table',
+    verdict: {
+      eyebrow: 'The short version',
+      title: {
+        thin: 'Too early to judge FSRS',
+        under: 'FSRS is underestimating your memory',
+        over: 'FSRS is overestimating your memory',
+        fits: 'FSRS predicts you well',
+      },
+      summary: (actual: string, predicted: string, reviews: number) =>
+        `You remembered ${actual} of ${int(reviews)} scheduled reviews; FSRS expected ${predicted}.`,
+      thin: (reviews: number) => `Only ${int(reviews)} scheduled reviews so far. Check back after a few more weeks of study.`,
+      action: {
+        default: 'You’re on default parameters. Optimising them in Anki (Deck options → FSRS → Optimize) is the likely fix. It changes your schedule, so it’s your call.',
+        mixed: 'Some of your presets are on default parameters. Optimising those in Anki (Deck options → FSRS → Optimize) is the likely fix. It changes your schedule, so it’s your call.',
+        optimised: 'Your parameters are already optimised. The gap may close with more reviews, and optimising again later is worth a try.',
+      },
+      hard: 'Hard counts as a pass, so pressing Hard after forgetting widens this gap.',
+      fewLapses: (n: number) => `With only ${int(n)} forgotten ${plural(n, 'review', 'reviews')} so far, this may still shift.`,
+      planner: 'In the Planner, the “Your lapse rate” model allows for this gap.',
+    },
   },
   fsrsMissing: {
     planner: 'The Planner needs your real FSRS data',

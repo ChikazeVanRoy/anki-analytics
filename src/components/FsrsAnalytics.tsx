@@ -20,6 +20,7 @@ import {
   calibrationCurve,
   cardsNow,
   DIFFICULTY_BINS,
+  fsrsVerdict,
   histogram,
   memorySummary,
   monthlyTrend,
@@ -27,10 +28,13 @@ import {
   RETRIEVABILITY_BINS,
   RISK_MARGIN,
   STABILITY_BINS,
+  VERDICT_FEW_LAPSES,
+  type FsrsVerdict,
   type MemorySummary,
 } from '../lib/fsrsStats'
 import { calibrationColors, chart } from '../lib/theme'
 import { ChartTooltip } from './ChartTooltip'
+import { CheckIcon, InfoIcon, WarningIcon } from './icons'
 import { LegendItem, Panel } from './Panel'
 import { Disclosure, InfoTip, Metric, Notice, ScrollRegion, SourceBadge } from './ui'
 
@@ -156,6 +160,44 @@ function SummaryTable({ rows, decks }: { rows: MemorySummary[]; decks: Deck[] })
   )
 }
 
+/** The page's answer first: does FSRS fit you, and what to do about it. The charts below are the evidence. */
+function VerdictCard({ verdict }: { verdict: FsrsVerdict }) {
+  const m = messages.advanced.verdict
+  const { kind, actual, predicted, reviews, lapses, params } = verdict
+  const off = kind === 'under' || kind === 'over'
+  return (
+    <section aria-labelledby="fsrs-verdict" className="animate-rise rounded-3xl bg-brand-soft p-5 sm:p-6">
+      <div className="flex items-start gap-3">
+        <span
+          aria-hidden
+          className={`grid size-10 shrink-0 place-items-center rounded-2xl bg-surface ${off ? 'text-warning' : kind === 'fits' ? 'text-good' : 'text-muted'}`}
+        >
+          {off ? <WarningIcon size={20} /> : kind === 'fits' ? <CheckIcon size={20} /> : <InfoIcon size={20} />}
+        </span>
+        <div className="min-w-0">
+          <p className="text-xs font-bold tracking-wide text-brand-strong uppercase">{m.eyebrow}</p>
+          <h2 id="fsrs-verdict" className="text-xl font-black tracking-tight text-ink">
+            {m.title[kind]}
+          </h2>
+          <p className="mt-1 text-sm font-semibold text-ink-2">
+            {kind === 'thin' ? m.thin(reviews) : m.summary(formatRate(actual), formatRate(predicted), reviews)}
+          </p>
+          {off && (
+            <>
+              <p className="mt-2 text-sm leading-relaxed font-bold text-ink">{m.action[params]}</p>
+              <p className="mt-2 text-xs leading-relaxed text-ink-2">
+                {kind === 'under' && `${m.hard} `}
+                {lapses < VERDICT_FEW_LAPSES && `${m.fewLapses(lapses)} `}
+                {m.planner}
+              </p>
+            </>
+          )}
+        </div>
+      </div>
+    </section>
+  )
+}
+
 export function FsrsAnalytics({ fsrs, decks: allDecks, todayKey }: Props) {
   const deckColor = useDeckColor()
   const decks = allDecks.filter((d) => fsrs.presets.some((p) => p.deckId === d.id))
@@ -164,15 +206,14 @@ export function FsrsAnalytics({ fsrs, decks: allDecks, todayKey }: Props) {
   const summaries = [...deckIds.map((id) => memorySummary(now, id)), memorySummary(now, 'all')]
   const all = summaries[summaries.length - 1]
   const retention = retentionComparison(fsrs.calibration, 'all')
+  const verdict = fsrsVerdict(fsrs)
   const perDeckRetention = deckIds.map((id) => retentionComparison(fsrs.calibration, id))
   const trend = monthlyTrend(fsrs.calibration)
   const curve = calibrationCurve(fsrs.calibrationBins)
   const target = fsrs.presets[0]?.desiredRetention ?? 0.9
   const sameTarget = fsrs.presets.every((p) => Math.abs(p.desiredRetention - target) < 0.001)
-  // Every preset cards actually use (a deck group can mix presets across subdecks)
-  const usedPresets = fsrs.cardPresets?.length ? fsrs.cardPresets : fsrs.presets
-  const defaultParams = usedPresets.every((p) => p.paramsSource === 'default')
-  const paramsLabel = defaultParams ? 'default' : usedPresets.every((p) => p.paramsSource === 'optimised') ? 'optimised' : 'a mix of optimised and default'
+  const defaultParams = verdict.params === 'default'
+  const paramsLabel = verdict.params === 'mixed' ? 'a mix of optimised and default' : verdict.params
   // Cards whose home deck uses another preset than the one shown for their deck group
   const otherPresetCards = fsrs.cards.filter((c) => {
     const own = c.preset !== undefined ? fsrs.cardPresets?.[c.preset] : undefined
@@ -199,6 +240,8 @@ export function FsrsAnalytics({ fsrs, decks: allDecks, todayKey }: Props) {
 
   return (
     <div className="space-y-6">
+      <VerdictCard verdict={verdict} />
+
       <Disclosure title="New to FSRS? What these words mean" subtitle="Stability, difficulty, recall probability and desired retention in one sentence each">
         <dl className="grid gap-3 pt-2 sm:grid-cols-2">
           {GLOSSARY.map((g) => (
@@ -409,17 +452,6 @@ export function FsrsAnalytics({ fsrs, decks: allDecks, todayKey }: Props) {
             </div>
           </div>
         </div>
-
-        {retention.reviews > 0 && retention.actual - retention.predicted > 0.05 && (
-          <div className="mt-4">
-            <Notice>
-              You recall far more often than FSRS expects ({formatRate(retention.actual)} vs {formatRate(retention.predicted)}).
-              Either your reviews are easier than the default parameters assume, or you press Hard when you forget. FSRS
-              treats Hard as a pass. Optimising the presets’ FSRS parameters in Anki (Deck options → FSRS → Optimise) would
-              fit the model to your history.
-            </Notice>
-          </div>
-        )}
       </Panel>
 
       <Disclosure title="How these numbers are calculated, and their limits" subtitle="Sources, the replay check and what’s excluded">
@@ -431,7 +463,7 @@ export function FsrsAnalytics({ fsrs, decks: allDecks, todayKey }: Props) {
           <li>
             {defaultParams
               ? 'Your presets have no optimised FSRS parameters, so Anki (and this page) uses the FSRS-6 defaults. Anki schedules each review for when predicted recall reaches your desired retention, so the predicted figure sits near that target whatever your real memory is; a large gap to the actual figure means the defaults don’t fit you. Optimising the parameters in Anki (Deck options → FSRS → Optimize) personalises them.'
-              : defaultParams || usedPresets.every((p) => p.paramsSource === 'optimised')
+              : verdict.params === 'optimised'
                 ? 'Each deck uses its preset’s optimised FSRS parameters.'
                 : 'Some presets have optimised FSRS parameters and others use the FSRS-6 defaults; each card uses its own preset’s.'}
             {!defaultParams && ' Parameters optimised under older FSRS versions are converted to FSRS-6 as Anki does.'}

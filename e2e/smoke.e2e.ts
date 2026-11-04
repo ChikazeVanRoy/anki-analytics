@@ -84,13 +84,24 @@ test('a refused refresh explains itself and keeps the real data', async ({ page 
   await expect(page.getByText(messages.data.sampleTitle)).toHaveCount(0)
 })
 
-test('the study calendar is a keyboard stop only when it has to scroll', async ({ page }, info) => {
+test('the study calendar fits the screen, and pages through older weeks when it can’t', async ({ page }, info) => {
   await useRealShapedData(page)
   await page.goto('#/activity')
   await expect(page.getByRole('heading', { name: 'When did I study?' })).toBeVisible()
-  const region = page.getByRole('region', { name: messages.activity.calendarRegion })
-  if (info.project.name === 'phone') await expect(region).toHaveAttribute('tabindex', '0')
-  else await expect(region).toHaveCount(0)
+  const earlier = page.getByRole('button', { name: messages.activity.earlier })
+  const grid = page.getByRole('grid')
+  const fits = () =>
+    grid.evaluate((el) => {
+      const box = el.closest('section')!.getBoundingClientRect()
+      return el.getBoundingClientRect().right <= box.right
+    })
+  expect(await fits()).toBe(true)
+  if (info.project.name === 'desktop') return expect(earlier).toHaveCount(0)
+  const before = await grid.getAttribute('aria-label')
+  await earlier.click()
+  await expect(grid).not.toHaveAttribute('aria-label', before!)
+  expect(await fits()).toBe(true)
+  await expect(page.getByRole('button', { name: messages.activity.later })).toBeEnabled()
 })
 
 test('a keyboard user can read each day on the Home activity chart', async ({ page }) => {

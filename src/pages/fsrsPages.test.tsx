@@ -32,6 +32,31 @@ describe('Advanced source labels', () => {
   })
 })
 
+describe('Advanced verdict', () => {
+  const v = messages.advanced.verdict
+  const withCalibration = (reviews: number, passed: number, predicted: number) => {
+    const data = realShapedData()
+    data.fsrs!.calibration = [{ ...data.fsrs!.calibration[0], reviews, passed, predicted }]
+    return data
+  }
+
+  it('leads with what to do when FSRS doesn’t fit', () => {
+    const data = withCalibration(800, 790, 700)
+    render(<AdvancedPage data={data} today={ankiToday(data)} />)
+    expect(screen.getByRole('heading', { name: v.title.under })).toBeTruthy()
+    expect(screen.getByText(v.action.default)).toBeTruthy()
+    expect(screen.getByText(/You remembered 98\.8% of 800 scheduled reviews; FSRS expected 87\.5%/)).toBeTruthy()
+    expect(screen.getByText(new RegExp(v.fewLapses(10)))).toBeTruthy()
+  })
+
+  it('doesn’t suggest optimising when FSRS already fits', () => {
+    const data = realShapedData()
+    render(<AdvancedPage data={data} today={ankiToday(data)} />)
+    expect(screen.getByRole('heading', { name: v.title.fits })).toBeTruthy()
+    expect(screen.queryByText(v.action.default)).toBeNull()
+  })
+})
+
 describe('Planner source labels', () => {
   it('doesn’t promise real cards on sample data', () => {
     render(<PlannerPage data={mockData} today={ankiToday(mockData)} />)

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import {
   Area,
   Bar,
@@ -100,9 +100,8 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
     () => (scenarios?.newPerDay ? planPresets(standardSweep(scenarios.newPerDay), budget, secs) : null),
     [scenarios, budget, secs],
   )
-  useEffect(() => {
-    if (fittedPresets) setPresets(fittedPresets)
-  }, [fittedPresets])
+  // Kept in state because the next simulation's new-card limit comes from these, and that run needs them first
+  if (fittedPresets && fittedPresets !== presets) setPresets(fittedPresets)
   const summary = main?.byHorizon[horizon]
   const year = main?.byHorizon[365]
   const toMin = (reviews: number) => (reviews * secs) / 60

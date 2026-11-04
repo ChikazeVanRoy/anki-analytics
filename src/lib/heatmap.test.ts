@@ -1,8 +1,37 @@
 import { describe, expect, it } from 'vitest'
-import { buildWeeks, level, replayStarts, revealedAt, runningTotals, thresholds } from './heatmap'
+import { buildWeeks, level, replayStarts, revealedAt, runningTotals, thresholds, weeksThatFit, weekWindow } from './heatmap'
 
 const reviews = new Map([['2026-03-15', { reviews: 7 }]])
 const today = new Date(2026, 2, 15, 12) // Sunday
+
+describe('weeksThatFit', () => {
+  it('fits the columns beside the weekday labels', () => {
+    expect(weeksThatFit(301, 15, 3, 32)).toBe(18)
+    expect(weeksThatFit(1100, 15, 3, 32)).toBe(71)
+  })
+  it('keeps a usable minimum', () => {
+    expect(weeksThatFit(50, 15, 3, 32)).toBe(8)
+  })
+})
+
+describe('weekWindow', () => {
+  const weeks = Array.from({ length: 53 }, (_, i) => i)
+  it('shows everything when it all fits', () => {
+    expect(weekWindow(weeks, 60, 0)).toEqual({ weeks, older: false, newer: false })
+  })
+  it('starts on the newest weeks', () => {
+    const w = weekWindow(weeks, 18, 0)
+    expect(w.weeks[17]).toBe(52)
+    expect(w).toMatchObject({ older: true, newer: false })
+  })
+  it('pages back to the start, without running past it', () => {
+    expect(weekWindow(weeks, 18, 1).weeks[0]).toBe(17)
+    const last = weekWindow(weeks, 18, 2)
+    expect(last.weeks).toEqual(weeks.slice(0, 18))
+    expect(last).toMatchObject({ older: false, newer: true })
+    expect(weekWindow(weeks, 18, 9).weeks).toEqual(weeks.slice(0, 18))
+  })
+})
 
 describe('buildWeeks', () => {
   it('shows the last 12 months as Monday-first columns ending with today', () => {

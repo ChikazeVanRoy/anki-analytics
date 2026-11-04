@@ -45,6 +45,20 @@ export function buildWeeks(reviewsByDate: Map<string, { reviews: number }>, view
   return weeks
 }
 
+/** Fewest weeks shown at once, however narrow the screen. */
+const MIN_WEEKS = 8
+
+/** How many week columns fit a width, after the weekday labels. */
+export const weeksThatFit = (width: number, step: number, gap: number, labels: number) =>
+  Math.max(MIN_WEEKS, Math.floor((width - labels + gap) / step))
+
+/** One screenful of weeks. Page 0 is the newest; each page goes one screenful further back. */
+export function weekWindow<T>(weeks: T[], capacity: number, page: number) {
+  const end = Math.max(Math.min(capacity, weeks.length), weeks.length - page * capacity)
+  const start = Math.max(0, end - capacity)
+  return { weeks: weeks.slice(start, end), older: start > 0, newer: end < weeks.length }
+}
+
 /** Quartile thresholds over active days, so the colour scale adapts to your own volume. */
 export function thresholds(values: number[]): [number, number, number] {
   const sorted = values.filter((v) => v > 0).sort((a, b) => a - b)
