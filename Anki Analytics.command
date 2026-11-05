@@ -1,5 +1,6 @@
 #!/bin/zsh
-# Double-click in Finder to start the dashboard, open it in the browser and sync with AnkiWeb.
+# Double-click in Finder to start the dashboard, open it in the browser.
+# It doesn't open Anki; run `npm run sync` when you want reviews from another device.
 # It runs for as long as this window stays open, so nothing keeps running once you're done.
 
 cd "${0:A:h}" || exit 1
@@ -64,11 +65,6 @@ if ! running; then
 fi
 
 open $URL
-echo "Syncing with AnkiWeb: Anki will open and close by itself, so leave it for a moment..."
-# Not tied to this window: closing it mid-sync must still let Anki close and the snapshot save
-nohup node server/sync-anki.ts >> data/server.log 2>&1 &
-wait $!
-node -p 'require("./data/sync-status.json").message' 2>/dev/null
 
 if [[ -n $SERVER ]]; then
   echo "Anki Analytics is running at $URL. Close this window to stop it."

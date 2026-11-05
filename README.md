@@ -21,7 +21,7 @@ npm run build             # type-check + production build
 ```
 
 Or double-click **`Anki Analytics.command`** in Finder: it installs the dependencies and builds the app when
-needed, starts it on http://localhost:5174, opens it in your browser and syncs with AnkiWeb. It runs for as long as the
+needed, starts it on http://localhost:5174, opens it in your browser. It runs for as long as the
 Terminal window stays open: close the window to stop it. The first
 double-click also gives the launcher its icon and hides its `.command` extension in Finder (Git can't store either,
 so it sets them on itself, and again if a `git pull` replaces the file). Drag the launcher
@@ -116,9 +116,8 @@ rate also stays near FSRS's prediction until there are enough lapses to go on.
 
 ## Background sync
 
-Each time the launcher starts, it opens Anki so it syncs with AnkiWeb, asks it to quit, and saves a new snapshot, so
-reviews from other devices reach it. `npm run sync` does the same by hand. Nothing runs on a schedule: it only happens when
-you launch the app. Anki shows for about 30 seconds and closes by itself, so start studying after that. It leaves Anki alone
+The launcher doesn't open Anki. If you review on other devices, `npm run sync` opens Anki so it syncs with AnkiWeb,
+asks it to quit, and saves a new snapshot. Nothing runs on a schedule. Anki shows for about 30 seconds and closes by itself, so start studying after that. It leaves Anki alone
 if Anki is already open, and never forces it to close. The
 result goes to `data/sync-status.json`, and a problem that needs you shows a notification. It needs a single Anki profile.
 A Refresh, including the automatic one when you quit Anki, saves a new snapshot too.
