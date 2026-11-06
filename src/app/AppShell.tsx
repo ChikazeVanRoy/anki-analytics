@@ -7,6 +7,7 @@ import { messages as m } from '../i18n'
 import { formatCopiedAt } from '../lib/format'
 import { NAV_ROUTES, routeHref, type Route } from '../lib/route'
 import type { ThemeChoice } from './useTheme'
+import { VersionLine } from './VersionLine'
 
 const NAV_ICONS: Record<(typeof NAV_ROUTES)[number], (p: { size?: number }) => ReactNode> = {
   home: HomeIcon,
@@ -205,6 +206,7 @@ export function AppShell(props: ShellProps) {
 
         <footer className="pt-4 pb-10 text-center text-xs text-muted">
           {sample ? m.data.footerSample : `${fromSnapshot ? m.data.footerSnapshot : m.data.footerLive} ${m.data.copiedAt(copied)}.`}
+          <VersionLine />
         </footer>
       </div>
 

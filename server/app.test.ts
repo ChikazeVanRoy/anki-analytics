@@ -357,3 +357,30 @@ describe('canUpdate', () => {
     expect(canUpdate(false, true, null, 100)).toBe(false)
   })
 })
+
+describe('version and update', () => {
+  it('reports the running version, and whether the checkout has moved on', async () => {
+    let commit = 'aaa1111'
+    const { server, port } = await start({ version: () => ({ commit, date: '2026-11-06' }) })
+    try {
+      expect((await call(port, '/api/version')).body).toEqual({ commit: 'aaa1111', date: '2026-11-06', restartNeeded: false })
+      commit = 'bbb2222'
+      expect((await call(port, '/api/version')).body).toEqual({ commit: 'aaa1111', date: '2026-11-06', restartNeeded: true })
+    } finally {
+      server.close()
+    }
+  })
+  it('only updates on a request that carries the app’s header, and from this machine', async () => {
+    const update = vi.fn(async () => ({ outcome: 'current' as const }))
+    const { server, port } = await start({ version: () => ({ commit: 'a', date: null }), update })
+    try {
+      expect((await call(port, '/api/update', { method: 'POST' })).status).toBe(403)
+      expect((await call(port, '/api/update', { method: 'POST', host: 'evil.example', headers: { 'x-requested-by': 'anki-analytics' } })).status).toBe(403)
+      expect(update).not.toHaveBeenCalled()
+      const ok = await call(port, '/api/update', { method: 'POST', headers: { 'x-requested-by': 'anki-analytics' } })
+      expect(ok).toEqual({ status: 200, body: { outcome: 'current' } })
+    } finally {
+      server.close()
+    }
+  })
+})

@@ -186,6 +186,7 @@ describe('fresh data when Anki closes', () => {
       vi.fn(async (url: string) => {
         if (url === '/api/status') return new Response(JSON.stringify({ ankiRunning: true, updateAvailable: false, sourceModified: 1, copyModified: copied }))
         if (url === '/api/refresh') return refresh()
+        if (url === '/api/version') return new Response('{}', { status: 404 })
         reads.push(url)
         const body = stats
         stats = JSON.stringify({ ...mockData, source: 'anki', generatedAt: new Date(copied).toISOString() })

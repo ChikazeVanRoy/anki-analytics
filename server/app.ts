@@ -2,6 +2,8 @@
 //   GET  /api/stats    -> AnkiData from the current copy
 //   GET  /api/status   -> whether Anki is open, whether a refresh would bring in new reviews, how the last sync went
 //   POST /api/refresh  -> re-copy the collection from Anki, then return fresh AnkiData
+//   GET  /api/version  -> the commit this server started from, and whether the checkout has moved on since
+//   POST /api/update   -> git fetch + fast-forward from GitHub (takes effect when the launcher is opened again)
 //   GET  /snapshot.json -> the stats saved by `npm run snapshot`, if any
 //   GET  anything else -> the built app from dist/, when there is one (the launcher runs the app this way)
 // A request from your phone (see phoneAccess.ts) only gets the app and a snapshot without note text.
@@ -16,6 +18,7 @@ import { ankiStatus, COLLECTION_COPY, copyCollection, CopyError, type AnkiStatus
 import { isForwarded, isPhoneRequest, loadPhoneHost, phoneSnapshot } from './phoneAccess.ts'
 import { readSnapshotFile, SNAPSHOT_FILE, writeSnapshot } from './snapshot.ts'
 import { DIST_DIR, serveFile } from './staticFiles.ts'
+import { gitIn, readVersion, updateFromGitHub, type UpdateResult, type VersionInfo } from './version.ts'
 
 const ALLOWED_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]'])
 
@@ -42,9 +45,13 @@ export interface ApiDeps {
   copy: () => { profile: string; bytes: number }
   status: () => AnkiStatus
   sync: () => SyncStatus | null
+  version: () => VersionInfo
+  update: () => Promise<UpdateResult>
   log: (message: string) => void
   distDir: string
 }
+
+const REPO_DIR = new URL('..', import.meta.url).pathname
 
 const defaults: ApiDeps = {
   collectionPath: COLLECTION_COPY,
@@ -55,6 +62,8 @@ const defaults: ApiDeps = {
   copy: copyCollection,
   status: ankiStatus,
   sync: readSyncStatus,
+  version: () => readVersion(REPO_DIR),
+  update: () => updateFromGitHub(gitIn(REPO_DIR), () => readVersion(REPO_DIR)),
   log: console.log,
   distDir: DIST_DIR,
 }
@@ -66,6 +75,9 @@ function send(res: ServerResponse, status: number, body: unknown) {
 
 export function createApiServer(overrides: Partial<ApiDeps> = {}): Server {
   const deps = { ...defaults, ...overrides }
+  // What this process is running: the checkout can move on (an update) without the code in memory changing
+  const running = deps.version()
+  let updating: Promise<UpdateResult> | null = null
 
   function sendStats(res: ServerResponse, { save = false } = {}) {
     if (!existsSync(deps.collectionPath)) {
@@ -108,6 +120,25 @@ export function createApiServer(overrides: Partial<ApiDeps> = {}): Server {
     if (req.method === 'GET' && req.url === '/api/stats') return sendStats(res)
 
     if (req.method === 'GET' && req.url === '/api/status') return send(res, 200, { ...deps.status(), sync: deps.sync() })
+
+    if (req.method === 'GET' && req.url === '/api/version') {
+      const current = deps.version()
+      return send(res, 200, { ...running, restartNeeded: current.commit !== running.commit })
+    }
+
+    if (req.method === 'POST' && req.url === '/api/update') {
+      if (req.headers['x-requested-by'] !== 'anki-analytics') return send(res, 403, { error: 'Forbidden' })
+      // Two clicks at once share one git run
+      updating ??= deps.update().finally(() => (updating = null))
+      updating.then(
+        (result) => send(res, 200, result),
+        (err) => {
+          console.error(err)
+          send(res, 500, { error: 'The update failed.' })
+        },
+      )
+      return
+    }
 
     if (req.method === 'GET' && req.url === '/snapshot.json') return sendSnapshot(res)
 
