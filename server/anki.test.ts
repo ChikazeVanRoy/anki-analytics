@@ -16,7 +16,7 @@ import { parseSnapshot } from '../src/lib/snapshot.ts'
 import { readAnkiData, readDeckTops } from './anki.ts'
 import { createApiServer } from './app.ts'
 import type { DeckConfig } from './deckGroups.ts'
-import { fsrsHistory, readPreset, sampleDays } from './fsrsData.ts'
+import { fsrsHistory, readDeckLimits, readPreset, sampleDays } from './fsrsData.ts'
 import { parseProto } from './protobuf.ts'
 import { makeSnapshot, writeSnapshot } from './snapshot.ts'
 
@@ -228,6 +228,27 @@ describe('FSRS data', () => {
 
   it('reads whether FSRS is enabled', () => {
     expect(fsrs().enabled).toBe(true)
+  })
+
+  it('uses a deck’s own daily limit instead of its preset’s, when it has one', () => {
+    const today = dayNumber(ankiDayKey(NOW, ROLLOVER)) - crtDay
+    const german = () => fsrs().presets.find((p) => p.deckId === 'german')!
+    const setKind = (extra: number[]) => {
+      const db = new DatabaseSync(path)
+      db.prepare('UPDATE decks SET kind = ? WHERE id = 3').run(Uint8Array.from(bytesField(1, [...vField(1, 200), ...extra])))
+      db.close()
+    }
+    try {
+      expect(german().newPerDay).toBe(30) // the preset's
+      setKind(vField(7, 20)) // "This deck": 20 new cards
+      expect(german()).toMatchObject({ newPerDay: 20, reviewsPerDay: 400 })
+      setKind([...vField(7, 20), ...bytesField(9, [...vField(1, 5), ...vField(2, today)])]) // "Today only": 5
+      expect(german().newPerDay).toBe(5)
+      setKind([...vField(7, 20), ...bytesField(9, [...vField(1, 5), ...vField(2, today - 1)])]) // set for yesterday: over
+      expect(german().newPerDay).toBe(20)
+    } finally {
+      setKind([])
+    }
   })
 
   it('decodes each deck group’s preset from its protobuf blob', () => {
@@ -667,5 +688,34 @@ describe('a saved snapshot', () => {
     } finally {
       server.close()
     }
+  })
+})
+
+describe('readDeckLimits: a deck’s own limits beat its preset’s', () => {
+  // Hand-made DeckKind: field 1 is Normal, whose fields are 6 review_limit, 7 new_limit, 8 review_limit_today, 9 new_limit_today
+  const varint = (n: number) => {
+    const out: number[] = []
+    for (; n > 127; n = Math.floor(n / 128)) out.push((n % 128) | 128)
+    return [...out, n]
+  }
+  const num = (field: number, n: number) => [(field << 3) | 0, ...varint(n)]
+  const msg = (field: number, bytes: number[]) => [(field << 3) | 2, ...varint(bytes.length), ...bytes]
+  const kind = (...normal: number[]) => Uint8Array.from(msg(1, [...num(1, 1), ...normal]))
+  const todayOnly = (field: number, limit: number, day: number) => msg(field, [...(limit ? num(1, limit) : []), ...num(2, day)])
+
+  it('has none to give when the deck doesn’t set any', () => {
+    expect(readDeckLimits(kind(), 100)).toEqual({ newPerDay: null, reviewsPerDay: null })
+    expect(readDeckLimits(new Uint8Array(), 100)).toEqual({ newPerDay: null, reviewsPerDay: null })
+  })
+  it('reads “This deck” limits', () => {
+    expect(readDeckLimits(kind(...num(7, 50), ...num(6, 300)), 100)).toEqual({ newPerDay: 50, reviewsPerDay: 300 })
+  })
+  it('uses “Today only” on the day it was set for, and falls back to the deck limit after', () => {
+    const k = kind(...num(7, 50), ...todayOnly(9, 120, 100))
+    expect(readDeckLimits(k, 100).newPerDay).toBe(120)
+    expect(readDeckLimits(k, 101).newPerDay).toBe(50)
+  })
+  it('reads a limit of 0 (left out of the bytes) as 0, not as unset', () => {
+    expect(readDeckLimits(kind(...num(7, 50), ...todayOnly(9, 0, 100)), 100).newPerDay).toBe(0)
   })
 })

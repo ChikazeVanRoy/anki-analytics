@@ -87,6 +87,26 @@ export function readPreset(blob: Uint8Array) {
 // in seconds, which intraday learning cards keep even while buried or in preview.
 const TIMESTAMP_MIN = 1_000_000_000
 
+/**
+ * A deck's own daily limits, which beat its preset's: "This deck" (Deck.Normal.review_limit / new_limit) and "Today only"
+ * (review_limit_today / new_limit_today, which only count on the Anki day they were set for, `ankiDay`, days since the
+ * collection was created). A limit that isn't set here is null, meaning the preset's applies.
+ */
+export function readDeckLimits(kind: Uint8Array, ankiDay: number): { newPerDay: number | null; reviewsPerDay: number | null } {
+  const normal = firstBytes(parseProto(kind), 1)
+  if (!normal) return { newPerDay: null, reviewsPerDay: null }
+  const f = parseProto(normal)
+  const pick = (todayField: number, deckField: number) => {
+    const t = firstBytes(f, todayField)
+    if (t) {
+      const day = parseProto(t)
+      if ((firstVarint(day, 2) ?? 0) === ankiDay) return firstVarint(day, 1) ?? 0
+    }
+    return firstVarint(f, deckField) ?? null
+  }
+  return { reviewsPerDay: pick(8, 6), newPerDay: pick(9, 7) }
+}
+
 /** Anki day a card is due, from its raw due value; null if the value can't be a valid date. */
 export function dueKey(raw: number, crtDay: number, dayKey: (ms: number) => string): string | null {
   if (!Number.isFinite(raw)) return null
@@ -185,12 +205,17 @@ export function readFsrsData(ctx: Context): FsrsData {
     return i
   }
   const deckPreset = new Map<number, number>()
+  const deckLimits = new Map<number, ReturnType<typeof readDeckLimits>>()
+  const ankiDay = dayNumber(todayKey) - crtDay
   for (const r of db.prepare('SELECT id, kind FROM decks').all()) {
     const id = presetIdOf(r.kind as Uint8Array)
     if (id !== undefined) deckPreset.set(Number(r.id), id)
+    deckLimits.set(Number(r.id), readDeckLimits(r.kind as Uint8Array, ankiDay))
   }
   // --- One pass over the cards: home deck, preset votes, current states, new/suspended counts ---
   const presetVotes = new Map<string, Map<number, number>>()
+  // The daily limits a group's cards' decks really have (their own override, else their preset's), voted like presets
+  const limitVotes = new Map<string, Map<string, number>>()
   const cardGroup = new Map<number, string>() // card id -> deck group, for the review log below
   const cardPresetId = new Map<number, number>() // card id -> preset of its home deck
   const cards: FsrsCard[] = []
@@ -216,6 +241,13 @@ export function readFsrsData(ctx: Context): FsrsData {
     if (preset !== undefined) {
       const votes = presetVotes.get(group) ?? presetVotes.set(group, new Map()).get(group)!
       votes.set(preset, (votes.get(preset) ?? 0) + 1)
+      if (presetRows.has(preset)) {
+        const own = deckLimits.get(home)
+        const base = presetSettings(preset)
+        const key = `${own?.newPerDay ?? base.newPerDay}|${own?.reviewsPerDay ?? base.reviewsPerDay}`
+        const limits = limitVotes.get(group) ?? limitVotes.set(group, new Map()).get(group)!
+        limits.set(key, (limits.get(key) ?? 0) + 1)
+      }
     }
     const type = Number(r.type)
     const queue = Number(r.queue)
@@ -280,7 +312,9 @@ export function readFsrsData(ctx: Context): FsrsData {
     const presetId = [...votes].sort((a, b) => b[1] - a[1])[0][0]
     const row = presetRows.get(presetId)
     if (!row) continue
-    presets.push({ deckId: group, presetId, presetName: row.name, ...presetSettings(presetId) })
+    const mostUsed = [...(limitVotes.get(group) ?? [])].sort((a, b) => b[1] - a[1])[0]?.[0]
+    const [newPerDay, reviewsPerDay] = mostUsed ? mostUsed.split('|').map(Number) : [undefined, undefined]
+    presets.push({ deckId: group, presetId, presetName: row.name, ...presetSettings(presetId), ...(newPerDay !== undefined && { newPerDay, reviewsPerDay }) })
   }
   // Each card uses its own home deck's preset, as Anki does; the group's preset is only a fallback
   const paramsFor = (cid: number, group: string) => {
