@@ -20,7 +20,8 @@ npm run lint              # oxlint
 npm run build             # type-check + production build
 ```
 
-Or double-click **`Anki Analytics.command`** in Finder: it installs the dependencies and builds the app when
+Or double-click **`Anki Analytics.command`** in Finder: it first fast-forwards to the latest code from GitHub (a
+plain `git pull --ff-only`; skipped when offline, when you have uncommitted changes or unpushed commits), installs the dependencies and builds the app when
 needed, starts it on http://localhost:5174, opens it in your browser. It runs for as long as the
 Terminal window stays open: close the window to stop it. The first
 double-click also gives the launcher its icon and hides its `.command` extension in Finder (Git can't store either,

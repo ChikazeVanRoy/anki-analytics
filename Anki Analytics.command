@@ -1,5 +1,6 @@
 #!/bin/zsh
 # Double-click in Finder to start the dashboard, open it in the browser.
+# It first fast-forwards to the latest code from GitHub when there is any (see "Update" below).
 # It doesn't open Anki; run `npm run sync` when you want reviews from another device.
 # It runs for as long as this window stays open, so nothing keeps running once you're done.
 
@@ -24,6 +25,33 @@ running() { curl -sf -o /dev/null $URL/api/status }
 # Only the launcher's own server: a dev API on this port (npm run dev) isn't ours to stop
 listener() { lsof -ti tcp:$ANKI_ANALYTICS_PORT -sTCP:LISTEN }
 ours() { [[ -f $PIDFILE && $(listener) == $(<$PIDFILE) ]] }
+
+# Update: fast-forward to the latest code, so a launch is all it takes to get new versions. Strictly best-effort:
+# offline, a slow network, local changes, a branch that has diverged or no upstream just skip it, never stop the app.
+# Only the launcher's own checkout, and only when it's clean, so nothing of yours is touched or merged.
+update() {
+  git rev-parse --abbrev-ref '@{upstream}' >/dev/null 2>&1 || return 0
+  [[ -z $(git status --porcelain --untracked-files=no) ]] || { echo "Not updating: you have uncommitted changes."; return 0; }
+  # No prompts, and give up on a stalled connection instead of hanging the launch
+  export GIT_TERMINAL_PROMPT=0 GIT_HTTP_LOW_SPEED_LIMIT=1000 GIT_HTTP_LOW_SPEED_TIME=10
+  export GIT_SSH_COMMAND="ssh -o BatchMode=yes -o ConnectTimeout=10"
+  git fetch --quiet 2>/dev/null || { echo "Couldn't check for updates (offline?); starting the version you have."; return 0; }
+  [[ $(git rev-parse HEAD) != $(git rev-parse '@{upstream}') ]] || return 0
+  # Behind only: a branch with commits of its own that aren't pushed is left alone
+  git merge-base --is-ancestor HEAD '@{upstream}' || { echo "Not updating: this branch has commits that aren't upstream."; return 0; }
+  echo "Updating to the latest version..."
+  git merge --ff-only --quiet '@{upstream}' >/dev/null 2>&1 || { echo "Update failed; starting the version you have."; return 0; }
+  UPDATED=1
+}
+if [[ -z $ANKI_ANALYTICS_UPDATED ]] && command -v git >/dev/null && [[ -d .git ]]; then
+  BEFORE=$(git hash-object "${0:A}")
+  update
+  # zsh reads this script as it runs, so if the update replaced it, start over from the new copy (once)
+  if [[ -n $UPDATED && $(git hash-object "${0:A}") != $BEFORE ]]; then
+    export ANKI_ANALYTICS_UPDATED=1
+    exec "${0:A}"
+  fi
+fi
 
 mkdir -p data
 
