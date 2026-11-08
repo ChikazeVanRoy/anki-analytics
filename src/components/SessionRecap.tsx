@@ -4,6 +4,7 @@ import { formatInt } from '../lib/format'
 import type { Recap } from '../lib/recap'
 import { chime, setSoundOn, soundOn } from '../lib/sound'
 import { BadgeMedal } from './Badges'
+import { Fireworks } from './Fireworks'
 import { Mascot } from './Mascot'
 import { CountUp } from './ui'
 
@@ -77,6 +78,7 @@ export function SessionRecap({ recap, onClose }: { recap: Recap; onClose: () => 
           <span key={i} className="confetti" style={style} />
         ))}
       </div>
+      {allDone && <Fireworks />}
       <div className="relative">
         <div className={`flex justify-center ${allDone ? 'animate-hop' : ''}`}>
           <Mascot mood="cheer" size={84} />

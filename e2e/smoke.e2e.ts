@@ -237,6 +237,7 @@ test('makes more of a day with nothing left', async ({ page }) => {
   const dialog = page.getByRole('dialog', { name: messages.recap.allDone.title })
   await expect(dialog.getByRole('heading', { name: messages.recap.allDone.title })).toBeInViewport()
   await expect(dialog.getByRole('button', { name: messages.recap.allDone.close })).toBeInViewport()
+  await expect(dialog.locator('[data-fireworks] .firework-spark').first()).toBeAttached()
   const box = (await dialog.boundingBox())!
   expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize()!.width)
   await dialog.getByRole('button', { name: messages.recap.allDone.close }).click()

@@ -35,12 +35,14 @@ describe('SessionRecap', () => {
     expect(screen.getByRole('button', { name: m.allDone.close })).toBeTruthy()
     expect(container.querySelector('.animate-hop')).toBeTruthy()
     expect(container.querySelectorAll('.confetti').length).toBeGreaterThan(28)
+    expect(container.querySelectorAll('[data-fireworks] .firework-spark').length).toBeGreaterThan(0)
   })
 
   it('keeps the usual recap for a day with more to do', () => {
     const { container } = render(<SessionRecap recap={recap} onClose={() => {}} />)
     expect(container.querySelector('.animate-hop')).toBeNull()
     expect(container.querySelectorAll('.confetti').length).toBe(28)
+    expect(container.querySelector('[data-fireworks]')).toBeNull()
   })
 
   it('keeps sound off until you turn it on', () => {
