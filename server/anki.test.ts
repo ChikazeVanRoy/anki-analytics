@@ -271,6 +271,34 @@ describe('FSRS data', () => {
     }
   })
 
+  it('counts only what each top-level deck can still give: an empty deck’s limit adds nothing, a finished deck’s gives no more', () => {
+    const spanish = () => fsrs().presets.find((p) => p.deckId === 'spanish')!
+    const run = (sql: string, ...args: (number | string | Uint8Array | null)[]) => {
+      const db = new DatabaseSync(path)
+      try {
+        db.exec('ALTER TABLE decks ADD COLUMN common BLOB')
+      } catch {
+        // already added by an earlier test
+      }
+      db.prepare(sql).run(...args)
+      db.close()
+    }
+    const today = dayNumber(ankiDayKey(NOW, ROLLOVER)) - crtDay
+    const before = spanish().newRoomToday!
+    expect(before).toBeGreaterThan(0)
+    expect(before).toBeLessThanOrEqual(15)
+    try {
+      run('INSERT INTO decks (id, name, kind) VALUES (?, ?, ?)', 90, 'Spanish empty', Uint8Array.from(bytesField(1, [...vField(1, 100)])))
+      expect(spanish().newPerDay).toBe(30) // two decks' limits added up
+      expect(spanish().newRoomToday).toBe(before) // but the empty one can't give a card
+      run('UPDATE decks SET common = ? WHERE id = 1', Uint8Array.from([...vField(3, today), ...vField(4, 15)])) // its 15 are started
+      expect(spanish().newRoomToday).toBe(0)
+    } finally {
+      run('DELETE FROM decks WHERE id = 90')
+      run('UPDATE decks SET common = NULL WHERE id = 1')
+    }
+  })
+
   it('takes a group’s daily limit from its top-level deck, not from whichever sub-deck has most cards', () => {
     const spanish = () => fsrs().presets.find((p) => p.deckId === 'spanish')!
     const setKind = (id: number, extra: number[]) => {
