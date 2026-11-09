@@ -148,8 +148,10 @@ Tailscale connects your own devices privately, so nothing has to be exposed to t
 4. Open `https://<machine>.<tailnet>.ts.net` in Safari on the iPhone, then Share > Add to Home Screen.
 
 The phone reads the latest snapshot and nothing else: no live stats and no refresh, and note text is removed, so trouble
-cards and garden plants show no card text there. It gets new stats only while the launcher's window is open and the Mac
-is awake, and otherwise shows the last snapshot it saved. `npm run phone-access -- off` stops it.
+cards and garden plants show no card text there. The running server saves a new snapshot by itself (checked every 5 minutes, and at start) whenever Anki has
+closed with newer data than the last copy, so it needs no browser tab open, only the launcher's window or the background
+service, and the Mac awake. Otherwise the phone shows the last snapshot saved. It never opens Anki: for reviews done on
+other devices, run `npm run sync` first. `npm run phone-access -- off` stops it.
 
 ## Privacy
 
