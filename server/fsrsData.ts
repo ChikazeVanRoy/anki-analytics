@@ -107,6 +107,17 @@ export function readDeckLimits(kind: Uint8Array, ankiDay: number): { newPerDay: 
   return { reviewsPerDay: pick(8, 6), newPerDay: pick(9, 7) }
 }
 
+/**
+ * What Anki itself counted as studied today in a deck (Deck.common: 3 last_day_studied, 4 new_studied, 5 review_studied),
+ * which is what it enforces the daily limits with. Null unless that count is for `ankiDay`: an earlier day's is over.
+ */
+export function readDeckStudied(common: Uint8Array | null | undefined, ankiDay: number): { newCards: number; reviews: number } | null {
+  if (!common?.length) return null
+  const f = parseProto(common)
+  if (firstVarint(f, 3) !== ankiDay) return null
+  return { newCards: firstVarint(f, 4) ?? 0, reviews: firstVarint(f, 5) ?? 0 }
+}
+
 /** Anki day a card is due, from its raw due value; null if the value can't be a valid date. */
 export function dueKey(raw: number, crtDay: number, dayKey: (ms: number) => string): string | null {
   if (!Number.isFinite(raw)) return null
@@ -211,13 +222,18 @@ export function readFsrsData(ctx: Context): FsrsData {
   // What studying a dashboard deck allows per day: each top-level deck's own limit, else its preset's (Anki caps a
   // sub-deck by its parents, so the top deck is the one that sets the day's total). A merged group adds its tops up.
   const groupLimits = new Map<string, { newPerDay: number; reviewsPerDay: number }>()
-  for (const r of db.prepare('SELECT id, name, kind FROM decks').all()) {
+  // Anki's own count of new cards started today, per dashboard deck: its top-level decks' counts (each includes its sub-decks)
+  const hasCommon = !!db.prepare("SELECT 1 FROM pragma_table_info('decks') WHERE name = 'common'").get()
+  const startedByAnki = new Map<string, number>()
+  for (const r of db.prepare(`SELECT id, name, kind${hasCommon ? ', common' : ''} FROM decks`).all()) {
     const id = Number(r.id)
     const preset = presetIdOf(r.kind as Uint8Array)
     if (preset !== undefined) deckPreset.set(id, preset)
     const group = keptGroup(id)
     if (!group || String(r.name).includes('\x1f') || preset === undefined || !presetRows.has(preset)) continue
     const own = readDeckLimits(r.kind as Uint8Array, ankiDay)
+    const studied = readDeckStudied(r.common as Uint8Array | undefined, ankiDay)
+    if (studied) startedByAnki.set(group, (startedByAnki.get(group) ?? 0) + studied.newCards)
     const base = presetSettings(preset)
     const total = groupLimits.get(group) ?? groupLimits.set(group, { newPerDay: 0, reviewsPerDay: 0 }).get(group)!
     total.newPerDay += own.newPerDay ?? base.newPerDay
@@ -509,6 +525,10 @@ export function readFsrsData(ctx: Context): FsrsData {
     const rows = db.prepare(`SELECT ${CARD_TEXT_COLUMNS} FROM cards c JOIN notes n ON n.id = c.nid WHERE c.id IN (${worst.map(() => '?').join(',')})`)
     for (const r of rows.all(...worst.map((t) => Number(t.cardId)))) fronts.set(String(r.id), cardText(r))
   }
+
+  // Anki's own count wins where it has one for today: it is what the limits are enforced with, and it also covers cards
+  // the replayed log can't place (a card started today, then reset, say)
+  for (const [group, started] of startedByAnki) newToday[group] = started
 
   return {
     enabled,
