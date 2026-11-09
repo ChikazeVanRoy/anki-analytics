@@ -38,6 +38,7 @@ npm run lint      # oxlint
 npm run build     # production build
 npm run sync      # open Anki, let it sync, ask it to quit, save a snapshot
 npm run snapshot  # save stats to data/snapshot.json (shown when the API can't answer)
+npm run service -- on|off|restart|status  # LaunchAgent: keep the app running in the background from login
 npm start         # API and built app on http://localhost:5174 (what the launcher runs while its window is open)
 ```
 

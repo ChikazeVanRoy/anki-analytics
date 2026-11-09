@@ -31,6 +31,15 @@ downloaded as a ZIP), right-click it and choose **Open** once. Its log is `data/
 running `npm run dev`, which needs the same API port. If `npm run dev` is already running, the launcher opens that
 server's API and leaves it alone.
 
+### Without a Terminal window
+
+If you'd rather not keep the launcher's window open, run `npm run service -- on` once (after closing the launcher or
+`npm run dev`). It installs a macOS LaunchAgent that keeps the app running in the background from every login, at
+http://localhost:5174, so open that address (Safari's **Add to Dock** makes it an app). It still only listens on this
+Mac, and the phone then gets fresh stats whenever the Mac is awake. `npm run service -- off` removes it, `-- status`
+checks it, and `-- restart` picks up new code after a `git pull` (the service doesn't pull or rebuild by itself: run
+`npm run build` first). Its log is `data/server.log`.
+
 While the dashboard is open it fetches fresh stats by itself once you quit Anki. You can also quit Anki and press
 **Refresh** (or re-run `copy-collection`).
 If the API isn't running, the dashboard shows clearly labelled sample data and the Planner and Advanced
