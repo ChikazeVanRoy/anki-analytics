@@ -16,7 +16,7 @@ import { parseSnapshot } from '../src/lib/snapshot.ts'
 import { readAnkiData, readDeckTops } from './anki.ts'
 import { createApiServer } from './app.ts'
 import type { DeckConfig } from './deckGroups.ts'
-import { fsrsHistory, readDeckLimits, readPreset, sampleDays } from './fsrsData.ts'
+import { fsrsHistory, readDeckLimits, readDeckStudied, readPreset, sampleDays } from './fsrsData.ts'
 import { parseProto } from './protobuf.ts'
 import { makeSnapshot, writeSnapshot } from './snapshot.ts'
 
@@ -248,6 +248,26 @@ describe('FSRS data', () => {
       expect(german().newPerDay).toBe(20)
     } finally {
       setKind([])
+    }
+  })
+
+  it('takes the new cards started today from Anki’s own count for the deck when it has one for today', () => {
+    const today = dayNumber(ankiDayKey(NOW, ROLLOVER)) - crtDay
+    const setCommon = (bytes: number[] | null) => {
+      const db = new DatabaseSync(path)
+      db.prepare('UPDATE decks SET common = ? WHERE id = 3').run(bytes && Uint8Array.from(bytes))
+      db.close()
+    }
+    const db = new DatabaseSync(path)
+    db.exec('ALTER TABLE decks ADD COLUMN common BLOB')
+    db.close()
+    try {
+      setCommon([...vField(3, today), ...vField(4, 7), ...vField(5, 12)])
+      expect(fsrs().newToday?.german).toBe(7)
+      setCommon([...vField(3, today - 1), ...vField(4, 7)]) // yesterday's count is over
+      expect(fsrs().newToday?.german ?? 0).toBe(0)
+    } finally {
+      setCommon(null)
     }
   })
 
@@ -735,5 +755,15 @@ describe('readDeckLimits: a deck’s own limits beat its preset’s', () => {
   })
   it('reads a limit of 0 (left out of the bytes) as 0, not as unset', () => {
     expect(readDeckLimits(kind(...num(7, 50), ...todayOnly(9, 0, 100)), 100).newPerDay).toBe(0)
+  })
+})
+
+describe('readDeckStudied', () => {
+  const num = (field: number, n: number) => [(field << 3) | 0, n]
+  it('reads Anki’s counts for the day they are for, and nothing for another day', () => {
+    const common = Uint8Array.from([...num(3, 100), ...num(4, 50), ...num(5, 9)])
+    expect(readDeckStudied(common, 100)).toEqual({ newCards: 50, reviews: 9 })
+    expect(readDeckStudied(common, 101)).toBeNull()
+    expect(readDeckStudied(undefined, 100)).toBeNull()
   })
 })
