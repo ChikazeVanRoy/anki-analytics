@@ -210,7 +210,7 @@ describe('todayWork', () => {
     expect(due).toEqual({ stale: false, cards: 2, heldBack: 0, newCards: 0, minutes: (2 * 6) / 60, reviewMinutes: (2 * 6) / 60 })
   })
   describe('with new cards', () => {
-    type Limits = { deckId: string; newPerDay: number; reviewsPerDay?: number }
+    type Limits = { deckId: string; newPerDay: number; reviewsPerDay?: number; newRoomToday?: number }
     const newDay = (presets: Limits[], newCards: Record<string, number>, newToday: Record<string, number>, extra: Partial<NonNullable<AnkiData['fsrs']>> = {}) => {
       const d = withFsrs(['2026-11-03'])
       const limited = presets.map((p) => ({ reviewsPerDay: 1_000, ...p }))
@@ -218,6 +218,11 @@ describe('todayWork', () => {
     }
     it('takes off what was already started today', () => {
       expect(newDay([{ deckId: 'a', newPerDay: 15 }], { a: 100 }, { a: 4 })).toMatchObject({ newCards: 11 })
+    })
+    it('uses what the server worked out per top-level deck when it has', () => {
+      // Limits of 100 less 50 started would leave 50, but the finished deck has nothing left to give
+      expect(newDay([{ deckId: 'a', newPerDay: 100, newRoomToday: 0 }], { a: 500 }, { a: 50 })).toMatchObject({ newCards: 0 })
+      expect(newDay([{ deckId: 'a', newPerDay: 100, newRoomToday: 20 }], { a: 500 }, { a: 50 })).toMatchObject({ newCards: 20 })
     })
     it('adds up the decks, each capped by what it has left', () => {
       expect(newDay([{ deckId: 'a', newPerDay: 15 }, { deckId: 'b', newPerDay: 30 }], { a: 100, b: 7 }, {})).toMatchObject({ newCards: 22 })

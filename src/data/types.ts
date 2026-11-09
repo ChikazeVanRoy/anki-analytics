@@ -73,6 +73,11 @@ export interface DeckPreset {
   presetName: string
   desiredRetention: number
   newPerDay: number
+  /**
+   * New cards the group's top-level decks can still start today under their own limits: each deck's limit less what Anki
+   * counted as started today, up to the new cards it has left. When missing, newPerDay less newToday is the estimate.
+   */
+  newRoomToday?: number
   reviewsPerDay: number
   maxInterval: number
   learnSteps: number[] // minutes

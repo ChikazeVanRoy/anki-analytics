@@ -232,7 +232,7 @@ export function todayWork(data: AnkiData, today: Date, seconds: number): TodayWo
     const { reviews, learning } = due.get(p.deckId) ?? { reviews: 0, learning: 0 }
     const shown = Math.min(reviews, reviewRoom)
     const available = Math.max(0, (fsrs.newCards[p.deckId] ?? 0) - (fsrs.buriedNew?.[p.deckId] ?? 0))
-    const newLeft = Math.min(Math.max(0, p.newPerDay - started), available, ignoreLimit ? Infinity : reviewRoom - shown)
+    const newLeft = Math.min(p.newRoomToday ?? Math.max(0, p.newPerDay - started), available, ignoreLimit ? Infinity : reviewRoom - shown)
     const firstDayAnswers = Math.max(1, fsrs.behaviour.find((b) => b.deckId === p.deckId)?.learningReviewsPerNewCard ?? 1)
     work.cards += shown + learning
     work.heldBack += reviews - shown

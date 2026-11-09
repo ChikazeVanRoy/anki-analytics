@@ -225,8 +225,13 @@ export function readFsrsData(ctx: Context): FsrsData {
   // Anki's own count of new cards started today, per dashboard deck: its top-level decks' counts (each includes its sub-decks)
   const hasCommon = !!db.prepare("SELECT 1 FROM pragma_table_info('decks') WHERE name = 'common'").get()
   const startedByAnki = new Map<string, number>()
+  // Each top-level deck has its own daily limit, so what it can still give today is worked out per top-level deck: a
+  // group's limits add up, but an empty deck's limit (Anki's Default, say) gives nothing and a finished deck's gives no more
+  const topOfDeck = new Map<number, string>() // deck id -> its top-level deck's name
+  const tops = new Map<string, { group: string; limit: number; started: number }>()
   for (const r of db.prepare(`SELECT id, name, kind${hasCommon ? ', common' : ''} FROM decks`).all()) {
     const id = Number(r.id)
+    topOfDeck.set(id, String(r.name).split('\x1f')[0])
     const preset = presetIdOf(r.kind as Uint8Array)
     if (preset !== undefined) deckPreset.set(id, preset)
     const group = keptGroup(id)
@@ -234,6 +239,7 @@ export function readFsrsData(ctx: Context): FsrsData {
     const own = readDeckLimits(r.kind as Uint8Array, ankiDay)
     const studied = readDeckStudied(r.common as Uint8Array | undefined, ankiDay)
     if (studied) startedByAnki.set(group, (startedByAnki.get(group) ?? 0) + studied.newCards)
+    tops.set(String(r.name), { group, limit: own.newPerDay ?? presetSettings(preset).newPerDay, started: studied?.newCards ?? 0 })
     const base = presetSettings(preset)
     const total = groupLimits.get(group) ?? groupLimits.set(group, { newPerDay: 0, reviewsPerDay: 0 }).get(group)!
     total.newPerDay += own.newPerDay ?? base.newPerDay
@@ -247,6 +253,7 @@ export function readFsrsData(ctx: Context): FsrsData {
   const cardById = new Map<number, FsrsCard>()
   const newCards: Record<string, number> = {}
   const buriedNew: Record<string, number> = {}
+  const topNewLeft = new Map<string, number>() // top-level deck name -> its new cards that aren't buried
   const suspended: Record<string, number> = {}
   const missingState: Record<string, number> = {}
   const invalidDue: Record<string, number> = {}
@@ -277,6 +284,10 @@ export function readFsrsData(ctx: Context): FsrsData {
     if (type === 0) {
       add(newCards, group)
       if (isBuried(queue, Number(r.mod))) add(buriedNew, group)
+      else {
+        const top = topOfDeck.get(home)
+        if (top !== undefined) topNewLeft.set(top, (topNewLeft.get(top) ?? 0) + 1)
+      }
       continue
     }
     let data: { s?: unknown; d?: unknown; lrt?: unknown } = {}
@@ -330,7 +341,11 @@ export function readFsrsData(ctx: Context): FsrsData {
     const presetId = [...votes].sort((a, b) => b[1] - a[1])[0][0]
     const row = presetRows.get(presetId)
     if (!row) continue
-    presets.push({ deckId: group, presetId, presetName: row.name, ...presetSettings(presetId), ...groupLimits.get(group) })
+    // Only where Anki's own count of what was started today is there to subtract
+    const newRoomToday = hasCommon
+      ? [...tops].reduce((n, [name, t]) => n + (t.group === group ? Math.min(Math.max(0, t.limit - t.started), topNewLeft.get(name) ?? 0) : 0), 0)
+      : undefined
+    presets.push({ deckId: group, presetId, presetName: row.name, ...presetSettings(presetId), ...groupLimits.get(group), newRoomToday })
   }
   // Each card uses its own home deck's preset, as Anki does; the group's preset is only a fallback
   const paramsFor = (cid: number, group: string) => {
