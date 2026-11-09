@@ -10,14 +10,13 @@ const BURSTS = [
   { x: 72, y: 80, delay: 2750 },
 ]
 const SPARKS = 14
-const COLORS = ['var(--color-sun)', 'var(--color-brand)', 'var(--color-good)', 'var(--color-deck-1)', 'var(--color-fc-fresh)']
+const COLORS = ['var(--color-sun)', 'var(--color-brand)', 'var(--color-good)', 'var(--color-spark-blue)', 'var(--color-spark-pink)']
 
 /** Fixed positions and angles, so it draws the same each time. */
 const sparks = BURSTS.flatMap((b, bi) =>
   Array.from({ length: SPARKS }, (_, i) => ({
     left: `${b.x}%`,
     top: `${b.y}%`,
-    background: COLORS[(bi + i) % COLORS.length],
     '--spark': COLORS[(bi + i) % COLORS.length],
     '--angle': `${(360 / SPARKS) * i + bi * 11}deg`,
     '--reach': `${4.5 + ((i * 7 + bi * 3) % 4) * 0.8}rem`,
@@ -27,7 +26,7 @@ const sparks = BURSTS.flatMap((b, bi) =>
 
 /**
  * Fireworks for a day with nothing left: bursts of sparks, one after another. Pure CSS, so the page does no work
- * while they play, and with reduced motion the animation ends at once and nothing is drawn.
+ * while they play, and with reduced motion the sparks are hidden (see index.css).
  */
 export function Fireworks() {
   return (

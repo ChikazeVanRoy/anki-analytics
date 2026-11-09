@@ -79,6 +79,9 @@
   --color-fc-known: light-dark(#6250d6, #9085e9);
   --color-fc-followup: light-dark(#eda100, #c98500);
   --color-fc-fresh: light-dark(#e87ba4, #d55181);
+  /* Fireworks sparks (decoration only, not data): blue and pink to go with sun, brand and good */
+  --color-spark-blue: light-dark(#2a78d6, #5b9cf0);
+  --color-spark-pink: light-dark(#e0558a, #f08ab0);
   --color-fc-band: light-dark(#8a7f72, #c3c2b7);
 
   /* Heatmap: one hue (violet), light -> strong = few -> many reviews */
@@ -254,6 +257,7 @@ input[type='range'] {
   height: 0.55rem;
   margin: -0.275rem 0 0 -0.275rem;
   border-radius: 9999px;
+  background: var(--spark);
   box-shadow: 0 0 0.6rem 0.1rem var(--spark);
   opacity: 0;
   animation: firework-burst 1700ms cubic-bezier(0.1, 0.7, 0.3, 1) both;
@@ -296,5 +300,9 @@ input[type='range'] {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+  /* Sparks would only wait out their delay invisibly, so don't draw them at all */
+  .firework-spark {
+    display: none;
   }
 }
