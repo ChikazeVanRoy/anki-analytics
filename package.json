@@ -15,6 +15,7 @@
     "snapshot": "node server/make-snapshot.ts",
     "sync": "node server/sync-anki.ts",
     "phone-access": "node server/phone-access.ts",
+    "service": "node server/background-service.ts",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",

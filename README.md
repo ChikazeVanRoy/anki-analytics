@@ -31,6 +31,15 @@ downloaded as a ZIP), right-click it and choose **Open** once. Its log is `data/
 running `npm run dev`, which needs the same API port. If `npm run dev` is already running, the launcher opens that
 server's API and leaves it alone.
 
+### Without a Terminal window
+
+If you'd rather not keep the launcher's window open, run `npm run service -- on` once (after closing the launcher or
+`npm run dev`). It installs a macOS LaunchAgent that keeps the app running in the background from every login, at
+http://localhost:5174, so open that address (Safari's **Add to Dock** makes it an app). It still only listens on this
+Mac, and the phone then gets fresh stats whenever the Mac is awake. `npm run service -- off` removes it, `-- status`
+checks it, and `-- restart` picks up new code after a `git pull` (the service doesn't pull or rebuild by itself: run
+`npm run build` first). Its log is `data/server.log`.
+
 While the dashboard is open it fetches fresh stats by itself once you quit Anki. You can also quit Anki and press
 **Refresh** (or re-run `copy-collection`).
 If the API isn't running, the dashboard shows clearly labelled sample data and the Planner and Advanced
@@ -139,8 +148,10 @@ Tailscale connects your own devices privately, so nothing has to be exposed to t
 4. Open `https://<machine>.<tailnet>.ts.net` in Safari on the iPhone, then Share > Add to Home Screen.
 
 The phone reads the latest snapshot and nothing else: no live stats and no refresh, and note text is removed, so trouble
-cards and garden plants show no card text there. It gets new stats only while the launcher's window is open and the Mac
-is awake, and otherwise shows the last snapshot it saved. `npm run phone-access -- off` stops it.
+cards and garden plants show no card text there. The running server saves a new snapshot by itself (checked every 5 minutes, and at start) whenever Anki has
+closed with newer data than the last copy, so it needs no browser tab open, only the launcher's window or the background
+service, and the Mac awake. Otherwise the phone shows the last snapshot saved. It never opens Anki: for reviews done on
+other devices, run `npm run sync` first. `npm run phone-access -- off` stops it.
 
 ## Privacy
 
