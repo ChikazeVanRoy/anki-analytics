@@ -205,17 +205,26 @@ export function readFsrsData(ctx: Context): FsrsData {
     return i
   }
   const deckPreset = new Map<number, number>()
-  const deckLimits = new Map<number, ReturnType<typeof readDeckLimits>>()
+  // The Anki day "Today only" limits are judged against: the same clock as everything else here (`todayKey`), since
+  // the dashboard's estimates are about today
   const ankiDay = dayNumber(todayKey) - crtDay
-  for (const r of db.prepare('SELECT id, kind FROM decks').all()) {
-    const id = presetIdOf(r.kind as Uint8Array)
-    if (id !== undefined) deckPreset.set(Number(r.id), id)
-    deckLimits.set(Number(r.id), readDeckLimits(r.kind as Uint8Array, ankiDay))
+  // What studying a dashboard deck allows per day: each top-level deck's own limit, else its preset's (Anki caps a
+  // sub-deck by its parents, so the top deck is the one that sets the day's total). A merged group adds its tops up.
+  const groupLimits = new Map<string, { newPerDay: number; reviewsPerDay: number }>()
+  for (const r of db.prepare('SELECT id, name, kind FROM decks').all()) {
+    const id = Number(r.id)
+    const preset = presetIdOf(r.kind as Uint8Array)
+    if (preset !== undefined) deckPreset.set(id, preset)
+    const group = keptGroup(id)
+    if (!group || String(r.name).includes('\x1f') || preset === undefined || !presetRows.has(preset)) continue
+    const own = readDeckLimits(r.kind as Uint8Array, ankiDay)
+    const base = presetSettings(preset)
+    const total = groupLimits.get(group) ?? groupLimits.set(group, { newPerDay: 0, reviewsPerDay: 0 }).get(group)!
+    total.newPerDay += own.newPerDay ?? base.newPerDay
+    total.reviewsPerDay += own.reviewsPerDay ?? base.reviewsPerDay
   }
   // --- One pass over the cards: home deck, preset votes, current states, new/suspended counts ---
   const presetVotes = new Map<string, Map<number, number>>()
-  // The daily limits a group's cards' decks really have (their own override, else their preset's), voted like presets
-  const limitVotes = new Map<string, Map<string, number>>()
   const cardGroup = new Map<number, string>() // card id -> deck group, for the review log below
   const cardPresetId = new Map<number, number>() // card id -> preset of its home deck
   const cards: FsrsCard[] = []
@@ -241,13 +250,6 @@ export function readFsrsData(ctx: Context): FsrsData {
     if (preset !== undefined) {
       const votes = presetVotes.get(group) ?? presetVotes.set(group, new Map()).get(group)!
       votes.set(preset, (votes.get(preset) ?? 0) + 1)
-      if (presetRows.has(preset)) {
-        const own = deckLimits.get(home)
-        const base = presetSettings(preset)
-        const key = `${own?.newPerDay ?? base.newPerDay}|${own?.reviewsPerDay ?? base.reviewsPerDay}`
-        const limits = limitVotes.get(group) ?? limitVotes.set(group, new Map()).get(group)!
-        limits.set(key, (limits.get(key) ?? 0) + 1)
-      }
     }
     const type = Number(r.type)
     const queue = Number(r.queue)
@@ -312,9 +314,7 @@ export function readFsrsData(ctx: Context): FsrsData {
     const presetId = [...votes].sort((a, b) => b[1] - a[1])[0][0]
     const row = presetRows.get(presetId)
     if (!row) continue
-    const mostUsed = [...(limitVotes.get(group) ?? [])].sort((a, b) => b[1] - a[1])[0]?.[0]
-    const [newPerDay, reviewsPerDay] = mostUsed ? mostUsed.split('|').map(Number) : [undefined, undefined]
-    presets.push({ deckId: group, presetId, presetName: row.name, ...presetSettings(presetId), ...(newPerDay !== undefined && { newPerDay, reviewsPerDay }) })
+    presets.push({ deckId: group, presetId, presetName: row.name, ...presetSettings(presetId), ...groupLimits.get(group) })
   }
   // Each card uses its own home deck's preset, as Anki does; the group's preset is only a fallback
   const paramsFor = (cid: number, group: string) => {

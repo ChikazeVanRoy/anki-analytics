@@ -251,6 +251,24 @@ describe('FSRS data', () => {
     }
   })
 
+  it('takes a group’s daily limit from its top-level deck, not from whichever sub-deck has most cards', () => {
+    const spanish = () => fsrs().presets.find((p) => p.deckId === 'spanish')!
+    const setKind = (id: number, extra: number[]) => {
+      const db = new DatabaseSync(path)
+      db.prepare('UPDATE decks SET kind = ? WHERE id = ?').run(Uint8Array.from(bytesField(1, [...vField(1, 100), ...extra])), id)
+      db.close()
+    }
+    try {
+      setKind(2, vField(7, 3)) // the sub-deck "Spoonfed" has its own, lower limit
+      expect(spanish().newPerDay).toBe(15) // the top deck's (its preset's) still sets the day's total
+      setKind(1, vField(7, 9))
+      expect(spanish().newPerDay).toBe(9)
+    } finally {
+      setKind(1, [])
+      setKind(2, [])
+    }
+  })
+
   it('decodes each deck group’s preset from its protobuf blob', () => {
     const [zh, pt] = fsrs().presets
     expect(zh).toMatchObject({ deckId: 'spanish', presetName: 'Castilian preset', newPerDay: 15, reviewsPerDay: 400, maxInterval: 36500 })
