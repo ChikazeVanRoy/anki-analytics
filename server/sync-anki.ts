@@ -8,6 +8,7 @@ import { setTimeout as sleep } from 'node:timers/promises'
 import { readCurrentStats } from './anki.ts'
 import { SYNC_STATUS_FILE, syncOnce, type SyncOutcome } from './ankiSync.ts'
 import { ankiIsRunning, COLLECTION_COPY, copyCollection, profileProblem } from './collection.ts'
+import { realCloudDeps, uploadSnapshot } from './cloud.ts'
 import { makeSnapshot, writeSnapshot } from './snapshot.ts'
 
 const NEEDS_YOU: SyncOutcome[] = ['stuck', 'failed']
@@ -40,6 +41,10 @@ const result = await syncOnce({
 mkdirSync(dirname(SYNC_STATUS_FILE), { recursive: true })
 writeFileSync(SYNC_STATUS_FILE, JSON.stringify({ ...result, at: new Date().toISOString() }), { mode: 0o600 })
 console.log(`${new Date().toISOString()} ${result.outcome}: ${result.message}`)
+if (result.outcome === 'updated' || result.outcome === 'offline') {
+  const upload = await uploadSnapshot(realCloudDeps())
+  if (upload.outcome === 'uploaded' || upload.outcome === 'failed') console.log(`cloud: ${upload.message}`)
+}
 if (NEEDS_YOU.includes(result.outcome)) {
   // Passed as arguments, so a message can't change the script
   succeeds('osascript', '-e', 'on run argv', '-e', 'display notification (item 1 of argv) with title "Anki Analytics"', '-e', 'end run', result.message)

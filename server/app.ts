@@ -13,6 +13,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AnkiData } from '../src/data/types.ts'
 import { readCurrentStats } from './anki.ts'
 import { readSyncStatus, type SyncStatus } from './ankiSync.ts'
+import { cloudInfo } from './cloud.ts'
 import { DeckConfigError } from './deckGroups.ts'
 import { ankiStatus, COLLECTION_COPY, copyCollection, CopyError, type AnkiStatus } from './collection.ts'
 import { isForwarded, isPhoneRequest, loadPhoneHost, phoneSnapshot } from './phoneAccess.ts'
@@ -45,6 +46,8 @@ export interface ApiDeps {
   copy: () => { profile: string; bytes: number }
   status: () => AnkiStatus
   sync: () => SyncStatus | null
+  /** Whether snapshots go to your Firebase project, and how that's going (null: they don't). */
+  cloud: () => ReturnType<typeof cloudInfo>
   version: () => VersionInfo
   update: () => Promise<UpdateResult>
   log: (message: string) => void
@@ -62,6 +65,7 @@ const defaults: ApiDeps = {
   copy: copyCollection,
   status: ankiStatus,
   sync: readSyncStatus,
+  cloud: () => cloudInfo(),
   version: () => readVersion(REPO_DIR),
   update: () => updateFromGitHub(gitIn(REPO_DIR), () => readVersion(REPO_DIR)),
   log: console.log,
@@ -119,7 +123,7 @@ export function createApiServer(overrides: Partial<ApiDeps> = {}): Server {
 
     if (req.method === 'GET' && req.url === '/api/stats') return sendStats(res)
 
-    if (req.method === 'GET' && req.url === '/api/status') return send(res, 200, { ...deps.status(), sync: deps.sync() })
+    if (req.method === 'GET' && req.url === '/api/status') return send(res, 200, { ...deps.status(), sync: deps.sync(), cloud: deps.cloud() })
 
     if (req.method === 'GET' && req.url === '/api/version') {
       const current = deps.version()

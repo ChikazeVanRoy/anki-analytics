@@ -19,7 +19,7 @@ writeFileSync(existing, 'not really sqlite') // only its existence matters; `rea
 const fakeData = { source: 'anki', daily: [], decks: [] } as unknown as AnkiData
 
 function start(overrides: Parameters<typeof createApiServer>[0]) {
-  const server = createApiServer({ log: () => {}, saveSnapshot: () => {}, ...overrides })
+  const server = createApiServer({ log: () => {}, saveSnapshot: () => {}, cloud: () => null, ...overrides })
   return new Promise<{ server: Server; port: number }>((resolve) =>
     server.listen(0, '127.0.0.1', () => resolve({ server, port: (server.address() as AddressInfo).port })),
   )
@@ -332,7 +332,14 @@ describe('GET /api/status', () => {
   it('reports whether a refresh is worth offering', async () => {
     const sync = { outcome: 'stuck' as const, message: 'Anki didn’t close.', at: '2026-11-04T08:00:00.000Z' }
     const { server, port } = await start({ status: () => status, sync: () => sync })
-    expect(await call(port, '/api/status')).toEqual({ status: 200, body: { ...status, sync } })
+    expect(await call(port, '/api/status')).toEqual({ status: 200, body: { ...status, sync, cloud: null } })
+    server.close()
+  })
+
+  it('says whether snapshots go to Firebase, and how that’s going', async () => {
+    const cloud = { uploadedAt: '2026-11-18T10:00:00.000Z', problem: { message: 'Firebase sign-in failed.', at: '2026-11-18T11:00:00.000Z' } }
+    const { server, port } = await start({ status: () => status, sync: () => null, cloud: () => cloud })
+    expect((await call(port, '/api/status')).body).toMatchObject({ cloud })
     server.close()
   })
 

@@ -6,6 +6,7 @@ import { readCurrentStats } from './anki.ts'
 import { createApiServer } from './app.ts'
 import { AUTO_SNAPSHOT_EVERY_MS, refreshSnapshotIfStale } from './autoSnapshot.ts'
 import { ankiStatus, COLLECTION_COPY, copyCollection } from './collection.ts'
+import { realCloudDeps, uploadSnapshot } from './cloud.ts'
 import { makeSnapshot, SNAPSHOT_FILE, writeSnapshot } from './snapshot.ts'
 
 const HOST = '127.0.0.1'
@@ -20,6 +21,28 @@ createApiServer().listen(PORT, HOST, () => {
       save: () => void makeSnapshot({ collectionPath: COLLECTION_COPY, copy: copyCollection, read: readCurrentStats, write: (data) => writeSnapshot(data) }),
       log: console.log,
     })
-  check()
-  setInterval(check, AUTO_SNAPSHOT_EVERY_MS).unref()
+  // Sends the latest snapshot to your own Firebase project when that's set up (npm run cloud), and only when it changed
+  let lastCloudNote = ''
+  let uploading = false
+  const upload = async () => {
+    if (uploading) return // the last one is still going: a slow connection mustn't stack them up
+    uploading = true
+    try {
+      const { outcome, message } = await uploadSnapshot(realCloudDeps())
+      // A failure that keeps repeating is said once, not every five minutes
+      if ((outcome === 'uploaded' || outcome === 'failed') && message !== lastCloudNote) console.log(`cloud: ${message}`)
+      lastCloudNote = outcome === 'failed' ? message : ''
+    } catch (err) {
+      // Never let this take the server down: the page and the Tailscale route don't depend on it
+      console.error('cloud: the upload failed unexpectedly:', err)
+    } finally {
+      uploading = false
+    }
+  }
+  const tick = () => {
+    check()
+    void upload()
+  }
+  tick()
+  setInterval(tick, AUTO_SNAPSHOT_EVERY_MS).unref()
 })

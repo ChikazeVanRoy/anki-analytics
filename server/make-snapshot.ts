@@ -2,6 +2,7 @@
 
 import { readCurrentStats } from './anki.ts'
 import { COLLECTION_COPY, copyCollection, CopyError } from './collection.ts'
+import { realCloudDeps, uploadSnapshot } from './cloud.ts'
 import { DeckConfigError } from './deckGroups.ts'
 import { makeSnapshot, SNAPSHOT_FILE, writeSnapshot } from './snapshot.ts'
 
@@ -14,6 +15,8 @@ try {
   })
   if (skippedCopy) console.warn(`! ${skippedCopy} Used the existing copy instead.`)
   console.log(`✓ Saved ${SNAPSHOT_FILE} (copied from Anki ${data.generatedAt})`)
+  const upload = await uploadSnapshot(realCloudDeps())
+  if (upload.outcome === 'uploaded' || upload.outcome === 'failed') console.log(`cloud: ${upload.message}`)
 } catch (err) {
   if (!(err instanceof CopyError || err instanceof DeckConfigError)) throw err
   console.error(`✗ ${err.message}`)
