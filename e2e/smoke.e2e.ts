@@ -3,7 +3,10 @@ import { messages } from '../src/i18n'
 import { toDateKey } from '../src/lib/dates'
 import { SNAPSHOT_VERSION } from '../src/lib/snapshot'
 import { ankiToday } from '../src/lib/stats'
+import { defaultNet, putSnapshot, signIn } from '../src/lib/firebaseRest'
 import { realShapedData } from '../src/test/fsrsFixture'
+import { fakeFirebase } from '../src/test/fakeFirebase'
+import { standInForGoogle } from './standInForGoogle'
 
 const ROUTES = ['#/', '#/activity', '#/planner', '#/advanced', '#/wrapped']
 
@@ -97,6 +100,38 @@ test('with no API, a saved snapshot is shown with its age instead of sample data
     await page.reload()
     await expect(page.getByText(messages.data.snapshotTitle)).toBeVisible()
     await expect(page.getByText(messages.data.sampleTitle)).toHaveCount(0)
+    await expectNoSidewaysScroll(page)
+  }
+  expect(errors).toEqual([])
+})
+
+test('on Firebase, signs in to your own project and shows your stats, with no sideways scroll', async ({ page }) => {
+  const errors = watchErrors(page)
+  const google = fakeFirebase({ hosts: defaultNet().hosts })
+  await useNoApi(page)
+  await page.route('**/__/firebase/init.json', (route) => route.fulfill({ json: google.config }))
+  await standInForGoogle(page, google)
+  const session = await signIn(google.config, google.email, google.password, google.net)
+  const data = realShapedData()
+  await putSnapshot(google.config, session, JSON.stringify({ version: SNAPSHOT_VERSION, data }), data.generatedAt, google.net)
+
+  await page.goto('#/')
+  await expect(page.getByRole('heading', { name: messages.cloud.signInTitle })).toBeVisible()
+  await expectNoSidewaysScroll(page)
+
+  await page.getByLabel(messages.cloud.email).fill(google.email)
+  await page.getByLabel(messages.cloud.password).fill('wrong password')
+  await page.getByRole('button', { name: messages.cloud.signIn }).click()
+  await expect(page.getByRole('alert')).toContainText(messages.cloud.errors.credentials)
+
+  await page.getByLabel(messages.cloud.password).fill(google.password)
+  await page.getByRole('button', { name: messages.cloud.signIn }).click()
+  await expect(page.getByText(messages.data.snapshotTitle)).toBeVisible()
+  await expect(page.getByText(messages.data.sampleTitle)).toHaveCount(0)
+  await expectNoSidewaysScroll(page)
+  for (const route of ROUTES) {
+    await page.goto(route)
+    await expect(page.locator('main h1, main h2').first()).toBeVisible()
     await expectNoSidewaysScroll(page)
   }
   expect(errors).toEqual([])

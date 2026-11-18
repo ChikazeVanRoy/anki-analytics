@@ -23,6 +23,9 @@ export function useUpdateOffer(copiedAt: string | undefined, newDay: boolean) {
   const [dismissed, setDismissed] = useState<number | null>(null)
   const [syncProblem, setSyncProblem] = useState<{ at: string; message: string } | null>(null)
   const [syncDismissed, setSyncDismissed] = useState<string | null>(null)
+  // Whether this Mac uploads snapshots to Firebase for the phone, and how that's going
+  const [cloud, setCloud] = useState<{ problem?: { message: string; at: string } } | null>(null)
+  const [cloudDismissed, setCloudDismissed] = useState<string | null>(null)
 
   useEffect(() => {
     let stopped = false
@@ -32,7 +35,7 @@ export function useUpdateOffer(copiedAt: string | undefined, newDay: boolean) {
         const res = await fetch('/api/status')
         // This device has no route to the API, as on your phone, so there will never be anything to offer
         if (res.status === 404) return clearInterval(timer)
-        const body = res.ok ? ((await res.json()) as { ankiRunning: boolean; updateAvailable: boolean; sourceModified: number | null; copyModified?: number | null; sync?: { outcome: string; message: string; at: string } | null }) : null
+        const body = res.ok ? ((await res.json()) as { ankiRunning: boolean; updateAvailable: boolean; sourceModified: number | null; copyModified?: number | null; sync?: { outcome: string; message: string; at: string } | null; cloud?: { problem?: { message: string; at: string } } | null }) : null
         // The launcher's sync replaced the copy since this page read it
         const copied = !!body?.copyModified && !!copiedAt && Math.floor(body.copyModified) > Date.parse(copiedAt)
         const reason = body?.updateAvailable ? 'reviews' : copied ? 'copied' : newDay && body && !body.ankiRunning ? 'day' : null
@@ -40,6 +43,8 @@ export function useUpdateOffer(copiedAt: string | undefined, newDay: boolean) {
         if (stopped) return
         setAvailable(reason && modified != null ? { modified, reason } : null)
         setSyncProblem(body?.sync && SYNC_PROBLEMS.includes(body.sync.outcome) ? body.sync : null)
+        setCloud(body?.cloud ?? null)
+        if (!body?.cloud?.problem) setCloudDismissed(null) // fixed: a later failure is news again
       } catch {
         if (!stopped) setAvailable(null) // API not running: there's nothing to offer
       }
@@ -57,11 +62,15 @@ export function useUpdateOffer(copiedAt: string | undefined, newDay: boolean) {
   const dismiss = useCallback(() => setDismissed(available?.modified ?? null), [available])
   const shown = available && available.modified !== dismissed ? available : null
   const dismissSync = useCallback(() => setSyncDismissed(syncProblem?.at ?? null), [syncProblem])
+  const dismissCloud = useCallback(() => setCloudDismissed(cloud?.problem?.message ?? null), [cloud])
   return {
     update: shown?.reason ?? null,
     version: shown?.modified ?? null,
     dismissUpdate: dismiss,
     syncProblem: syncProblem && syncProblem.at !== syncDismissed ? syncProblem.message : null,
     dismissSync,
+    cloudOn: cloud !== null,
+    cloudProblem: cloud?.problem && cloud.problem.message !== cloudDismissed ? cloud.problem.message : null,
+    dismissCloud,
   }
 }

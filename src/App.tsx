@@ -5,6 +5,7 @@ import { useRoute } from './app/useRoute'
 import { useAnkiDay } from './app/useAnkiDay'
 import { useTheme } from './app/useTheme'
 import { SessionRecap } from './components/SessionRecap'
+import { SignIn } from './components/SignIn'
 import { DeckColors } from './data/deckColors'
 import type { AnkiData } from './data/types'
 import { copiedOnEarlierDay } from './lib/progress'
@@ -23,7 +24,7 @@ const WrappedPage = lazy(() => import('./pages/WrappedPage').then((m) => ({ defa
 const AdvancedPage = lazy(() => import('./pages/AdvancedPage').then((m) => ({ default: m.AdvancedPage })))
 
 export default function App() {
-  const { state, refresh, reread, refreshing, refreshError, clearRefreshError } = useAnkiData()
+  const { state, refresh, reread, refreshing, refreshError, clearRefreshError, signInCloud, signOutCloud } = useAnkiData()
   const theme = useTheme()
   const route = useRoute()
   // Lifted so the Activity range survives switching sections
@@ -31,7 +32,7 @@ export default function App() {
   const ankiDay = useAnkiDay(state.status === 'ready' ? state.data.dayStartHour : 0)
   const real = state.status === 'ready' && state.data.source === 'anki' ? state.data : null
   const newDay = !!real && copiedOnEarlierDay(real, ankiToday(real))
-  const { update, version, dismissUpdate, syncProblem, dismissSync } = useUpdateOffer(state.status === 'ready' ? state.data.generatedAt : undefined, newDay)
+  const { update, version, dismissUpdate, syncProblem, dismissSync, cloudOn, cloudProblem, dismissCloud } = useUpdateOffer(state.status === 'ready' ? state.data.generatedAt : undefined, newDay)
   // Anki closed with something new, so fetch it without being asked. Each reason for each version is tried once, and the offer
   // only appears if that fails, so a refresh that can't work isn't retried every few seconds
   const attempt = update && version !== null ? `${update}:${version}` : null
@@ -53,12 +54,15 @@ export default function App() {
   }, [route])
 
   if (state.status === 'loading') return <LoadingScreen />
+  if (state.status === 'sign-in') return <SignIn onSignIn={signInCloud} />
 
   return (
     <AppShell
       route={route}
       data={state.data}
       fromSnapshot={state.fromSnapshot}
+      fromCloud={state.fromCloud}
+      onSignOut={state.fromCloud ? signOutCloud : undefined}
       fallbackReason={state.fallbackReason}
       fallbackKind={state.fallbackKind}
       onRefresh={refresh}
@@ -69,6 +73,9 @@ export default function App() {
       onDismissUpdate={dismissUpdate}
       syncProblem={syncProblem}
       onDismissSync={dismissSync}
+      cloudOn={cloudOn}
+      cloudProblem={cloudProblem}
+      onDismissCloud={dismissCloud}
       onDismissError={clearRefreshError}
       theme={theme.choice}
       onCycleTheme={theme.cycle}

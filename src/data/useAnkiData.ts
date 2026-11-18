@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { messages } from '../i18n'
+import type { CloudErrorKind } from '../lib/firebaseRest'
 import { parseSnapshot } from '../lib/snapshot'
+import { loadCloudSnapshot, signInToCloud, signOutOfCloud } from './cloud'
 import { mockData } from './mockData'
 import type { AnkiData } from './types'
 
-type State =
-  | { status: 'loading' }
-  | { status: 'ready'; data: AnkiData; fromSnapshot?: boolean; fallbackReason?: string; fallbackKind?: FailureKind }
+type Ready = { status: 'ready'; data: AnkiData; fromSnapshot?: boolean; fromCloud?: boolean; fallbackReason?: string; fallbackKind?: FailureKind }
+type State = { status: 'loading' } | { status: 'sign-in' } | Ready
 
-/** Why real data could not be loaded, so the banner can say what to do about it. */
-export type FailureKind = 'api-down' | 'timeout' | 'collection' | 'server'
+/** Why real data could not be loaded, so the banner can say what to do about it. 'cloud': Firebase, on a phone. */
+export type FailureKind = 'api-down' | 'timeout' | 'collection' | 'server' | 'cloud'
 
 export class ApiError extends Error {
   readonly kind: FailureKind
@@ -69,24 +70,35 @@ async function savedSnapshot(): Promise<AnkiData | null> {
   }
 }
 
-type Loaded = Extract<State, { status: 'ready' }>
+type Loaded = Ready | { status: 'sign-in' }
 
-/** The best stats available right now: live, then a saved snapshot, then labelled sample data. */
+/**
+ * The best stats available right now: live from the Mac, then (on a phone) your Firebase project, then the snapshot kept
+ * on this device, then labelled sample data. Firebase only comes into it when the app is hosted there; it asks you to
+ * sign in first if you haven't.
+ */
 async function loadBest(): Promise<Loaded> {
   try {
     const data = await request('/api/stats', isInstalled() ? INSTALLED_LOAD_TIMEOUT_MS : LOAD_TIMEOUT_MS)
     return { status: 'ready', data: data as AnkiData }
   } catch (err) {
-    const saved = await savedSnapshot()
     const failure = err instanceof ApiError ? err : new ApiError('server', messages.data.serverError)
     const fallback = { fallbackReason: failure.message, fallbackKind: failure.kind }
-    return saved ? { status: 'ready', data: saved, fromSnapshot: true, ...fallback } : { status: 'ready', data: mockData, ...fallback }
+    // A server that never answered won't hand out Firebase's settings either (they come from the same address)
+    const cloud: Awaited<ReturnType<typeof loadCloudSnapshot>> = failure.kind === 'timeout' ? { status: 'unavailable' } : await loadCloudSnapshot()
+    if (cloud.status === 'sign-in') return { status: 'sign-in' }
+    if (cloud.status === 'ok') return { status: 'ready', data: cloud.data, fromSnapshot: true, fromCloud: true, ...fallback }
+    const saved = await savedSnapshot()
+    if (saved) return { status: 'ready', data: saved, fromSnapshot: true, ...fallback }
+    // With nothing to show, a Firebase problem is the better explanation than "the local API isn't running"
+    const why = cloud.kind ? { fallbackReason: messages.cloud.reasons[cloud.kind], fallbackKind: 'cloud' as const } : fallback
+    return { status: 'ready', data: mockData, ...why }
   }
 }
 
 /** What to show after looking again. Unchanged stats keep their object, so the pages don't recalculate for nothing. */
 function afterRecheck(current: State, next: Loaded): State {
-  if (current.status !== 'ready' || next.data.source === 'mock') return current
+  if (current.status !== 'ready' || next.status !== 'ready' || next.data.source === 'mock') return current
   return next.fromSnapshot && current.data.generatedAt === next.data.generatedAt ? current : next
 }
 
@@ -151,5 +163,19 @@ export function useAnkiData() {
 
   const clearRefreshError = useCallback(() => setRefreshError(null), [])
 
-  return { state, refresh, reread, refreshing, refreshError, clearRefreshError }
+  /** Signs in to Firebase (on a phone), then loads. Returns why not, if it didn't work. */
+  const signInCloud = useCallback(async (email: string, password: string): Promise<CloudErrorKind | null> => {
+    const failed = await signInToCloud(email, password)
+    if (failed) return failed
+    setState({ status: 'loading' })
+    setState(await loadBest())
+    return null
+  }, [])
+
+  const signOutCloud = useCallback(async () => {
+    await signOutOfCloud()
+    setState({ status: 'sign-in' })
+  }, [])
+
+  return { state, refresh, reread, refreshing, refreshError, clearRefreshError, signInCloud, signOutCloud }
 }

@@ -21,6 +21,9 @@ interface ShellProps {
   data: AnkiData
   /** The stats come from a saved snapshot, because the live API couldn't answer. */
   fromSnapshot?: boolean
+  /** The snapshot came from your Firebase project (a phone), not from the Mac. */
+  fromCloud?: boolean
+  onSignOut?: () => void
   fallbackReason?: string
   fallbackKind?: FailureKind
   onRefresh: () => void
@@ -34,13 +37,18 @@ interface ShellProps {
   /** Why the launcher's last sync needs you, if it does. */
   syncProblem: string | null
   onDismissSync: () => void
+  /** This Mac uploads snapshots to Firebase for your phone. */
+  cloudOn: boolean
+  /** Why that upload needs you, if it does. */
+  cloudProblem: string | null
+  onDismissCloud: () => void
   theme: ThemeChoice
   onCycleTheme: () => void
   children: ReactNode
 }
 
 export function AppShell(props: ShellProps) {
-  const { route, data, fromSnapshot, fallbackReason, fallbackKind, onRefresh, refreshing, refreshError, onDismissError, update, onUpdate, onDismissUpdate, syncProblem, onDismissSync, theme, onCycleTheme, children } = props
+  const { route, data, fromSnapshot, fromCloud, onSignOut, fallbackReason, fallbackKind, onRefresh, refreshing, refreshError, onDismissError, update, onUpdate, onDismissUpdate, syncProblem, onDismissSync, cloudOn, cloudProblem, onDismissCloud, theme, onCycleTheme, children } = props
   const sample = data.source === 'mock'
   const copied = formatCopiedAt(data.generatedAt)
   // Showing a snapshot because the server can't be reached: a refresh would fail, and the reason is only about that
@@ -179,6 +187,23 @@ export function AppShell(props: ShellProps) {
           </div>
         )}
 
+        {cloudProblem && (
+          <div role="status" className="animate-rise mt-5 flex items-center gap-3 rounded-3xl border border-warning/30 bg-warning-soft px-5 py-3 text-sm text-ink">
+            <span className="text-warning">
+              <WarningIcon />
+            </span>
+            <span className="min-w-0 flex-1">{m.cloud.problem(cloudProblem)}</span>
+            <button
+              type="button"
+              onClick={onDismissCloud}
+              aria-label={m.data.dismiss}
+              className="grid size-8 place-items-center rounded-full text-muted hover:bg-surface hover:text-ink"
+            >
+              <CloseIcon size={16} />
+            </button>
+          </div>
+        )}
+
         {update && !refreshing && (
           <div role="status" className="animate-rise mt-5 flex flex-wrap items-center gap-3 rounded-3xl border border-good/30 bg-good-soft px-5 py-3 text-sm text-ink">
             <span className="min-w-0 flex-1 font-semibold">{m.data.update[update]}</span>
@@ -205,7 +230,15 @@ export function AppShell(props: ShellProps) {
         </main>
 
         <footer className="pt-4 pb-10 text-center text-xs text-muted">
-          {sample ? m.data.footerSample : `${fromSnapshot ? m.data.footerSnapshot : m.data.footerLive} ${m.data.copiedAt(copied)}.`}
+          {sample ? m.data.footerSample : `${fromCloud ? m.cloud.footer : fromSnapshot ? m.data.footerSnapshot : cloudOn ? m.cloud.footerLive : m.data.footerLive} ${m.data.copiedAt(copied)}.`}
+          {fromCloud && onSignOut && (
+            <>
+              {' '}
+              <button type="button" onClick={onSignOut} className="rounded font-semibold underline underline-offset-2 hover:text-ink">
+                {m.cloud.signOut}
+              </button>
+            </>
+          )}
           <VersionLine />
         </footer>
       </div>

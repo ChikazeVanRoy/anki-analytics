@@ -1,13 +1,18 @@
 import { execFileSync } from 'node:child_process'
 import { mkdtempSync, rmSync } from 'node:fs'
-import type { Server } from 'node:http'
+import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { expect, test } from '@playwright/test'
 import { createApiServer } from '../server/app.ts'
+import { serveFile } from '../server/staticFiles.ts'
 import { writeSnapshot } from '../server/snapshot.ts'
 import { messages } from '../src/i18n'
+import { defaultNet, putSnapshot, signIn } from '../src/lib/firebaseRest'
+import { SNAPSHOT_VERSION } from '../src/lib/snapshot'
+import { fakeFirebase } from '../src/test/fakeFirebase'
+import { standInForGoogle } from './standInForGoogle'
 import { realShapedData } from '../src/test/fsrsFixture'
 
 // The real server and service worker on a real build. Synthetic data only: the fake paths and copy keep it away from Anki.
@@ -71,3 +76,45 @@ test('opens every section with the server stopped, from what it saved', async ({
     await expect(page.locator('main h1, main h2').first()).toBeVisible()
   }
 })
+
+test('on Firebase Hosting: signs in, then opens with everything stopped from the snapshot it kept', async ({ page }) => {
+  const google = fakeFirebase({ hosts: defaultNet().hosts })
+  const data = realShapedData()
+  const session = await signIn(google.config, google.email, google.password, google.net)
+  await putSnapshot(google.config, session, JSON.stringify({ version: SNAPSHOT_VERSION, data }), data.generatedAt, google.net)
+  await standInForGoogle(page, google)
+
+  // What Firebase Hosting does: the app's files, its project settings at a fixed address, and 404 for everything else
+  const hosting = createServer((req, res) => {
+    if (req.url === '/__/firebase/init.json') {
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      return void res.end(JSON.stringify(google.config))
+    }
+    if (req.method === 'GET' && serveFile(req.url ?? '/', distDir, res)) return
+    res.writeHead(404, { 'Content-Type': 'application/json' })
+    res.end('{"error":"Not found"}')
+  })
+  await new Promise<void>((resolve) => hosting.listen(0, '127.0.0.1', resolve))
+  const address = `http://localhost:${(hosting.address() as AddressInfo).port}/`
+
+  await page.goto(address)
+  await page.getByLabel(messages.cloud.email).fill(google.email)
+  await page.getByLabel(messages.cloud.password).fill(google.password)
+  await page.getByRole('button', { name: messages.cloud.signIn }).click()
+  await expect(page.getByText(messages.data.snapshotTitle)).toBeVisible()
+  // The real service worker has the app, and the snapshot the page kept for it
+  await expect.poll(() => page.evaluate(async () => !!(await caches.match('/snapshot.json')))).toBe(true)
+  await expect.poll(() => page.evaluate(() => navigator.serviceWorker.controller !== null)).toBe(true)
+
+  hosting.closeAllConnections()
+  await new Promise((resolve) => hosting.close(resolve))
+  google.state.offline = true
+
+  await page.reload()
+  await expect(page.getByText(messages.data.snapshotTitle)).toBeVisible()
+  await expect(page.getByLabel(messages.cloud.email)).toHaveCount(0)
+  await expect(page.getByText(messages.data.sampleTitle)).toHaveCount(0)
+  await page.goto(`${address}#/activity`)
+  await expect(page.locator('main h1, main h2').first()).toBeVisible()
+})
+
