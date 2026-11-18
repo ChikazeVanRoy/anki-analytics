@@ -1,7 +1,10 @@
+import { readFileSync } from 'node:fs'
+import { relative } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { getSnapshot, signIn } from '../src/lib/firebaseRest.ts'
 import { fakeFirebase } from '../src/test/fakeFirebase.ts'
-import { firestoreRules, parseCloudSettings, uploadSnapshot, cloudInfo, type CloudDeps, type CloudStatus } from './cloud.ts'
+import { firestoreRules, parseCloudSettings, RULES_FILE, uploadSnapshot, cloudInfo, type CloudDeps, type CloudStatus } from './cloud.ts'
 
 const API_KEY = 'AIzaSyExampleExampleExampleExample1234'
 const settings = { projectId: 'my-anki-stats', apiKey: API_KEY, email: 'me@example.com' }
@@ -193,3 +196,28 @@ describe('cloudInfo', () => {
     })
   })
 })
+
+describe('firebase.json', () => {
+  const root = fileURLToPath(new URL('..', import.meta.url))
+  const config = JSON.parse(readFileSync(`${root}firebase.json`, 'utf8')) as {
+    hosting: { public: string; headers: { source: string; headers: { key: string; value: string }[] }[]; rewrites?: unknown }
+    firestore: { rules: string }
+  }
+
+  it('deploys the rules file that `login` writes, and the built app', () => {
+    expect(config.firestore.rules).toBe(relative(root, RULES_FILE))
+    expect(config.hosting.public).toBe('dist')
+  })
+
+  it('never lets the page or its service worker be cached, or a phone could keep an old app for an hour', () => {
+    for (const source of ['/', '/index.html', '/sw.js', '/manifest.webmanifest']) {
+      const rule = config.hosting.headers.find((header) => header.source === source)
+      expect(rule?.headers).toContainEqual({ key: 'Cache-Control', value: 'no-cache' })
+    }
+  })
+
+  it('has no catch-all rewrite, so /api/ and /snapshot.json answer 404 and the app knows it is on a phone', () => {
+    expect(config.hosting.rewrites).toBeUndefined()
+  })
+})
+

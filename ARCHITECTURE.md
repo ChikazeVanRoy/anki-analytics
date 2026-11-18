@@ -186,6 +186,7 @@ Notes from the code:
 | `copy-collection.ts` | `npm run copy-collection` command-line wrapper around `collection.ts` |
 | `ankiSync.ts`, `sync-anki.ts` | One sync at launch: open Anki, ask it to quit, save a snapshot; `npm run sync` wrapper |
 | `phoneAccess.ts`, `phone-access.ts` | Read-only access for one Tailscale machine name: the app and a snapshot without note text |
+| `cloud.ts`, `cloud-cli.ts` | Uploads the phone's snapshot (no note text) to your own Firebase project after each new one; password in the macOS Keychain; `npm run cloud` sets up, deploys, checks and turns off |
 | `snapshot.ts`, `make-snapshot.ts` | Save the stats to `data/snapshot.json` atomically; `npm run snapshot` wrapper |
 | `anki.ts` | Opens the copy read-only; deck grouping/exclusion; daily review totals; card counts; calls `fsrsData.ts` and isolates its failures |
 | `fsrsData.ts` | FSRS data: stored memory states, due dates, presets, reset counts, measured answer behaviour, review-log replay (calibration and validation) |
@@ -214,7 +215,9 @@ Notes from the code:
 | `lib/deckPace.ts` | Home: a deck's projected finish from the measured pace of new cards |
 | `lib/route.ts` | Section names and URL hashes |
 | `sw.js`, `app/registerServiceWorker.ts` | Service worker (built with this build's file list by the plugin in `vite.config.ts`): saves the app and latest snapshot for offline use; never touches `/api/*` |
-| `data/useAnkiData.ts` | Fetches `/api/stats`, falls back to `/snapshot.json`, then mock data; runs `POST /api/refresh` |
+| `data/useAnkiData.ts` | Fetches `/api/stats`, falls back to your Firebase project (phone, after sign-in), then `/snapshot.json`, then mock data; runs `POST /api/refresh` |
+| `data/cloud.ts`, `components/SignIn.tsx` | The phone's Firebase sign-in and snapshot read; the settings come from Firebase Hosting's `/__/firebase/init.json`, so none are built in |
+| `lib/firebaseRest.ts` | Firebase's web API over plain `fetch` (email sign-in, one Firestore document, gzip), shared by the Mac and the phone |
 | `data/useTodayPlan.ts` | Runs the simulator's scenarios for Home, once per copy of the collection |
 | `data/useUpdateOffer.ts` | Polls `/api/status` and offers a refresh when Anki has closed or a new Anki day has started |
 | `data/useSimulation.ts` | Starts, debounces and cancels Web Worker runs |

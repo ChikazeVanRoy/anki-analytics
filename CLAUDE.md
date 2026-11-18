@@ -20,7 +20,10 @@ structure and what each section measures or projects.
   `git diff --cached --name-only` before every commit. Tests use synthetic fixtures only.
 - **Never fabricate statistics.** Mock data must stay labelled as mock; FSRS sections are hidden without
   real data. Label projections as projections and state assumptions in the UI.
-- Keep everything local: no cloud services, telemetry or external APIs. The one way in from another device is
+- Local-first: stats are read and calculated on the Mac. The only cloud service is the owner's own Firebase project
+  (free Spark plan, never Blaze), reached through `server/cloud.ts` and `src/lib/firebaseRest.ts`; it gets the phone
+  snapshot only, with the note text removed (`phoneSnapshot`). No telemetry, analytics or other external APIs, and no
+  credentials in the repo: the Firebase password lives in the macOS Keychain. The one other way in from another device is
   `server/phoneAccess.ts`: read-only, and it must never send note text or live routes.
 - Don't infer historical FSRS states from current states; reconstruct them by replaying the review log.
 
@@ -38,6 +41,7 @@ npm run lint      # oxlint
 npm run build     # production build
 npm run sync      # open Anki, let it sync, ask it to quit, save a snapshot
 npm run snapshot  # save stats to data/snapshot.json (shown when the API can't answer)
+npm run cloud -- login|deploy|upload|status|off  # upload the phone snapshot to the owner's Firebase project
 npm run service -- on|off|restart|status  # LaunchAgent: keep the app running in the background from login
 npm start         # API and built app on http://localhost:5174 (what the launcher runs while its window is open)
 ```

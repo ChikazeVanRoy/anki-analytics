@@ -114,6 +114,7 @@ rate also stays near FSRS's prediction until there are enough lapses to go on.
   - `fsrsData.ts`: FSRS states, presets (decoded with `protobuf.ts`), review-log replay, measured behaviour
   - `collection.ts`: the safe copy (refuses while Anki is open); `copy-collection.ts` is its CLI
   - `snapshot.ts`: saves the stats to one file; `make-snapshot.ts` is its CLI
+  - `cloud.ts`: uploads the phone's snapshot to your Firebase project (`cloud-cli.ts` is `npm run cloud`)
 - `src/data/`: `types.ts` (data contract shared with the API), `useAnkiData.ts`, `useSimulation.ts`, `mockData.ts`
 - `src/lib/`: pure, tested logic: `fsrs.ts` (FSRS-6, shared with the server), `simulator.ts` (+ Web Worker),
   `fsrsStats.ts`, `gradingShift.ts`, `plan.ts`, `deckPace.ts`, `insights.ts`, `stats.ts`, `heatmap.ts`, `dates.ts`
@@ -140,6 +141,37 @@ saved by it, and it only runs in the built app, not under `npm run dev`.
 
 ## On your phone
 
+The phone shows a snapshot of your stats: no live stats and no Refresh, and note text is removed, so trouble cards and
+garden plants show no card text there. There are two ways to get it there. Either way it never opens Anki: for reviews
+done on other devices, run `npm run sync` first.
+
+### With Firebase (free, and works with the Mac asleep)
+
+The Mac uploads each new snapshot to your own Firebase project, and the phone reads it after you sign in. Firebase's free
+Spark plan covers this many times over: it asks for no card, and a project on it can't be billed. Check the current limits on
+[Firebase's pricing page](https://firebase.google.com/pricing) (at the time of writing, about one write and a few reads a day
+against allowances of tens of thousands), and never upgrade the project to the paid Blaze plan. Anyone can create an account
+in the project using its public API key, though the security rules stop such an account reading or writing your snapshot;
+if the console offers a setting to turn sign-up off, switch it on once you've made your own account.
+
+1. In the [Firebase console](https://console.firebase.google.com), create a project (turn Google Analytics off). Add
+   **Firestore Database** (production mode), **Authentication** (turn on Email/Password, then add yourself as a user with
+   a password you don't use elsewhere) and **Hosting**. In Project settings, add a web app and note its `apiKey`.
+2. `npm run cloud -- login <project-id> <web-api-key> <email>`. It asks for the password and keeps it in your macOS
+   Keychain, never in a file, then checks that it works and writes your security rules to `data/firestore.rules`.
+3. `npx firebase-tools@15.34.1 login` (opens a browser once), then `npm run cloud -- deploy`. This publishes the app's code,
+   which holds no personal data, and the rules, which let only your account read or write the snapshot.
+4. Open `https://<project-id>.web.app` on the iPhone, sign in, then Share > Add to Home Screen.
+
+The running server (the launcher's window, or `npm run service`) uploads a snapshot whenever a new one is saved, checking
+every 5 minutes. With the Mac asleep, the phone shows the last upload and when it was made. After a failure only you can fix
+(a changed password, rules not deployed) it stops retrying for an hour and the Mac's page says so. `npm run cloud -- status`
+shows what's up there, `-- upload` sends one now, and `-- off` stops uploading and forgets the password (delete the
+snapshot itself in the Firebase console under Firestore > snapshots). A new version of the app reaches the phone after you
+run `npm run cloud -- deploy` again and reopen it.
+
+### With Tailscale (live from your Mac, which has to be awake)
+
 Tailscale connects your own devices privately, so nothing has to be exposed to the internet:
 
 1. Install Tailscale on the Mac and iPhone, sign in on both, and turn on HTTPS certificates in its admin console.
@@ -147,16 +179,16 @@ Tailscale connects your own devices privately, so nothing has to be exposed to t
 3. `tailscale serve --bg 5174`. Never use `tailscale funnel`, which is the public internet.
 4. Open `https://<machine>.<tailnet>.ts.net` in Safari on the iPhone, then Share > Add to Home Screen.
 
-The phone reads the latest snapshot and nothing else: no live stats and no refresh, and note text is removed, so trouble
-cards and garden plants show no card text there. The running server saves a new snapshot by itself (checked every 5 minutes, and at start) whenever Anki has
+The running server saves a new snapshot by itself (checked every 5 minutes, and at start) whenever Anki has
 closed with newer data than the last copy, so it needs no browser tab open, only the launcher's window or the background
-service, and the Mac awake. Otherwise the phone shows the last snapshot saved. It never opens Anki: for reviews done on
-other devices, run `npm run sync` first. `npm run phone-access -- off` stops it.
+service, and the Mac awake. Otherwise the phone shows the last snapshot saved. `npm run phone-access -- off` stops it.
 
 ## Privacy
 
-Everything stays on your own devices; the API only answers requests addressed to this machine, plus the phone access
-you can turn on above. Trouble cards show the text of
+Everything stays on your own devices, with one optional exception: if you turn on the Firebase upload above, a copy of the
+snapshot (without note text) is stored in your own Firebase project on Google's servers, where only your account can read
+it, and the phone signs in to get it. Nothing else is sent anywhere, and there's no analytics or tracking. The API only
+answers requests addressed to this machine, plus the Tailscale phone access you can turn on above. Trouble cards show the text of
 a few of your notes, and the garden shows studied cards' text when you tap a plant. Both are read from the local
 copy and shown only in your browser, which also remembers your last visit's totals for the session recap. The built
 app's browser storage also keeps the latest snapshot, note text included, so deleting `data/snapshot.json` doesn't

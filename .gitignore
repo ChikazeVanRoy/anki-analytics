@@ -39,5 +39,9 @@ playwright-report
 *-shm
 .env*
 
+# Firebase CLI leftovers
+firebase-debug.log*
+.firebase/
+
 # Personal deck grouping (names of your decks) - copy anki-analytics.config.example.json to start
 /anki-analytics.config.json
