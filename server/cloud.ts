@@ -13,7 +13,6 @@ import { readSnapshotFile } from './snapshot.ts'
 
 export const CLOUD_SETTINGS_FILE = fileURLToPath(new URL('../data/cloud.json', import.meta.url))
 export const CLOUD_STATUS_FILE = fileURLToPath(new URL('../data/cloud-status.json', import.meta.url))
-export const RULES_FILE = fileURLToPath(new URL('../data/firestore.rules', import.meta.url))
 export const KEYCHAIN_SERVICE = 'anki-analytics-firebase'
 
 export interface CloudSettings extends FirebaseConfig {
@@ -47,24 +46,6 @@ function writePrivate(path: string, text: string) {
 }
 
 export const saveCloudSettings = (settings: CloudSettings, path = CLOUD_SETTINGS_FILE) => writePrivate(path, JSON.stringify(settings, null, 2))
-
-/**
- * The security rules for the snapshot document: only your account may read or write it, and nothing else in the database
- * is open to anyone. Anyone can *create* an account with the project's public API key, so the rules name your account's id
- * rather than just asking for a signed-in user.
- */
-export function firestoreRules(uid: string): string {
-  if (!/^[A-Za-z0-9]{10,40}$/.test(uid)) throw new Error('That doesn’t look like a Firebase account id.')
-  return `rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /snapshots/latest {
-      allow read, write: if request.auth != null && request.auth.uid == '${uid}';
-    }
-  }
-}
-`
-}
 
 // --- the password, kept by macOS ---
 
@@ -211,7 +192,7 @@ function describe(err: CloudError): string {
     case 'credentials':
       return `Firebase sign-in failed (${err.message}). Run: npm run cloud -- login`
     case 'denied':
-      return 'Firebase refused the upload. The security rules may not be deployed yet: run npm run cloud -- deploy'
+      return 'Firebase refused the upload. The security rules may not be deployed (run npm run cloud -- deploy), or this account hasn’t been allowed yet: in the Firebase console, add a document named by its account id to the allowed collection in Firestore.'
     case 'too-big':
       return 'The snapshot is too big for one Firestore document.'
     case 'network':
@@ -235,5 +216,5 @@ export const realCloudDeps = (): CloudDeps => ({
 })
 
 export function removeCloudFiles() {
-  for (const file of [CLOUD_SETTINGS_FILE, CLOUD_STATUS_FILE, RULES_FILE]) rmSync(file, { force: true })
+  for (const file of [CLOUD_SETTINGS_FILE, CLOUD_STATUS_FILE]) rmSync(file, { force: true })
 }

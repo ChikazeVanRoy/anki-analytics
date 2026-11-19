@@ -1,0 +1,20 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Anyone can create an account with the project's public API key, so being signed in proves nothing. An account also
+    // has to be listed: a document named by its account id in the `allowed` collection, which only the owner can make
+    // (in the console), because no rule below lets anyone write there.
+    function listed() {
+      return exists(/databases/$(database)/documents/allowed/$(request.auth.uid));
+    }
+
+    // A listed account may read and write the snapshot document named by its own id, holding only the fields the app
+    // writes and no more than the app can produce. Nothing else is open.
+    match /snapshots/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid && listed();
+      allow write: if request.auth != null && request.auth.uid == uid && listed()
+        && request.resource.data.keys().hasOnly(['gz', 'generatedAt', 'uploadedAt'])
+        && request.resource.data.gz.size() <= 900000;
+    }
+  }
+}

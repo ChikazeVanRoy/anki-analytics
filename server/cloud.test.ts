@@ -1,10 +1,9 @@
-import { readFileSync } from 'node:fs'
-import { relative } from 'node:path'
+import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { getSnapshot, signIn } from '../src/lib/firebaseRest.ts'
 import { fakeFirebase } from '../src/test/fakeFirebase.ts'
-import { firestoreRules, parseCloudSettings, RULES_FILE, uploadSnapshot, cloudInfo, type CloudDeps, type CloudStatus } from './cloud.ts'
+import { parseCloudSettings, uploadSnapshot, cloudInfo, type CloudDeps, type CloudStatus } from './cloud.ts'
 
 const API_KEY = 'AIzaSyExampleExampleExampleExample1234'
 const settings = { projectId: 'my-anki-stats', apiKey: API_KEY, email: 'me@example.com' }
@@ -152,6 +151,29 @@ describe('uploadSnapshot', () => {
   })
 })
 
+describe('two Macs, two people, one project', () => {
+  it('each upload to their own snapshot without disturbing the other', async () => {
+    const google = fakeFirebase({ projectId: settings.projectId, apiKey: API_KEY, email: settings.email, others: [{ email: 'her@example.com', password: 'her password', uid: 'uid-2' }] })
+    let mineStatus: CloudStatus = {}
+    let hersStatus: CloudStatus = {}
+    const make = (email: string, password: string, snapshot: string, read: () => CloudStatus, write: (s: CloudStatus) => void): CloudDeps => ({
+      settings: () => ({ ...settings, email }),
+      keychain: { read: () => password },
+      snapshot: () => snapshot,
+      net: google.net,
+      readStatus: read,
+      writeStatus: write,
+      session: { current: null },
+    })
+    const mine = make(settings.email, google.password, savedSnapshot('2026-11-18T10:00:00.000Z'), () => mineStatus, (s) => void (mineStatus = s))
+    const hers = make('her@example.com', 'her password', savedSnapshot('2026-11-19T08:00:00.000Z'), () => hersStatus, (s) => void (hersStatus = s))
+    expect((await uploadSnapshot(mine)).outcome).toBe('uploaded')
+    expect((await uploadSnapshot(hers)).outcome).toBe('uploaded')
+    expect(google.stored('uid-1')?.generatedAt).toEqual({ stringValue: '2026-11-18T10:00:00.000Z' })
+    expect(google.stored('uid-2')?.generatedAt).toEqual({ stringValue: '2026-11-19T08:00:00.000Z' })
+  })
+})
+
 describe('parseCloudSettings', () => {
   it('accepts well-formed settings', () => {
     expect(parseCloudSettings(settings)).toEqual(settings)
@@ -173,17 +195,27 @@ describe('parseCloudSettings', () => {
   })
 })
 
-describe('firestoreRules', () => {
-  it('lets only that account into the snapshot document, and nothing else', () => {
-    const rules = firestoreRules('abcDEF1234567890xyz')
-    expect(rules).toContain("request.auth.uid == 'abcDEF1234567890xyz'")
-    expect(rules).toContain('match /snapshots/latest')
-    expect(rules.match(/match /g)).toHaveLength(2) // the database, and that one document
+describe('firestore.rules', () => {
+  const rules = readFileSync(fileURLToPath(new URL('../firestore.rules', import.meta.url)), 'utf8')
+  const code = rules.replace(/\/\/.*$/gm, '') // without the comments
+
+  it('lets an account into only the snapshot document named by its own id', () => {
+    expect(code).toContain('match /snapshots/{uid}')
+    expect(code).toContain('request.auth != null && request.auth.uid == uid')
   })
 
-  it('refuses an id that could rewrite the rules', () => {
-    expect(() => firestoreRules("x' || true || '")).toThrow()
-    expect(() => firestoreRules('')).toThrow()
+  it('also needs the account on the owner’s allow-list, which no rule lets anyone write', () => {
+    expect(code).toContain('exists(/databases/$(database)/documents/allowed/$(request.auth.uid))')
+    expect(code.match(/listed\(\)/g)?.length).toBeGreaterThanOrEqual(3) // defined once, required for reading and for writing
+    expect(code).not.toContain('match /allowed')
+  })
+
+  it('limits what may be written, and opens nothing else: only reading and writing that document', () => {
+    expect(code).toContain("hasOnly(['gz', 'generatedAt', 'uploadedAt'])")
+    expect(code).toContain('gz.size() <= 900000')
+    expect(code.match(/match /g)).toHaveLength(2) // the database, and the snapshot documents
+    expect(code.match(/allow /g)).toHaveLength(2) // read, and write
+    expect(code).not.toMatch(/if true|\bdelete\b|\*\*/)
   })
 })
 
@@ -204,8 +236,9 @@ describe('firebase.json', () => {
     firestore: { rules: string }
   }
 
-  it('deploys the rules file that `login` writes, and the built app', () => {
-    expect(config.firestore.rules).toBe(relative(root, RULES_FILE))
+  it('deploys the committed rules file, and the built app', () => {
+    expect(config.firestore.rules).toBe('firestore.rules')
+    expect(existsSync(`${root}${config.firestore.rules}`)).toBe(true)
     expect(config.hosting.public).toBe('dist')
   })
 
@@ -214,6 +247,10 @@ describe('firebase.json', () => {
       const rule = config.hosting.headers.find((header) => header.source === source)
       expect(rule?.headers).toContainEqual({ key: 'Cache-Control', value: 'no-cache' })
     }
+  })
+
+  it('turns on email and password sign-in, the only way anyone signs in', () => {
+    expect((config as unknown as { auth: { providers: Record<string, boolean> } }).auth.providers).toEqual({ emailPassword: true })
   })
 
   it('has no catch-all rewrite, so /api/ and /snapshot.json answer 404 and the app knows it is on a phone', () => {

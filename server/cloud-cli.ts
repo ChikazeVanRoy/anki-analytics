@@ -3,17 +3,14 @@
 //      npm run cloud -- upload | status | off
 
 import { execFileSync } from 'node:child_process'
-import { existsSync, writeFileSync } from 'node:fs'
 import { CloudError, defaultNet, signIn } from '../src/lib/firebaseRest.ts'
 import {
-  firestoreRules,
   loadCloudSettings,
   macKeychain,
   parseCloudSettings,
   readCloudStatus,
   realCloudDeps,
   removeCloudFiles,
-  RULES_FILE,
   saveCloudSettings,
   uploadSnapshot,
   writeCloudStatus,
@@ -28,7 +25,7 @@ const fail = (message: string): never => {
   process.exit(1)
 }
 
-/** The first run: remembers the project and email, asks macOS to keep the password, checks it works, writes the rules. */
+/** The first run on a Mac: remembers the project and email, asks macOS to keep the password, and checks that it works. */
 async function login() {
   const [projectId, apiKey, email] = args
   const settings = parseCloudSettings({ projectId, apiKey, email })
@@ -42,13 +39,16 @@ async function login() {
   if (!password) return fail('The password wasn’t saved.')
   try {
     const session = await signIn(settings, settings.email, password, defaultNet())
-    writeFileSync(RULES_FILE, firestoreRules(session.uid), { mode: 0o600 })
     writeCloudStatus({})
     console.log(`✓ Signed in as ${settings.email}.`)
-    console.log('\nNext, publish the phone app and the security rules. The first time, Firebase opens a browser to log you in:')
+    console.log(`\nThis account's id is ${session.uid}. The project's owner must allow it once: in the Firebase console, open Firestore`)
+    console.log(`Database > Data, start a collection called allowed (if there isn't one), and add a document whose ID is that account id`)
+    console.log('(with any one field, such as ok = true). Until then, uploads and the phone are refused.')
+    console.log('\nIf you own this Firebase project and haven’t yet published the phone app and the security rules, do that once.')
+    console.log('The first time, Firebase opens a browser to log you in:')
     console.log(`  npx firebase-tools@${FIREBASE_TOOLS_VERSION} login`)
     console.log('  npm run cloud -- deploy')
-    console.log(`\nThen open https://${settings.projectId}.web.app on your iPhone, sign in, and add it to your Home Screen.`)
+    console.log(`\nThen, on the iPhone, open https://${settings.projectId}.web.app, sign in, and add it to your Home Screen.`)
   } catch (err) {
     const why = err instanceof CloudError ? err.message : String(err)
     fail(`Couldn’t sign in (${why}). Check the email and password in Firebase console > Authentication, then run login again.`)
@@ -58,12 +58,11 @@ async function login() {
 function deploy() {
   const settings = loadCloudSettings()
   if (!settings) return fail('Run npm run cloud -- login first.')
-  if (!existsSync(RULES_FILE)) return fail('The security rules are missing. Run npm run cloud -- login again.')
   const run = (command: string, ...commandArgs: string[]) => execFileSync(command, commandArgs, { stdio: 'inherit' })
   run('npm', 'run', 'build')
-  // Fixed arguments and no shell. This publishes the app's code (no personal data in it) and the rules. The version is
+  // Fixed arguments and no shell. This publishes the app's code (no personal data in it) and the rules, and turns on email sign-in. The version is
   // pinned (a release a few weeks old), as this runs with your Firebase login.
-  run('npx', `firebase-tools@${FIREBASE_TOOLS_VERSION}`, 'deploy', '--only', 'hosting,firestore:rules', '--project', settings.projectId)
+  run('npx', `firebase-tools@${FIREBASE_TOOLS_VERSION}`, 'deploy', '--only', 'hosting,firestore:rules,auth', '--project', settings.projectId)
 }
 
 async function upload() {

@@ -37,6 +37,61 @@ describe('signIn', () => {
   })
 })
 
+describe('two people in one project', () => {
+  const people = () => fakeFirebase({ others: [{ email: 'her@example.com', password: 'her password', uid: 'uid-2' }] })
+
+  it('each have a snapshot of their own, and neither overwrites the other', async () => {
+    const google = people()
+    const mine = await signIn(google.config, google.email, google.password, google.net)
+    const hers = await signIn(google.config, 'her@example.com', 'her password', google.net)
+    await putSnapshot(google.config, mine, '{"who":"me"}', 'mine', google.net)
+    await putSnapshot(google.config, hers, '{"who":"her"}', 'hers', google.net)
+    expect(await getSnapshot(google.config, mine, google.net)).toEqual({ text: '{"who":"me"}', generatedAt: 'mine' })
+    expect(await getSnapshot(google.config, hers, google.net)).toEqual({ text: '{"who":"her"}', generatedAt: 'hers' })
+  })
+
+  it('can’t read or write each other’s, even by asking for the other’s document directly', async () => {
+    const google = people()
+    const mine = await signIn(google.config, google.email, google.password, google.net)
+    const hers = await signIn(google.config, 'her@example.com', 'her password', google.net)
+    await putSnapshot(google.config, hers, '{"who":"her"}', 'hers', google.net)
+    const hersAddress = `${google.net.hosts.firestore}/v1/projects/${google.config.projectId}/databases/(default)/documents/snapshots/${hers.uid}`
+    for (const method of ['GET', 'PATCH']) {
+      const res = await google.net.fetch(hersAddress, { method, headers: { Authorization: `Bearer ${mine.idToken}` }, body: method === 'PATCH' ? '{"fields":{}}' : undefined })
+      expect(res.status).toBe(403)
+    }
+    expect(google.stored(hers.uid)?.generatedAt).toEqual({ stringValue: 'hers' })
+  })
+
+  it('an account anyone could have made, but the owner never allowed, can’t read or write at all', async () => {
+    const google = fakeFirebase({ others: [{ email: 'stranger@example.com', password: 'x y z', uid: 'uid-9', allowed: false }] })
+    const stranger = await signIn(google.config, 'stranger@example.com', 'x y z', google.net)
+    expect(await kindOf(putSnapshot(google.config, stranger, '{"who":"stranger"}', 'x', google.net))).toBe('denied')
+    expect(await kindOf(getSnapshot(google.config, stranger, google.net))).toBe('denied')
+    expect(google.stored('uid-9')).toBeNull()
+  })
+
+  it('refuses a document with extra fields, however its owner got in', async () => {
+    const google = fakeFirebase()
+    const mine = await signIn(google.config, google.email, google.password, google.net)
+    const address = `${google.net.hosts.firestore}/v1/projects/${google.config.projectId}/databases/(default)/documents/snapshots/${mine.uid}`
+    const res = await google.net.fetch(address, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${mine.idToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fields: { gz: { bytesValue: 'AAAA' }, generatedAt: { stringValue: 'x' }, junk: { stringValue: 'y' } } }),
+    })
+    expect(res.status).toBe(403)
+  })
+
+  it('an account with nothing uploaded yet sees none, not someone else’s', async () => {
+    const google = people()
+    const mine = await signIn(google.config, google.email, google.password, google.net)
+    const hers = await signIn(google.config, 'her@example.com', 'her password', google.net)
+    await putSnapshot(google.config, mine, '{"who":"me"}', 'mine', google.net)
+    expect(await getSnapshot(google.config, hers, google.net)).toBeNull()
+  })
+})
+
 describe('a stalled connection', () => {
   it('gives up after the timeout instead of waiting forever, as a network problem', async () => {
     const google = fakeFirebase()

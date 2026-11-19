@@ -126,8 +126,9 @@ export const freshSession = (config: FirebaseConfig, session: Session, net = def
 
 // --- the snapshot document ---
 
-const documentUrl = (config: FirebaseConfig, net: Net) =>
-  `${net.hosts.firestore}/v1/projects/${encodeURIComponent(config.projectId)}/databases/(default)/documents/snapshots/latest`
+// Each account has its own document, named by its id, and the security rules let an account into only that one
+const documentUrl = (config: FirebaseConfig, session: Session, net: Net) =>
+  `${net.hosts.firestore}/v1/projects/${encodeURIComponent(config.projectId)}/databases/(default)/documents/snapshots/${encodeURIComponent(session.uid)}`
 
 function firestoreError(reply: Reply): CloudError {
   const why = reason(reply)
@@ -164,11 +165,11 @@ export interface CloudSnapshot {
   generatedAt: string
 }
 
-/** Stores the snapshot, compressed, replacing the last one. */
+/** Stores the snapshot, compressed, as this account's, replacing its last one. */
 export async function putSnapshot(config: FirebaseConfig, session: Session, snapshotText: string, generatedAt: string, net = defaultNet()) {
   const gz = toBase64(await pipe(new TextEncoder().encode(snapshotText), new CompressionStream('gzip')))
   if (gz.length > MAX_SNAPSHOT_BASE64) throw new CloudError('too-big', 'The snapshot is too big for one Firestore document.')
-  const reply = await call(net, documentUrl(config, net), {
+  const reply = await call(net, documentUrl(config, session, net), {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.idToken}` },
     body: JSON.stringify({
@@ -182,9 +183,9 @@ export async function putSnapshot(config: FirebaseConfig, session: Session, snap
   if (!reply.ok) throw firestoreError(reply)
 }
 
-/** The stored snapshot, or null if none has been uploaded yet. */
+/** This account's stored snapshot, or null if none has been uploaded yet. */
 export async function getSnapshot(config: FirebaseConfig, session: Session, net = defaultNet()): Promise<CloudSnapshot | null> {
-  const reply = await call(net, documentUrl(config, net), { headers: { Authorization: `Bearer ${session.idToken}` } })
+  const reply = await call(net, documentUrl(config, session, net), { headers: { Authorization: `Bearer ${session.idToken}` } })
   if (reply.status === 404) return null
   if (!reply.ok) throw firestoreError(reply)
   const fields = reply.body?.fields as Record<string, { bytesValue?: unknown; stringValue?: unknown }> | undefined

@@ -158,6 +158,33 @@ describe('loadCloudSnapshot', () => {
   })
 })
 
+describe('two people sharing the app', () => {
+  it('each get their own stats on their own phone, and nobody else’s', async () => {
+    const { google } = setup()
+    const other = { email: 'her@example.com', password: 'her password', uid: 'uid-2' }
+    // The same project, with a second account
+    const both = fakeFirebase({ hosts: defaultNet().hosts, others: [other] })
+    vi.stubGlobal('fetch', vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      const address = String(url)
+      if (address === '/__/firebase/init.json') return new Response(JSON.stringify(both.config))
+      if (address.startsWith('https://')) return both.net.fetch(address, init)
+      return new Response('{"error":"Not found"}', { status: 404 })
+    }))
+    const upload = async (email: string, password: string, data: object) => {
+      const session = await signIn(both.config, email, password, both.net)
+      await putSnapshot(both.config, session, snapshotText(data), 'x', both.net)
+    }
+    await upload(google.email, google.password, { ...stats, decks: [{ id: 'mine' }] })
+    await upload(other.email, other.password, { ...stats, decks: [{ id: 'hers' }] })
+
+    await signInToCloud(google.email, google.password)
+    expect(await loadCloudSnapshot()).toMatchObject({ status: 'ok', data: { decks: [{ id: 'mine' }] } })
+    await signOutOfCloud()
+    await signInToCloud(other.email, other.password)
+    expect(await loadCloudSnapshot()).toMatchObject({ status: 'ok', data: { decks: [{ id: 'hers' }] } })
+  })
+})
+
 describe('a stalled connection', () => {
   it('gives up after a few seconds, so the saved snapshot can be shown, and keeps you signed in', async () => {
     const { google } = setup()

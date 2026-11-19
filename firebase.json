@@ -9,5 +9,6 @@
       { "source": "/manifest.webmanifest", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }
     ]
   },
-  "firestore": { "rules": "data/firestore.rules" }
+  "firestore": { "rules": "firestore.rules" },
+  "auth": { "providers": { "emailPassword": true } }
 }

@@ -155,8 +155,8 @@ in the project using its public API key, though the security rules stop such an 
 if the console offers a setting to turn sign-up off, switch it on once you've made your own account.
 
 1. In the [Firebase console](https://console.firebase.google.com), create a project (turn Google Analytics off). Add
-   **Firestore Database** (production mode), **Authentication** (turn on Email/Password, then add yourself as a user with
-   a password you don't use elsewhere) and **Hosting**. In Project settings, add a web app and note its `apiKey`.
+   **Firestore Database** (production mode), **Authentication** (add yourself as a user with a password you don't use
+   elsewhere; `deploy` below turns on Email/Password sign-in) and **Hosting**. In Project settings, add a web app and note its `apiKey`.
 2. `npm run cloud -- login <project-id> <web-api-key> <email>`. It asks for the password and keeps it in your macOS
    Keychain, never in a file, then checks that it works and writes your security rules to `data/firestore.rules`.
 3. `npx firebase-tools@15.34.1 login` (opens a browser once), then `npm run cloud -- deploy`. This publishes the app's code,
