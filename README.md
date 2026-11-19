@@ -114,7 +114,7 @@ rate also stays near FSRS's prediction until there are enough lapses to go on.
   - `fsrsData.ts`: FSRS states, presets (decoded with `protobuf.ts`), review-log replay, measured behaviour
   - `collection.ts`: the safe copy (refuses while Anki is open); `copy-collection.ts` is its CLI
   - `snapshot.ts`: saves the stats to one file; `make-snapshot.ts` is its CLI
-  - `cloud.ts`: uploads the phone's snapshot to your Firebase project (`cloud-cli.ts` is `npm run cloud`)
+  - `cloud.ts`: uploads the phone's snapshot to a Firebase project, one document per account (`cloud-cli.ts` is `npm run cloud`)
 - `src/data/`: `types.ts` (data contract shared with the API), `useAnkiData.ts`, `useSimulation.ts`, `mockData.ts`
 - `src/lib/`: pure, tested logic: `fsrs.ts` (FSRS-6, shared with the server), `simulator.ts` (+ Web Worker),
   `fsrsStats.ts`, `gradingShift.ts`, `plan.ts`, `deckPace.ts`, `insights.ts`, `stats.ts`, `heatmap.ts`, `dates.ts`
@@ -147,21 +147,27 @@ done on other devices, run `npm run sync` first.
 
 ### With Firebase (free, and works with the Mac asleep)
 
-The Mac uploads each new snapshot to your own Firebase project, and the phone reads it after you sign in. Firebase's free
+The Mac uploads each new snapshot to a Firebase project, and the phone reads it after you sign in. Each account has a snapshot
+of its own that only it can read, so one project can serve more than one person (see below). Firebase's free
 Spark plan covers this many times over: it asks for no card, and a project on it can't be billed. Check the current limits on
 [Firebase's pricing page](https://firebase.google.com/pricing) (at the time of writing, about one write and a few reads a day
 against allowances of tens of thousands), and never upgrade the project to the paid Blaze plan. Anyone can create an account
-in the project using its public API key, though the security rules stop such an account reading or writing your snapshot;
-if the console offers a setting to turn sign-up off, switch it on once you've made your own account.
+in the project using its public API key, so being signed in isn't enough: the security rules (`firestore.rules`) also
+require the account to be listed, as a document named by its account id in an `allowed` collection that only you can
+make, in the console. A stranger's account can't read or write anything, and a listed account can store only its own
+snapshot, in the fields the app writes and no larger than the app can produce. If the console offers a setting to turn
+sign-up off, switching it on is a further safeguard.
 
 1. In the [Firebase console](https://console.firebase.google.com), create a project (turn Google Analytics off). Add
    **Firestore Database** (production mode), **Authentication** (add yourself as a user with a password you don't use
    elsewhere; `deploy` below turns on Email/Password sign-in) and **Hosting**. In Project settings, add a web app and note its `apiKey`.
 2. `npm run cloud -- login <project-id> <web-api-key> <email>`. It asks for the password and keeps it in your macOS
-   Keychain, never in a file, then checks that it works and writes your security rules to `data/firestore.rules`.
-3. `npx firebase-tools@15.34.1 login` (opens a browser once), then `npm run cloud -- deploy`. This publishes the app's code,
-   which holds no personal data, and the rules, which let only your account read or write the snapshot.
-4. Open `https://<project-id>.web.app` on the iPhone, sign in, then Share > Add to Home Screen.
+   Keychain, never in a file, then checks that it works and prints the account's id.
+3. In the console, open Firestore Database > Data, start a collection called `allowed`, and add a document whose ID is that
+   account id (it is also the User UID under Authentication > Users), with any one field, such as `ok = true`.
+4. `npx firebase-tools@15.34.1 login` (opens a browser once), then `npm run cloud -- deploy`. This publishes the app's code,
+   which holds no personal data, and the rules, which let each listed account read and write only its own snapshot.
+5. Open `https://<project-id>.web.app` on the iPhone, sign in, then Share > Add to Home Screen.
 
 The running server (the launcher's window, or `npm run service`) uploads a snapshot whenever a new one is saved, checking
 every 5 minutes. With the Mac asleep, the phone shows the last upload and when it was made. After a failure only you can fix
@@ -169,6 +175,21 @@ every 5 minutes. With the Mac asleep, the phone shows the last upload and when i
 shows what's up there, `-- upload` sends one now, and `-- off` stops uploading and forgets the password (delete the
 snapshot itself in the Firebase console under Firestore > snapshots). A new version of the app reaches the phone after you
 run `npm run cloud -- deploy` again and reopen it.
+
+#### Adding another person (say, family)
+
+They need an account in your project, not a Firebase project of their own, and never see the console. Their snapshot is
+separate from yours and neither of you can read the other's through the app (as the project's owner you can see
+everything in the console, so only do this for someone who's fine with that).
+
+1. In the console under Authentication > Users, add them with their email and a password you give them. Copy their User UID
+   and add it to the `allowed` collection in Firestore, as in step 3 above. If you set up Firebase before this was
+   possible, also run `npm run cloud -- deploy` once, and list your own account the same way: the rules used to let in a
+   single account.
+2. On their Mac, install the app and open it once, then `npm run cloud -- login <project-id> <web-api-key> <their-email>`
+   (the same project id and key as yours; their password goes in their own Keychain) and `npm run service -- on` so
+   uploads carry on in the background. It reads only that Mac's Anki.
+3. On their iPhone, open `https://<project-id>.web.app`, sign in with their email, then Share > Add to Home Screen.
 
 ### With Tailscale (live from your Mac, which has to be awake)
 
@@ -186,8 +207,8 @@ service, and the Mac awake. Otherwise the phone shows the last snapshot saved. `
 ## Privacy
 
 Everything stays on your own devices, with one optional exception: if you turn on the Firebase upload above, a copy of the
-snapshot (without note text) is stored in your own Firebase project on Google's servers, where only your account can read
-it, and the phone signs in to get it. Nothing else is sent anywhere, and there's no analytics or tracking. The API only
+snapshot (without note text) is stored in a Firebase project on Google's servers, where only your account can read it (and
+the project's owner, through the console), and the phone signs in to get it. Nothing else is sent anywhere, and there's no analytics or tracking. The API only
 answers requests addressed to this machine, plus the Tailscale phone access you can turn on above. Trouble cards show the text of
 a few of your notes, and the garden shows studied cards' text when you tap a plant. Both are read from the local
 copy and shown only in your browser, which also remembers your last visit's totals for the session recap. The built

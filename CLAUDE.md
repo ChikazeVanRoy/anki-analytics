@@ -22,7 +22,8 @@ structure and what each section measures or projects.
   real data. Label projections as projections and state assumptions in the UI.
 - Local-first: stats are read and calculated on the Mac. The only cloud service is the owner's own Firebase project
   (free Spark plan, never Blaze), reached through `server/cloud.ts` and `src/lib/firebaseRest.ts`; it gets the phone
-  snapshot only, with the note text removed (`phoneSnapshot`). No telemetry, analytics or other external APIs, and no
+  snapshot only, with the note text removed (`phoneSnapshot`), one document per account, which may include people the
+  owner shares the project with, each admitted by `firestore.rules` (and the owner's `allowed` list) to only their own. No telemetry, analytics or other external APIs, and no
   credentials in the repo: the Firebase password lives in the macOS Keychain. The one other way in from another device is
   `server/phoneAccess.ts`: read-only, and it must never send note text or live routes.
 - Don't infer historical FSRS states from current states; reconstruct them by replaying the review log.
