@@ -131,10 +131,12 @@ describe('Home Today plan', () => {
     render(<HomePage data={realShapedData()} />)
     expect(screen.getByRole('heading', { name: messages.home.today.title })).toBeTruthy()
     expect(screen.getByText(messages.home.today.dueLabel)).toBeTruthy()
+    expect(screen.getByText(messages.home.today.tomorrowLabel)).toBeTruthy()
     cleanup()
     render(<HomePage data={{ ...mockData }} />)
     expect(screen.queryByText(messages.home.today.dueLabel)).toBeNull()
     expect(screen.queryByText(messages.home.today.newLabel)).toBeNull()
+    expect(screen.queryByText(messages.home.today.tomorrowLabel)).toBeNull()
   })
 
   it('counts today’s new cards from Anki’s limits, and adds them to the total time', () => {

@@ -340,7 +340,7 @@ function TodayPlanRow({ due, plan }: { due: TodayWork; plan: TodayPlan | null })
       {due.stale ? (
         <p className="mt-2 rounded-2xl bg-surface/70 p-3 text-sm font-semibold text-ink-2">{t.stale}</p>
       ) : (
-        <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div className="mt-2 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <TodayTile label={t.dueLabel} tipLabel={t.dueTipLabel} tip={t.dueTip} value={formatInt(due.cards)} sub={due.heldBack > 0 ? t.dueHeld(due.heldBack) : t.dueSub} />
           <TodayTile label={t.newLabel} tipLabel={t.newTipLabel} tip={t.newTip} value={formatInt(due.newCards)} sub={t.newSub} />
           <TodayTile
@@ -349,7 +349,13 @@ function TodayPlanRow({ due, plan }: { due: TodayWork; plan: TodayPlan | null })
             tip={t.timeTip}
             value={left ? `≈ ${formatMinutes(Math.max(1, Math.round(due.minutes)))}` : formatMinutes(0)}
             sub={left ? t.timeSub : t.timeDone}
-            className="col-span-2 sm:col-span-1"
+          />
+          <TodayTile
+            label={t.tomorrowLabel}
+            tipLabel={t.tomorrowTipLabel}
+            tip={t.tomorrowTip}
+            value={formatInt(due.tomorrow)}
+            sub={due.tomorrowMore > 0 ? t.tomorrowMore(due.tomorrowMore) : t.tomorrowSub}
           />
         </div>
       )}

@@ -207,7 +207,45 @@ describe('todayWork', () => {
 
   it('counts cards due today or overdue, not later ones, and estimates minutes at the measured pace', () => {
     const due = todayWork(withFsrs(['2026-11-01', '2026-11-03', '2026-11-04', '2026-12-01']), TODAY, 6)
-    expect(due).toEqual({ stale: false, cards: 2, heldBack: 0, newCards: 0, minutes: (2 * 6) / 60, reviewMinutes: (2 * 6) / 60 })
+    expect(due).toEqual({ stale: false, cards: 2, heldBack: 0, newCards: 0, minutes: (2 * 6) / 60, reviewMinutes: (2 * 6) / 60, tomorrow: 1, tomorrowMore: 2 })
+  })
+  describe('tomorrow', () => {
+    it('counts cards scheduled for tomorrow, not today’s or later ones', () => {
+      expect(todayWork(withFsrs(['2026-11-02', '2026-11-03', '2026-11-04', '2026-11-04', '2026-11-05']), TODAY, 6)).toMatchObject({ tomorrow: 2 })
+    })
+    it('adds buried cards that are due, which come back tomorrow, but not a buried card due later', () => {
+      expect(todayWork(withFsrs(['2026-11-04'], {}, ['2026-11-02', '2026-11-03', '2026-11-04', '2026-11-06']), TODAY, 6)).toMatchObject({
+        cards: 0,
+        tomorrow: 4,
+      })
+    })
+    it('adds cards held back by today’s review limit', () => {
+      const d = withFsrs(['2026-11-03', '2026-11-03', '2026-11-02', '2026-11-04'])
+      const fsrs = { ...d.fsrs!, presets: [{ deckId: 'a', newPerDay: 0, reviewsPerDay: 2 }] } as unknown as NonNullable<AnkiData['fsrs']>
+      expect(todayWork({ ...d, fsrs }, TODAY, 6)).toMatchObject({ cards: 2, heldBack: 1, tomorrow: 2, tomorrowMore: 0 })
+    })
+    const limited = (reviewsPerDay: number, cards: object[]) => {
+      const d = withFsrs([])
+      return { ...d, fsrs: { ...d.fsrs!, cards, presets: [{ deckId: 'a', newPerDay: 0, reviewsPerDay }] } } as unknown as AnkiData
+    }
+    it('stops at tomorrow’s review limit, which same-day learning cards don’t count towards', () => {
+      const cards = [card('2026-11-04'), card('2026-11-04'), card('2026-11-04'), { ...card('2026-11-04'), state: 'learning' }]
+      expect(todayWork(limited(2, cards), TODAY, 6)).toMatchObject({ tomorrow: 3 })
+    })
+    it('adds a group without a preset in full, alongside a limited group’s held-back cards', () => {
+      const b = (due: string) => ({ ...card(due), deckId: 'b' })
+      const cards = [card('2026-11-03'), card('2026-11-03'), card('2026-11-02'), card('2026-11-04'), card('2026-11-04'), b('2026-11-03'), b('2026-11-04'), b('2026-11-04')]
+      expect(todayWork(limited(2, cards), TODAY, 6)).toMatchObject({ cards: 3, heldBack: 1, tomorrow: 4, tomorrowMore: 1 })
+    })
+    it('says how many more come tomorrow, within its limit, if today isn’t done', () => {
+      const cards = [card('2026-11-03'), card('2026-11-03'), card('2026-11-04')]
+      expect(todayWork(limited(2, cards), TODAY, 6)).toMatchObject({ cards: 2, tomorrow: 1, tomorrowMore: 1 })
+    })
+    it('follows the rollover hour: before it, it is still the previous Anki day', () => {
+      const late = new Date(2026, 10, 4, 2) // 2am on 4 Nov is still Anki's 3 Nov with a 4am rollover
+      const d = withFsrs(['2026-11-03', '2026-11-04'], { generatedAt: late.toISOString(), dayStartHour: 4 })
+      expect(todayWork(d, TODAY, 6)).toMatchObject({ cards: 1, tomorrow: 1 })
+    })
   })
   describe('with new cards', () => {
     type Limits = { deckId: string; newPerDay: number; reviewsPerDay?: number; newRoomToday?: number }
@@ -304,7 +342,7 @@ describe('todayWork', () => {
 })
 
 describe('nextStep', () => {
-  const work = (cards: number, newCards: number, minutes = 10.4, reviewMinutes = minutes) => ({ stale: false as const, cards, heldBack: 0, newCards, minutes, reviewMinutes })
+  const work = (cards: number, newCards: number, minutes = 10.4, reviewMinutes = minutes) => ({ stale: false as const, cards, heldBack: 0, newCards, minutes, reviewMinutes, tomorrow: 0, tomorrowMore: 0 })
 
   it('puts reviews first, then new cards, then rest', () => {
     expect(nextStep(work(5, 10))).toEqual({ kind: 'reviews', cards: 5, minutes: 10 })

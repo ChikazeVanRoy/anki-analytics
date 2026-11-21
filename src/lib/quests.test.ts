@@ -4,7 +4,7 @@ import { realShapedData } from '../test/fsrsFixture'
 import type { CardNow } from './fsrsStats'
 import { dailyQuests, questDone, questProgress } from './quests'
 
-const work = (cards: number) => ({ stale: false as const, cards, heldBack: 0, newCards: 0, minutes: 1, reviewMinutes: 1 })
+const work = (cards: number) => ({ stale: false as const, cards, heldBack: 0, newCards: 0, minutes: 1, reviewMinutes: 1, tomorrow: 0, tomorrowMore: 0 })
 const data = (reviewsToday = {}, newToday = {}): AnkiData => {
   const d = realShapedData()
   return { ...d, fsrs: { ...d.fsrs!, reviewsToday, newToday } }

@@ -181,6 +181,13 @@ export type TodayWork =
       minutes: number
       /** The part of `minutes` for the reviews alone. */
       reviewMinutes: number
+      /**
+       * Cards due tomorrow even if you finish today: those scheduled for tomorrow, those held back by today's review
+       * limit, and buried ones that are due, within tomorrow's review limit. Reviewing today can add more.
+       */
+      tomorrow: number
+      /** How many more `tomorrow` would be, within the same limit, if none of today's `cards` were done. */
+      tomorrowMore: number
     }
   /** The copy is from an earlier Anki day, so its due dates can't say what's left today. */
   | { stale: true }
@@ -211,19 +218,32 @@ export function todayWork(data: AnkiData, today: Date, seconds: number): TodayWo
   const { fsrs } = data
   // Cards in same-day learning steps aren't held back by the review limit; day-long steps count as reviews
   const due = new Map<string, { reviews: number; learning: number }>()
-  for (const c of fsrs.cards) {
-    if (c.buried || dayNumber(c.due) > day) continue
-    const counts = due.get(c.deckId) ?? { reviews: 0, learning: 0 }
+  // Due tomorrow even if today is finished: scheduled for tomorrow, or buried and due (Anki unburies them tomorrow)
+  const dueTomorrow = new Map<string, { reviews: number; learning: number }>()
+  const count = (map: typeof due, c: (typeof fsrs.cards)[number]) => {
+    const counts = map.get(c.deckId) ?? { reviews: 0, learning: 0 }
     counts[c.state === 'review' || c.interday ? 'reviews' : 'learning']++
-    due.set(c.deckId, counts)
+    map.set(c.deckId, counts)
   }
+  for (const c of fsrs.cards) {
+    const cardDay = dayNumber(c.due)
+    if (cardDay === day + 1 || (c.buried && cardDay <= day)) count(dueTomorrow, c)
+    if (c.buried || cardDay > day) continue
+    count(due, c)
+  }
+  const none = { reviews: 0, learning: 0 }
   const pace = (deckId: string) => fsrs.behaviour.find((b) => b.deckId === deckId)?.secondsPerReview || seconds
-  const work = { cards: 0, heldBack: 0, newCards: 0, seconds: 0, reviewSeconds: 0 }
-  for (const [deckId, { reviews, learning }] of due) {
+  const work = { cards: 0, heldBack: 0, newCards: 0, seconds: 0, reviewSeconds: 0, tomorrow: 0, tomorrowMore: 0 }
+  for (const deckId of new Set([...due.keys(), ...dueTomorrow.keys()])) {
     if (fsrs.presets.some((p) => p.deckId === deckId)) continue
-    work.cards += reviews + learning // no preset read for this group, so no limit to apply
+    // No preset read for this group, so no limit to apply
+    const { reviews, learning } = due.get(deckId) ?? none
+    const next = dueTomorrow.get(deckId) ?? none
+    work.cards += reviews + learning
     work.seconds += (reviews + learning) * pace(deckId)
     work.reviewSeconds += (reviews + learning) * pace(deckId)
+    work.tomorrow += next.reviews + next.learning
+    work.tomorrowMore += reviews + learning
   }
   for (const p of fsrs.presets) {
     const started = fsrs.newToday?.[p.deckId] ?? 0
@@ -239,8 +259,22 @@ export function todayWork(data: AnkiData, today: Date, seconds: number): TodayWo
     work.newCards += newLeft
     work.seconds += (shown + learning + newLeft * firstDayAnswers) * pace(p.deckId)
     work.reviewSeconds += (shown + learning) * pace(p.deckId)
+    // Tomorrow nothing is done yet, so the whole review limit is free; same-day learning cards aren't limited
+    const next = dueTomorrow.get(p.deckId) ?? none
+    const tomorrow = next.learning + Math.min(next.reviews + reviews - shown, p.reviewsPerDay)
+    work.tomorrow += tomorrow
+    work.tomorrowMore += next.learning + learning + Math.min(next.reviews + reviews, p.reviewsPerDay) - tomorrow
   }
-  return { stale: false, cards: work.cards, heldBack: work.heldBack, newCards: work.newCards, minutes: work.seconds / 60, reviewMinutes: work.reviewSeconds / 60 }
+  return {
+    stale: false,
+    cards: work.cards,
+    heldBack: work.heldBack,
+    newCards: work.newCards,
+    minutes: work.seconds / 60,
+    reviewMinutes: work.reviewSeconds / 60,
+    tomorrow: work.tomorrow,
+    tomorrowMore: work.tomorrowMore,
+  }
 }
 
 /** The one thing to do now. Reviews come before new cards, as they do in Anki. */

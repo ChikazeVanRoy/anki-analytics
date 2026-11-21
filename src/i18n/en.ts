@@ -229,6 +229,12 @@ export const en = {
       newTipLabel: 'About new cards today',
       newTip:
         'Each deck’s “New cards/day” limit, less the new cards started today, up to the unburied new cards it has left. Unless “New cards ignore review limit” is on, reviews come first and new cards get what’s left of the review limit. It uses the preset most of a deck’s cards use, so Anki can show a different number if you’ve grouped decks with different limits, or set a limit on a deck or for today only.',
+      tomorrowLabel: 'Due tomorrow',
+      tomorrowSub: 'even if you finish today',
+      tomorrowMore: (n: number) => `up to ${int(n)} more if you don’t finish today`,
+      tomorrowTipLabel: 'About cards due tomorrow',
+      tomorrowTip:
+        'Reviews already due tomorrow from the due dates stored when the collection was copied, plus cards held back by today’s review limit and buried cards that are due, which come back tomorrow, up to each deck’s review limit (same-day learning steps aren’t limited). Cards you review today can add to it: forgotten cards and new cards often come back the next day. Cards with no FSRS memory state aren’t counted, though Anki still shows them.',
       timeLabel: 'Total time today',
       timeSub: 'to finish due and new cards',
       timeDone: 'nothing left today',
