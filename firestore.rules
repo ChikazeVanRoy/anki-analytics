@@ -8,13 +8,18 @@ service cloud.firestore {
       return exists(/databases/$(database)/documents/allowed/$(request.auth.uid));
     }
 
-    // A listed account may read and write the snapshot document named by its own id, holding only the fields the app
-    // writes and no more than the app can produce. Nothing else is open.
+    // A listed account may read and write the snapshot document named by its own id, holding exactly the fields the app
+    // writes, of the types it writes, and no more than the app can produce. Nothing else is open.
     match /snapshots/{uid} {
       allow read: if request.auth != null && request.auth.uid == uid && listed();
       allow write: if request.auth != null && request.auth.uid == uid && listed()
         && request.resource.data.keys().hasOnly(['gz', 'generatedAt', 'uploadedAt'])
-        && request.resource.data.gz.size() <= 900000;
+        && request.resource.data.keys().hasAll(['gz', 'generatedAt', 'uploadedAt'])
+        && request.resource.data.gz is bytes
+        && request.resource.data.gz.size() <= 900000
+        && request.resource.data.generatedAt is string
+        && request.resource.data.generatedAt.size() <= 64
+        && request.resource.data.uploadedAt is timestamp;
     }
   }
 }

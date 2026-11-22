@@ -86,7 +86,9 @@ function off() {
   if (settings) macKeychain.remove(settings.email)
   removeCloudFiles()
   console.log('✓ Uploading has stopped, and the saved password and settings are gone.')
-  console.log('  The snapshot already in Firebase stays until you delete it: Firebase console > Firestore > snapshots > latest.')
+  console.log('  The snapshot already in Firebase stays until you delete it: Firebase console > Firestore > snapshots >')
+  console.log('  the document named by your account’s User UID (Authentication > Users). A document named “latest”, if')
+  console.log('  there is one, is from an older version of this app and can be deleted too.')
 }
 
 switch (command) {
