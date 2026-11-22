@@ -410,6 +410,12 @@ export function FsrsAnalytics({ fsrs, decks: allDecks, todayKey }: Props) {
               <p className="mt-3 text-xs leading-relaxed text-muted">
                 By month:{' '}
                 {trend.map((t) => `${t.month} ${formatRate(t.actual)} actual vs ${formatRate(t.predicted)} predicted (${formatInt(t.reviews)})`).join(' · ')}
+                {/* Once settled the notice above is gone, so say it here. The shift's own month mixes both kinds of answer. */}
+                {verdict.shift?.settled && trend.some((t) => t.month <= verdict.shift!.date.slice(0, 7)) && (
+                  <span className="mt-1 block font-semibold text-ink-2">
+                    {messages.advanced.verdict.monthsBefore(verdict.shift.date.slice(0, 7), formatShortDate(verdict.shift.date))}
+                  </span>
+                )}
               </p>
             )}
           </div>

@@ -26,7 +26,8 @@ describe('Advanced source labels', () => {
   it('doesn’t call FSRS’s estimates measured on real data', () => {
     const data = realShapedData()
     render(<AdvancedPage data={data} today={ankiToday(data)} />)
-    expect(screen.getAllByText(b.mixed).length).toBe(2)
+    // The page title, then the two sections
+    expect(screen.getAllByText(b.mixed).length).toBe(3)
     expect(screen.queryByText(b.measured)).toBeNull()
     expect(screen.getByText(/FSRS estimate, average across 60 cards/)).toBeTruthy()
   })

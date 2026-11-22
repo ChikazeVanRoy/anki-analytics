@@ -10,7 +10,7 @@ import { PageHeader } from './PageHeader'
 export function AdvancedPage({ data, today }: { data: AnkiData; today: Date }) {
   return (
     <div className="space-y-6">
-      <PageHeader title={messages.advanced.title} subtitle={messages.advanced.subtitle} badge={data.source === 'mock' ? <SourceBadge kind="sample" /> : undefined} />
+      <PageHeader title={messages.advanced.title} subtitle={messages.advanced.subtitle} badge={data.source === 'mock' ? <SourceBadge kind="sample" /> : data.fsrs?.enabled ? <SourceBadge kind="mixed" /> : undefined} />
       {data.fsrs?.enabled ? (
         <FsrsAnalytics fsrs={data.fsrs} decks={data.decks} todayKey={toDateKey(today)} />
       ) : (

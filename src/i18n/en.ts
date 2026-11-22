@@ -561,6 +561,8 @@ export const en = {
       shiftOptimise: (date: string) =>
         `Anki’s optimiser also reads your older answers. Its “Ignore cards reviewed before” setting can leave out those before ${date}.`,
       tableMixes: (date: string) => `These tables and the curve cover your whole history, including answers from before ${date}.`,
+      monthsBefore: (month: string, date: string) =>
+        `${month} and earlier include answers from before they changed on ${date}, so they aren’t comparable with later months.`,
       fewLapses: (n: number) => `With only ${int(n)} forgotten ${plural(n, 'review', 'reviews')} so far, this may still shift.`,
       planner: 'In the Planner, the “Your lapse rate” model allows for this gap.',
     },
