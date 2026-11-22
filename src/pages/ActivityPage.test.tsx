@@ -56,7 +56,7 @@ describe('Activity headline cards', () => {
   it('doesn’t rate cards known well from a thin sample', () => {
     show(data([1, 1]))
     expect(screen.getByText(m.rememberedThin)).toBeTruthy()
-    expect(screen.queryByText(/cards known well 100/)).toBeNull()
+    expect(screen.queryByText(/Cards known well: 100/)).toBeNull()
   })
 
   it('gives a short message, not a row of zeros, with no scheduled reviews', () => {
@@ -69,7 +69,7 @@ describe('Activity headline cards', () => {
 
   it('rates cards known well once there are enough reviews', () => {
     show(data([100, 95]))
-    expect(screen.getByText(/cards known well 95\.0%/)).toBeTruthy()
+    expect(screen.getByText(/Cards known well: 95\.0%/)).toBeTruthy()
   })
 
   it('says "no change" rather than an arrow when nothing moved', () => {

@@ -117,7 +117,17 @@ export function ActivityPage({ data, range, onRangeChange }: Props) {
         />
         <StatCard
           label={m.remembered}
-          tip={m.rememberedTip}
+          tip={
+            reviewCards.reviews > 0 ? (
+              <>
+                {m.rememberedTip}
+                {/* Kept in the tip so the card stays as short as its neighbours */}
+                <span className="mt-1 block">{matureThin ? m.rememberedThin : m.rememberedKnown(formatRate(mature.rate))}</span>
+              </>
+            ) : (
+              m.rememberedTip
+            )
+          }
           value={reviewCards.reviews > 0 ? formatRate(reviewCards.rate) : '—'}
           visual={reviewCards.reviews > 0 && <AnswerBar {...answerCounts(reviewCards)} />}
           hint={
@@ -126,7 +136,6 @@ export function ActivityPage({ data, range, onRangeChange }: Props) {
             ) : (
               <>
                 {m.rememberedSub(reviewCards.reviews)}
-                <span className="mt-0.5 block">{matureThin ? m.rememberedThin : m.rememberedKnown(formatRate(mature.rate))}</span>
                 {shift && <span className="mt-0.5 block font-semibold text-ink-2">{m.rememberedShift(formatRate(shift.rate), formatShortDate(shift.date))}</span>}
               </>
             )
