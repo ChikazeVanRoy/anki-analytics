@@ -7,7 +7,7 @@ import { mockData } from './mockData'
 import type { AnkiData } from './types'
 
 type Ready = { status: 'ready'; data: AnkiData; fromSnapshot?: boolean; fromCloud?: boolean; fallbackReason?: string; fallbackKind?: FailureKind }
-type State = { status: 'loading' } | { status: 'sign-in' } | Ready
+export type State = { status: 'loading' } | { status: 'sign-in' } | Ready
 
 /** Why real data could not be loaded, so the banner can say what to do about it. 'cloud': Firebase, on a phone. */
 export type FailureKind = 'api-down' | 'timeout' | 'collection' | 'server' | 'cloud'
@@ -70,7 +70,7 @@ async function savedSnapshot(): Promise<AnkiData | null> {
   }
 }
 
-type Loaded = Ready | { status: 'sign-in' }
+export type Loaded = Ready | { status: 'sign-in' }
 
 /**
  * The best stats available right now: live from the Mac, then (on a phone) your Firebase project, then the snapshot kept
@@ -97,7 +97,9 @@ async function loadBest(): Promise<Loaded> {
 }
 
 /** What to show after looking again. Unchanged stats keep their object, so the pages don't recalculate for nothing. */
-function afterRecheck(current: State, next: Loaded): State {
+export function afterRecheck(current: State, next: Loaded): State {
+  // Firebase ended the session (or the account was signed out elsewhere): ask again rather than keep the old stats
+  if (next.status === 'sign-in') return current.status === 'ready' ? next : current
   if (current.status !== 'ready' || next.status !== 'ready' || next.data.source === 'mock') return current
   return next.fromSnapshot && current.data.generatedAt === next.data.generatedAt ? current : next
 }
