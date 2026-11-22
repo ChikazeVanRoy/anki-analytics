@@ -5,6 +5,7 @@ import { messages } from '../i18n'
 import { MIN_MATURE_SAMPLE, type Bucket, type DeckSummary } from '../lib/stats'
 import { formatBucketTick, formatBucketTitle, formatInt, formatMinutes, formatPct, formatRate, formatShortDate } from '../lib/format'
 import { chart } from '../lib/theme'
+import { niceTicks, rowsMax } from '../lib/ticks'
 import { ChartTooltip } from './ChartTooltip'
 import { LegendItem, Panel } from './Panel'
 import { Notice } from './ui'
@@ -91,6 +92,7 @@ interface DeckComparisonProps {
 }
 
 export function DeckComparison({ summaries, againRows, decks, bucket, period, shiftDate, sinceChange = {} }: DeckComparisonProps) {
+  const againTicks = niceTicks(rowsMax(againRows), 4, 0.01) // ticks are labelled in whole percent
   const deckColor = useDeckColor()
   return (
     <Panel title={c.title} eyebrow={c.eyebrow} subtitle={c.subtitle(period)}>
@@ -134,7 +136,8 @@ export function DeckComparison({ summaries, againRows, decks, bucket, period, sh
                 tick={{ fill: chart.muted, fontSize: 12 }}
                 axisLine={false}
                 tickLine={false}
-                domain={[0, 'auto']}
+                ticks={againTicks}
+                domain={[0, againTicks[againTicks.length - 1]]}
               />
               <Tooltip
                 cursor={{ stroke: chart.muted, strokeDasharray: '3 3' }}

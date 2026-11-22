@@ -26,6 +26,7 @@ import { gradingShift, lapseBasis } from '../lib/gradingShift'
 import { deckLimits, defaultBudget, minutesAt, pilesUpAt, PLAN_PRESETS, planPresets, planSettings, standardSweep, type PlanPreset, type PlanPresetKey } from '../lib/plan'
 import { buildSimDecks, HORIZONS, presetRetentionLabel, type SimDay, type SimSettings } from '../lib/simulator'
 import { chart, forecast } from '../lib/theme'
+import { niceTicks, rowsMax } from '../lib/ticks'
 import { ChartTooltip } from './ChartTooltip'
 import { GoalPlanner } from './GoalPlanner'
 import { CheckIcon, RefreshIcon, SparkleIcon, WarningIcon } from './icons'
@@ -126,6 +127,7 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
   const year = main?.byHorizon[365]
   const toMin = (reviews: number) => (reviews * secs) / 60
   const { rows, weekly } = useMemo(() => (main ? timeline(main.days, horizon, todayKey) : { rows: [], weekly: false }), [main, horizon, todayKey])
+  const yTicks = niceTicks(rowsMax(rows, ['total', 'band']), 4, 1)
 
   const sweep = scenarios?.newPerDay ?? []
   const scenarioRows = sweep
@@ -529,7 +531,14 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
                     tickLine={false}
                     minTickGap={28}
                   />
-                  <YAxis tick={{ fill: chart.muted, fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={formatInt} />
+                  <YAxis
+                    tick={{ fill: chart.muted, fontSize: 12 }}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={formatInt}
+                    ticks={yTicks}
+                    domain={[0, yTicks[yTicks.length - 1]]}
+                  />
                   <Tooltip
                     cursor={{ stroke: chart.muted, strokeDasharray: '3 3' }}
                     content={({ active, payload, label }) => {
