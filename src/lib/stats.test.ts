@@ -15,6 +15,7 @@ import {
   workSplit,
   retentionSplit,
   reviewsByPeriod,
+  studyRunStart,
   summarize,
   toDateKey,
 } from './stats'
@@ -101,9 +102,19 @@ describe('summarize', () => {
     expect(s.avgPerDay).toBeCloseTo(100 / 7)
     expect(s.activeDays).toBe(2)
   })
-  it('flags when the previous period had no reviews (so no misleading comparison)', () => {
+  it('only compares when the history covers the whole previous period', () => {
     expect(summarize(data([stat('2026-03-15', 'a', 10)]), 7).hasPrevious).toBe(false)
-    expect(summarize(data([stat('2026-03-15', 'a', 10), stat('2026-03-05', 'a', 10)]), 7).hasPrevious).toBe(true)
+    // Study began midway through the previous week: comparing with it would overstate the change.
+    expect(summarize(data([stat('2026-03-15', 'a', 10), stat('2026-03-05', 'a', 10)]), 7).hasPrevious).toBe(false)
+    expect(summarize(data([stat('2026-03-15', 'a', 10), stat('2026-03-09', 'a', 10), stat('2026-03-02', 'a', 10)]), 7).hasPrevious).toBe(true)
+  })
+  it('treats a return after a long break like a fresh start', () => {
+    // Studied years ago, then came back midway through the previous week
+    const back = [stat('2026-03-15', 'a', 10), stat('2026-03-05', 'a', 10), stat('2024-01-10', 'a', 10)]
+    expect(summarize(data(back), 7).hasPrevious).toBe(false)
+    // A short break inside the run doesn't reset it
+    expect(studyRunStart(totalsByDate([stat('2026-03-15', 'a', 1), stat('2026-03-08', 'a', 1), stat('2026-03-03', 'a', 1)]), 7)).toBe('2026-03-03')
+    expect(studyRunStart(totalsByDate([]), 7)).toBeNull()
   })
   it('computes retention from review-card answers only', () => {
     const s = summarize(

@@ -76,8 +76,10 @@ describe('Activity headline cards', () => {
     const d = data([100, 95])
     const today = ankiToday(d)
     const earlier = new Date(today)
-    earlier.setDate(earlier.getDate() - 30)
-    d.daily = [{ ...d.daily[0], date: toDateKey(earlier) }, ...d.daily]
+    earlier.setDate(earlier.getDate() - 59) // the first day of the previous 30
+    const middle = new Date(earlier)
+    middle.setDate(middle.getDate() + 29) // no 30-day break, so the run covers the previous 30 days
+    d.daily = [{ ...d.daily[0], date: toDateKey(earlier) }, { ...d.daily[0], date: toDateKey(middle) }, ...d.daily]
     show(d)
     const card = screen.getAllByText(m.forgot)[0].closest('div.animate-rise') as HTMLElement
     expect(within(card).getByText(m.noChange).className).toContain('bg-good-soft')
@@ -98,8 +100,10 @@ describe('Activity headline cards', () => {
   it('says what changes are compared with, once', () => {
     const d = data([100, 95])
     const earlier = new Date(ankiToday(d))
-    earlier.setDate(earlier.getDate() - 30)
-    d.daily = [{ ...d.daily[0], date: toDateKey(earlier) }, ...d.daily]
+    earlier.setDate(earlier.getDate() - 59) // the first day of the previous 30
+    const middle = new Date(earlier)
+    middle.setDate(middle.getDate() + 29) // no 30-day break, so the run covers the previous 30 days
+    d.daily = [{ ...d.daily[0], date: toDateKey(earlier) }, { ...d.daily[0], date: toDateKey(middle) }, ...d.daily]
     show(d)
     expect(screen.getAllByText(m.compareWith(30))).toHaveLength(1)
   })

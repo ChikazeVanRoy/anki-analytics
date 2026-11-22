@@ -3,7 +3,7 @@
 
 import type { AnkiData, DailyDeckStat, Deck } from '../data/types'
 import { messages } from '../i18n'
-import { ankiDate, parseDateKey, toDateKey } from './dates'
+import { ankiDate, dayNumber, parseDateKey, toDateKey } from './dates'
 
 export { parseDateKey, toDateKey } from './dates'
 
@@ -139,20 +139,33 @@ export const answerCounts = ({ reviews, passed, hard }: Retention['reviewCards']
   good: passed - hard,
 })
 
+/** The first day of the latest stretch of study with no break of `gap` days or more, or null with no reviews. */
+export function studyRunStart(byDate: Map<string, { reviews: number }>, gap: number): string | null {
+  const days = [...byDate.keys()].filter((d) => (byDate.get(d)?.reviews ?? 0) > 0).sort()
+  if (!days.length) return null
+  let start = days.length - 1
+  while (start > 0 && dayNumber(days[start]) - dayNumber(days[start - 1]) <= gap) start--
+  return days[start]
+}
+
 /** `today` sets where the windows end: normally now, or the copy's day when it's out of date. */
 export function summarize(data: AnkiData, days: number, today = ankiToday(data)) {
   const byDate = totalsByDate(data.daily)
   const range = lastNDays(days, 0, today)
   const inRange = new Set(range)
   const current = sumDays(byDate, range)
-  const previous = sumDays(byDate, lastNDays(days, days, today))
+  const previousRange = lastNDays(days, days, today)
+  const previous = sumDays(byDate, previousRange)
+  // Only compare with a previous window you were studying through from its first day. If study began, or resumed
+  // after a break longer than the window, partway through it, the half-empty window makes every change look huge.
+  const runStart = studyRunStart(byDate, days)
 
   return {
     totalCards: data.decks.reduce((n, d) => n + d.totalCards, 0),
     reviewsToday: byDate.get(range[range.length - 1])?.reviews ?? 0,
     avgPerDay: current.reviews / days,
     prevAvgPerDay: previous.reviews / days,
-    hasPrevious: previous.reviews > 0,
+    hasPrevious: previous.reviews > 0 && runStart !== null && runStart <= previousRange[0],
     againRate: ratio(current.again, current.reviews),
     prevAgainRate: ratio(previous.again, previous.reviews),
     activeDays: range.filter((d) => (byDate.get(d)?.reviews ?? 0) > 0).length,

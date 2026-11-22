@@ -57,7 +57,7 @@ export function ActivityPage({ data, range, onRangeChange }: Props) {
   const againRows = useMemo(() => againRateSeries(data, days), [data, days])
   const hardRows = useMemo(() => hardShareSeries(data, days), [data, days])
 
-  // Only compare with the previous period if there was one with reviews in it
+  // Only compare when you've studied without a long break since before the previous period (studyRunStart)
   const canCompare = range !== 'all' && summary.hasPrevious
   const avgChange = summary.avgPerDay / summary.prevAvgPerDay - 1
   const againChange = summary.againRate - summary.prevAgainRate // percentage points

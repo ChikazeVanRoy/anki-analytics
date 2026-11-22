@@ -462,7 +462,7 @@ export const en = {
     hardThin: 'Too few scheduled reviews in this period to draw a trend.',
     noChange: 'no change',
     compareWith: (days: number) => `Changes compare with the previous ${days} days.`,
-    compareNone: (days: number) => `No reviews in the previous ${days} days, so there’s nothing to compare with yet.`,
+    compareNone: (days: number) => `You weren’t studying through the whole previous ${days} days, so there’s nothing fair to compare with yet.`,
     deckThin: (n: number) => `only ${int(n)}, too few to rate`,
     earlier: 'Earlier',
     later: 'Later',
