@@ -7,7 +7,7 @@ import { messages } from '../i18n'
 import { ankiDayKey, dayNumber, keyFromDayNumber, toDateKey } from './dates'
 import { formatPct, formatRate } from './format'
 import { shiftWithin } from './gradingShift'
-import { deckSummaries, lastNDays, MIN_RATE_SAMPLE, ratio, retentionSplit, type DayTotal } from './stats'
+import { deckSummaries, lastNDays, MIN_RATE_SAMPLE, ratio, retentionSplit, studyRunStart, type DayTotal } from './stats'
 
 const studied = (byDate: Map<string, DayTotal>, key: string) => (byDate.get(key)?.reviews ?? 0) > 0
 
@@ -17,14 +17,20 @@ const reviewsOn = (byDate: Map<string, DayTotal>, keys: string[]) =>
 export interface WeekComparison {
   thisWeek: number // reviews in the last 7 days, today included
   lastWeek: number // the 7 days before that
-  /** Relative change, or null when the previous week had no reviews (no meaningful comparison). */
+  /**
+   * Relative change, or null with no fair comparison: no reviews the week before, or study began (or resumed after a
+   * break of a week or more) partway through it, as on Activity.
+   */
   change: number | null
 }
 
 export function weekComparison(byDate: Map<string, DayTotal>, today: Date): WeekComparison {
   const thisWeek = reviewsOn(byDate, lastNDays(7, 0, today))
-  const lastWeek = reviewsOn(byDate, lastNDays(7, 7, today))
-  return { thisWeek, lastWeek, change: lastWeek > 0 ? thisWeek / lastWeek - 1 : null }
+  const before = lastNDays(7, 7, today)
+  const lastWeek = reviewsOn(byDate, before)
+  const runStart = studyRunStart(byDate, 7)
+  const fair = lastWeek > 0 && runStart !== null && runStart <= before[0]
+  return { thisWeek, lastWeek, change: fair ? thisWeek / lastWeek - 1 : null }
 }
 
 /** Reviews per day for the last `n` days, oldest first, for the Home activity strip. */

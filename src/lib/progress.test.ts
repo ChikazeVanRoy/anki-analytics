@@ -66,6 +66,11 @@ describe('weekComparison', () => {
   it('has no change when the previous week was empty', () => {
     expect(weekComparison(totalsByDate(on([0])), TODAY).change).toBeNull()
   })
+  it('has no change when you came back partway through the previous week', () => {
+    // Studied a month ago, then resumed 10 days ago: last week is only partly studied, so a rise would mislead
+    const byDate = totalsByDate([...on([0, 3, 6], 20), ...on([8, 10], 15), ...on([40], 5)])
+    expect(weekComparison(byDate, TODAY).change).toBeNull()
+  })
 })
 
 describe('recentDays', () => {
@@ -125,19 +130,19 @@ describe('homeInsight', () => {
     expect(homeInsight(d, totalsByDate(d.daily), TODAY)).toBeNull()
   })
   it('celebrates a clearly busier week', () => {
-    const d = data([...on([0, 1, 2], 20), ...on([8, 9], 15)])
+    const d = data([...on([0, 1, 2], 20), ...on([9, 13], 15)]) // studied from the first day of last week
     const i = homeInsight(d, totalsByDate(d.daily), TODAY)!
     expect(i.tone).toBe('good')
     expect(i.text).toContain('100% more in the last 7 days')
   })
   it('describes a quieter week without blame', () => {
-    const d = data([...on([0], 10), ...on([8, 9], 30)])
+    const d = data([...on([0], 10), ...on([7, 13], 30)])
     const i = homeInsight(d, totalsByDate(d.daily), TODAY)!
     expect(i.tone).toBe('neutral')
     expect(i.text).toMatch(/^A lighter week/)
   })
   it('doesn’t cap a rise above 100%', () => {
-    const d = data(on([1], 250).concat(on([8], 100)))
+    const d = data(on([1], 250).concat(on([7, 13], 50)))
     expect(homeInsight(d, totalsByDate(d.daily), TODAY)!.text).toMatch(/150% more in the last 7 days/)
   })
   it('names the strongest deck when both have enough reviews', () => {

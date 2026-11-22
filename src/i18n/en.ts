@@ -279,7 +279,7 @@ export const en = {
       weekSub: 'reviews in the last 7 days',
       weekVs: (pct: string, up: boolean) => `${up ? '▲' : '▼'} ${pct} vs the 7 days before`,
       weekSame: 'same as the 7 days before',
-      weekNoPrev: 'no reviews the 7 days before',
+      weekNoPrev: 'no full week before to compare with',
       remembered: 'Remembered',
       rememberedSub: (n: number) => `of ${int(n)} scheduled reviews, last 30 days`,
       rememberedYoungNote: (knownReviews: number) =>
