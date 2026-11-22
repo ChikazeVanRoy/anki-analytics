@@ -346,7 +346,7 @@ describe('nextStep', () => {
 
   it('puts reviews first, then new cards, then rest', () => {
     expect(nextStep(work(5, 10))).toEqual({ kind: 'reviews', cards: 5, minutes: 10 })
-    expect(nextStep(work(0, 10))).toEqual({ kind: 'new', cards: 10, minutes: 10 })
+    expect(nextStep(work(0, 10))).toEqual({ kind: 'new', cards: 10, minutes: 10, capped: false })
     expect(nextStep(work(0, 0, 0))).toEqual({ kind: 'done' })
   })
 
@@ -355,7 +355,7 @@ describe('nextStep', () => {
   })
 
   it('stops new cards at your pace', () => {
-    expect(nextStep(work(0, 40, 40, 0), 10)).toEqual({ kind: 'new', cards: 10, minutes: 10 })
+    expect(nextStep(work(0, 40, 40, 0), 10)).toEqual({ kind: 'new', cards: 10, minutes: 10, capped: true })
     expect(nextStep(work(0, 5, 5, 0), 10)).toMatchObject({ cards: 5 })
   })
 

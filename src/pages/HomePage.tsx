@@ -315,7 +315,7 @@ function Hero({
 function NextUp({ step, fromSnapshot }: { step: NextStep; fromSnapshot: boolean }) {
   const n = m.next
   const title =
-    step.kind === 'reviews' ? n.reviews(step.cards, step.minutes) : step.kind === 'new' ? n.fresh(step.cards, step.minutes) : step.kind === 'done' ? n.done : fromSnapshot ? n.snapshotRefresh : n.refresh
+    step.kind === 'reviews' ? n.reviews(step.cards, step.minutes) : step.kind === 'new' ? (step.capped ? n.freshCapped(step.cards, step.minutes) : n.fresh(step.minutes)) : step.kind === 'done' ? n.done : fromSnapshot ? n.snapshotRefresh : n.refresh
   const sub = step.kind === 'done' ? n.doneSub : fromSnapshot ? n.snapshotSub : step.kind === 'refresh' ? n.refreshSub : n.sub
   return (
     <div className="relative mt-4 rounded-2xl bg-surface p-4 shadow-card">
@@ -409,9 +409,12 @@ function PlanSuggestion({ plan }: { plan: TodayPlan }) {
             : max.capped
               ? t.suggestCapped(max.value, budget)
               : t.suggest(max.value, budget)}
-      {max && max.value > 0 && finishMonth && ` ${t.suggestFinish(max.value, finishMonth)}`}
       {ahead && ` ${current.pilesUp ? t.suggestCurrentPiles(current.newPerDay) : t.suggestCurrent(current.newPerDay, minutes)}`}
-      <InfoTip label={t.suggestTipLabel}>{t.suggestTip(budget)}</InfoTip>
+      {/* The finish date sits in the tip, to keep the hero short */}
+      <InfoTip label={t.suggestTipLabel}>
+        {max && max.value > 0 && finishMonth && <span className="mb-1 block">{t.suggestFinish(max.value, finishMonth)}</span>}
+        {t.suggestTip(budget)}
+      </InfoTip>
     </p>
   )
 }

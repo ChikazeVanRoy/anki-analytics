@@ -281,7 +281,7 @@ export function todayWork(data: AnkiData, today: Date, seconds: number): TodayWo
 export type NextStep =
   | { kind: 'refresh' } // the copy is from an earlier day
   | { kind: 'reviews'; cards: number; minutes: number }
-  | { kind: 'new'; cards: number; minutes: number }
+  | { kind: 'new'; cards: number; minutes: number; capped: boolean } // capped: your pace allows fewer than Anki has
   | { kind: 'done' }
 
 /** `paceNew`: the new cards a day that fit your time. New cards stop there, whatever Anki's limit would allow. */
@@ -290,7 +290,7 @@ export function nextStep(due: TodayWork, paceNew: number | null = null): NextSte
   if (due.cards > 0) return { kind: 'reviews', cards: due.cards, minutes: Math.max(1, Math.round(due.reviewMinutes)) }
   if (due.newCards === 0) return { kind: 'done' }
   const cards = paceNew ? Math.min(due.newCards, paceNew) : due.newCards
-  return { kind: 'new', cards, minutes: Math.max(1, Math.round((due.minutes * cards) / due.newCards)) }
+  return { kind: 'new', cards, minutes: Math.max(1, Math.round((due.minutes * cards) / due.newCards)), capped: cards < due.newCards }
 }
 
 // ---------- One insight ----------

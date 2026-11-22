@@ -163,8 +163,11 @@ export const en = {
     },
     next: {
       label: 'Next up',
-      reviews: (n: number, minutes: number) => `${int(n)} ${plural(n, 'review', 'reviews')}, about ${int(minutes)} min`,
-      fresh: (n: number, minutes: number) => `Up to ${int(n)} new ${plural(n, 'card', 'cards')}, about ${int(minutes)} min`,
+      // The tiles below give the count, so this says what to do first and how long it takes
+      reviews: (_n: number, minutes: number) => `Start with your reviews, about ${int(minutes)} min`,
+      // The count only when your pace stops short of what Anki has ready, as the tile below already shows that
+      fresh: (minutes: number) => `Start your new cards, about ${int(minutes)} min`,
+      freshCapped: (n: number, minutes: number) => `Up to ${int(n)} new ${plural(n, 'card', 'cards')}, about ${int(minutes)} min`,
       done: 'All done for today',
       doneSub: 'Nothing left in Anki. Enjoy the rest of your day.',
       refresh: 'Update your copy to see today’s cards',
