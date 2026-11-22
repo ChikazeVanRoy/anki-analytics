@@ -96,12 +96,14 @@ export function AppShell(props: ShellProps) {
           <div className="ml-auto flex items-center gap-2 md:ml-0">
             <span
               title={sample ? fallbackReason : m.data.copiedAt(copied)}
-              className={`hidden items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold lg:inline-flex ${
+              // On a phone only the dot shows, so it still says at a glance whether the numbers are live. Between md and
+              // lg the full nav takes the room, so it's hidden there, as it was before
+              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-2.5 text-xs font-bold md:hidden lg:inline-flex lg:px-3 lg:py-1.5 ${
                 sample ? 'bg-warning-soft text-warning' : fromSnapshot ? 'bg-surface-2 text-ink-2' : 'bg-good-soft text-good'
               }`}
             >
               {sample ? <WarningIcon size={14} /> : <span className={`size-2 rounded-full ${fromSnapshot ? 'bg-muted' : 'bg-good'}`} aria-hidden />}
-              {sample ? m.data.sample : fromSnapshot ? m.data.snapshot : m.data.live}
+              <span className="sr-only lg:not-sr-only">{sample ? m.data.sample : fromSnapshot ? m.data.snapshot : m.data.live}</span>
             </span>
             {!unreachable && (
               <button
@@ -113,7 +115,7 @@ export function AppShell(props: ShellProps) {
                 className="inline-flex h-10 items-center gap-2 rounded-2xl border border-line bg-surface px-3 text-sm font-bold text-ink-2 shadow-card transition-all hover:text-ink active:scale-95 disabled:opacity-60"
               >
                 <RefreshIcon size={18} spinning={refreshing} />
-                <span className="hidden sm:inline">{refreshing ? m.data.refreshing : m.data.refresh}</span>
+                <span className="hidden lg:inline">{refreshing ? m.data.refreshing : m.data.refresh}</span>
               </button>
             )}
             <button
