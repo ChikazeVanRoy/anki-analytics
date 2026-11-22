@@ -152,8 +152,9 @@ export const en = {
   home: {
     greeting: { morning: 'Good morning', afternoon: 'Good afternoon', evening: 'Good evening' },
     status: {
-      done: (n: number) => `You’ve reviewed ${int(n)} ${plural(n, 'card', 'cards')} today. Nice work!`,
-      doneMoreDue: (n: number) => `You’ve reviewed ${int(n)} ${plural(n, 'card', 'cards')} today, with more waiting when you’re ready.`,
+      // n counts every answer, learning steps included, so it's answers rather than cards
+      done: (n: number) => `You’ve answered ${int(n)} ${plural(n, 'time', 'times')} today, learning steps included. Nice work!`,
+      doneMoreDue: (n: number) => `You’ve answered ${int(n)} ${plural(n, 'time', 'times')} today, with more waiting when you’re ready.`,
       keep: (streak: number) => `Your ${streak}-day streak is waiting. A short session today keeps it going.`,
       start: 'Ready when you are. A short session today starts a new streak.',
       stale: (date: string | null) =>
