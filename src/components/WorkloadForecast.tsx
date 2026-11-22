@@ -160,6 +160,9 @@ export function WorkloadForecast({ fsrs, decks: allDecks, todayKey, startWeekday
           sweep: scenarios.newPerDay.map((s) => ({ value: s.value, year: s.byHorizon[365] })),
           capacitySweep: standardSweep(scenarios.newPerDay),
           deckNames,
+          // Read off the scenarios only within their range: beyond the last one it would be a guess, and the main
+          // run has simulated this exact pace
+          heaviestMinutes: newPerDay <= Math.max(...SCENARIO_NEW_PER_DAY) ? minutesAt(standardSweep(scenarios.newPerDay), newPerDay, secs) : null,
           otherRecall: scenarios.otherRecall && {
             sweep: standardSweep(scenarios.otherRecall),
             used: messages.planner.recall[recall],

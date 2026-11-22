@@ -484,7 +484,8 @@ export const en = {
       push: 'Push',
       current: 'Current',
       newCards: (n: number) => `≈ ${int(n)} new`,
-      fits: (minutes: number) => `fits ${int(minutes)} min`,
+      // A ceiling on the heaviest month, over the budget for Push, so not "fits"
+      fits: (minutes: number) => `peaks ≤ ${int(minutes)} min`,
       heaviest: (minutes: number) => `peaks at ${int(minutes)} min`,
       pilesUp: 'reviews pile up',
       limits: (list: string) => `To follow this in Anki, set New cards/day to ${list}.`,

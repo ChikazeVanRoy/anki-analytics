@@ -154,6 +154,23 @@ describe('insights', () => {
     expect(out[3].answer).toContain('30 new/day adds about 20 reviews')
     expect(out[3].answer).toContain('10 new/day removes about 20 reviews')
   })
+
+  it('uses the given heaviest month for both the workload answer and the changes, so they agree', () => {
+    const out = buildInsights({
+      newPerDay: 20,
+      secondsPerReview: 60,
+      budgetMinutes: 60,
+      recentMinutesPerStudyDay: 25,
+      year: sweep[2].year, // the main run's 50, which differs by chance
+      horizon: summary(0),
+      sweep,
+      deckNames: {},
+      heaviestMinutes: 52,
+    })
+    expect(out[0].answer).toContain('about 52 reviews (52 min)')
+    expect(out[0].tone).toBe('good')
+    expect(out.at(-1)!.answer).toContain('30 new/day adds about 18 reviews') // 70 − 52
+  })
 })
 
 describe('fsrsVerdict', () => {

@@ -22,6 +22,11 @@ export interface InsightInputs {
   /** The scenarios the sustainable limit is read from, if not all of them. Keeps it equal to the plan shown on Home. */
   capacitySweep?: { value: number; year: HorizonSummary }[]
   deckNames: Record<string, string>
+  /**
+   * Minutes per study day in the heaviest month at `newPerDay`, read off the same scenarios as the Planner's paces and
+   * Home, so every page gives one figure. Falls back to the main run's own figure, which differs by chance; leave it out beyond the scenarios' range.
+   */
+  heaviestMinutes?: number | null
   /** The same scenarios with the other recall model, and the names of the two models (the one in use first). */
   otherRecall?: { sweep: { value: number; year: HorizonSummary }[]; used: string; other: string }
 }
@@ -57,7 +62,8 @@ export function maxSustainableNewPerDay(
 
 export function buildInsights(x: InsightInputs): Insight[] {
   const out: Insight[] = []
-  const heavy = mins(x.year.maxWindowPerStudyDay, x.secondsPerReview)
+  const heavy = x.heaviestMinutes ?? mins(x.year.maxWindowPerStudyDay, x.secondsPerReview)
+  const heavyReviews = (heavy * 60) / x.secondsPerReview
 
   // 1. Sustainability
   if (x.year.backlogEnd > 1) {
@@ -72,9 +78,9 @@ export function buildInsights(x: InsightInputs): Insight[] {
     out.push({
       question: 'Is my current workload sustainable?',
       answer: ok
-        ? `Yes. At ${x.newPerDay} new cards/day your heaviest month averages about ${fmt(x.year.maxWindowPerStudyDay)} reviews (${fmt(heavy)} min) per study day, within your ${fmt(x.budgetMinutes)}-minute budget.`
-        : `Not within your budget. At ${x.newPerDay} new cards/day your heaviest month averages about ${fmt(x.year.maxWindowPerStudyDay)} reviews (${fmt(heavy)} min) per study day, ${fmt(heavy - x.budgetMinutes)} min over your ${fmt(x.budgetMinutes)}-minute budget. You currently study about ${fmt(x.recentMinutesPerStudyDay)} min per study day.`,
-      basis: `Heaviest 30 days of a simulated year (mean of runs), at ${x.secondsPerReview.toFixed(0)} s per review.`,
+        ? `Yes. At ${x.newPerDay} new cards/day your heaviest month averages about ${fmt(heavyReviews)} reviews (${fmt(heavy)} min) per study day, within your ${fmt(x.budgetMinutes)}-minute budget.`
+        : `Not within your budget. At ${x.newPerDay} new cards/day your heaviest month averages about ${fmt(heavyReviews)} reviews (${fmt(heavy)} min) per study day, ${fmt(heavy - x.budgetMinutes)} min over your ${fmt(x.budgetMinutes)}-minute budget. You currently study about ${fmt(x.recentMinutesPerStudyDay)} min per study day.`,
+      basis: `Heaviest 30 days of a simulated year (mean of runs, read off the new-card scenarios), at ${x.secondsPerReview.toFixed(0)} s per review.`,
       tone: ok ? 'good' : 'warning',
     })
   }
@@ -135,7 +141,8 @@ export function buildInsights(x: InsightInputs): Insight[] {
   if (cur && (less || more)) {
     const parts: string[] = []
     const delta = (s: (typeof x.sweep)[number]) => {
-      const dReviews = s.year.maxWindowPerStudyDay - cur.year.maxWindowPerStudyDay
+      // From the same baseline as the sustainability answer, so the two agree
+      const dReviews = s.year.maxWindowPerStudyDay - heavyReviews
       return `${s.value} new/day ${dReviews >= 0 ? 'adds' : 'removes'} about ${fmt(Math.abs(dReviews))} reviews (${fmt(Math.abs(mins(dReviews, x.secondsPerReview)))} min) per study day in the heaviest month`
     }
     if (more) parts.push(delta(more))
