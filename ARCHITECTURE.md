@@ -1,7 +1,6 @@
 # Architecture
 
-How Anki Analytics is actually built, based on the source code in this repository (branch
-`feature/fsrs-forecast`). Everything under "Implemented today" exists in the code; anything planned is
+How Anki Analytics is actually built, based on the source code on `main`. Everything under "Implemented today" exists in the code; anything planned is
 listed separately under "Not implemented".
 
 ## In one paragraph
@@ -11,7 +10,9 @@ file into the project's `data/` folder, reads that copy with Node's built-in SQL
 serves one JSON document over HTTP on `127.0.0.1:5174`. A React app (`src/`), served by the Vite dev
 server on `localhost:5173`, fetches that JSON through Vite's proxy and computes everything else in the
 browser: dashboard statistics, FSRS memory metrics, and a Monte Carlo workload forecast that runs in a
-Web Worker. There is no database server, no accounts and no cloud component.
+Web Worker. There is no database server. Two optional ways reach a phone: a read-only route for one
+Tailscale machine (`server/phoneAccess.ts`), and an upload of the snapshot, with the note text removed, to
+the owner's own Firebase project (`server/cloud.ts`), which the phone reads after signing in.
 
 ## 1. System architecture
 
@@ -73,7 +74,8 @@ flowchart LR
   Sim --> Engine
 ```
 
-**API endpoints** (all in `server/app.ts`, which answers only when the Host header is `localhost`, `127.0.0.1` or `[::1]`):
+**API endpoints** (all in `server/app.ts`, which answers only when the Host header is `localhost`, `127.0.0.1` or `[::1]`,
+or is the Tailscale name set up for the phone; the phone only gets the app files and a snapshot without note text):
 
 | Method & path | What it does | Responses |
 |---|---|---|
@@ -82,12 +84,17 @@ flowchart LR
 | `GET /api/status` | Whether Anki is open and whether a refresh would bring in new reviews. Compares file dates only and never opens Anki's collection | 200 |
 | `GET /snapshot.json` | Returns the file saved by `npm run snapshot`: `{ version, data: AnkiData }` | 200, 404 (none saved) |
 | `POST /api/refresh` | Requires header `X-Requested-By: anki-analytics`; re-copies the collection from Anki, then returns fresh `AnkiData` | 200, 403, 409 (Anki open / bad profile), 500 |
+| `GET /api/version` | The commit the server started from, and whether the checkout has moved on since | 200 |
+| `POST /api/update` | Requires the same header; runs `git fetch` and a fast-forward from GitHub when you press Update. The only request that leaves the Mac apart from the Firebase upload | 200, 403, 500 |
 | anything else | | 404 (403 for a foreign Host) |
 
 The browser never talks to port 5174 directly: `vite.config.ts` proxies `/api` to `http://127.0.0.1:5174`.
 
 **There is no database server.** The only "database" is the SQLite file Anki itself writes; this app
-reads a copy of it. Nothing is stored by the app apart from that copy (and the browser keeps nothing).
+reads a copy of it. On the Mac the app also keeps `data/snapshot.json` and its Firebase settings in `data/`
+(the password is in the Keychain). The browser keeps small preferences in `localStorage` (theme, sound, per-deck
+paces, goals, the last visit for the session recap and, on a phone, the Firebase sign-in), and the service worker
+caches the app and the latest snapshot for offline use.
 
 ## 2. Data flow: from Anki to the dashboard
 
@@ -242,7 +249,7 @@ Notes from the code:
 `src/lib/*.test.ts` (FSRS, simulator, stats, heatmap, insights, measured defaults, FSRS status, Home progress, routes, formatting).
 `src/lib/fsrs.test.ts` also checks the FSRS engine against reference states exported from Anki's own
 engine for synthetic histories (`src/lib/fixtures/anki-fsrs-reference.json`).
-No React component or end-to-end tests exist yet.
+Component and page tests sit next to their files (`*.test.tsx`), and `e2e/` holds Playwright smoke tests.
 
 ### Validation scripts (`scripts/fsrs-validation/`, run by hand)
 
@@ -254,13 +261,13 @@ Results are in `docs/fsrs-validation.md`.
 
 | Area | Implemented today | Not implemented (would be needed for a multi-user SaaS) |
 |---|---|---|
-| Users | One person, one Mac | Accounts, sign-in, sessions |
+| Users | One person, one Mac; on a phone, Firebase email sign-in for accounts the owner lists in `allowed` | Self-service accounts |
 | Data intake | Copy of a local Anki profile (`~/Library/Application Support/Anki2`, macOS only) | Upload of Anki exports (`.colpkg`/`.apkg`, compressed `collection.anki21b`), schema-version checks, other OSes |
 | Storage | One file, `data/collection.anki2`, overwritten on refresh | Per-user storage, encryption at rest, retention and deletion, storing derived results instead of raw collections |
 | Configuration | Deck groups and exclusions in a git-ignored local config file (`anki-analytics.config.json`) | Per-user deck settings stored as data |
 | Computation | Whole collection re-read and replayed on every `GET /api/stats` (~0.5 s, blocks the server) | Caching, background jobs, horizontal scaling |
-| Security | Binds to 127.0.0.1, Host-header allowlist, refresh header, read-only SQLite | Authentication, authorisation, tenant isolation, rate limits, TLS, audit logging |
-| Deployment | `npm run dev` (Vite dev server + Node API) | Production hosting, a production server for the built app, monitoring, backups |
+| Security | Binds to 127.0.0.1, Host-header allowlist, refresh header, read-only SQLite; Firestore rules give each listed account only its own document | Rate limits, audit logging |
+| Deployment | `npm start` or the LaunchAgent (`npm run service`) serves the built app; `npm run dev` for development; Firebase Hosting for the phone | Monitoring, backups |
 | Quality | Unit, integration and page tests (Vitest), browser smoke tests (Playwright) | CI |
 
 ## 6. Weaknesses and risks
@@ -281,7 +288,7 @@ Results are in `docs/fsrs-validation.md`.
 - **Dependence on Anki's internal format.** The reader relies on undocumented details (protobuf field
   numbers, the `cards.data` JSON, due-number conventions). They were checked against this collection and
   Anki 26.9.3, and the reader degrades gracefully, but a future Anki version could change them.
-- **Dev-server deployment.** The app runs on Vite's development server; there is no production server
-  setup, and `npm run dev` relies on the shell's `&`, which doesn't work on Windows.
+- **macOS only.** The launcher, the LaunchAgent and the Keychain are macOS features, and `npm run dev` relies on
+  the shell's `&`, which doesn't work on Windows.
 - **Browser tests are smoke tests.** Playwright covers rendering, layout and data states on synthetic data.
   Chart contents and the real Web Worker's results are still checked by hand.
