@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AnkiData } from '../data/types'
-import { defaultMonth, monthWrapped, wrappedMonths } from './wrapped'
+import { defaultMonth, inTroubleWindow, monthWrapped, wrappedMonths } from './wrapped'
 
 const LATER = '2026-06-15'
 const row = (date: string, deckId: string, reviews: number) => ({ date, deckId, reviews, studySeconds: reviews * 60 })
@@ -55,5 +55,15 @@ describe('monthWrapped', () => {
 
   it('compares January with the December before', () => {
     expect(monthWrapped(data(row('2025-12-01', 'a', 10), row('2026-01-01', 'a', 20)), '2026-01', LATER)?.change).toBe(1)
+  })
+})
+
+describe('inTroubleWindow', () => {
+  it('covers the months the last 90 days touch, and no earlier', () => {
+    // 90 days back from 24 Nov 2026 is 27 Aug 2026
+    expect(inTroubleWindow('2026-11', '2026-11-24', 90)).toBe(true)
+    expect(inTroubleWindow('2026-08', '2026-11-24', 90)).toBe(true)
+    expect(inTroubleWindow('2026-07', '2026-11-24', 90)).toBe(false)
+    expect(inTroubleWindow('2024-07', '2026-11-24', 90)).toBe(false)
   })
 })

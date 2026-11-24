@@ -4,10 +4,10 @@ import { Mascot } from '../components/Mascot'
 import { SourceBadge } from '../components/ui'
 import type { AnkiData } from '../data/types'
 import { LOCALE, messages } from '../i18n'
-import { parseDateKey, toDateKey } from '../lib/dates'
+import { ankiDate, parseDateKey, toDateKey } from '../lib/dates'
 import { formatInt, formatLongDate, formatMinutes, formatPct } from '../lib/format'
 import { ankiToday } from '../lib/stats'
-import { defaultMonth, monthWrapped, wrappedMonths } from '../lib/wrapped'
+import { defaultMonth, inTroubleWindow, monthWrapped, wrappedMonths } from '../lib/wrapped'
 import { PageHeader } from './PageHeader'
 
 const m = messages.wrapped
@@ -32,7 +32,12 @@ export function WrappedPage({ data }: { data: AnkiData }) {
   const strip = useRef<HTMLDivElement>(null)
   const move = (direction: 1 | -1) => strip.current?.scrollBy({ left: direction * strip.current.clientWidth * 0.8, behavior: 'smooth' })
   const deckName = data.decks.find((d) => d.id === w?.topDeck?.deckId)?.name
-  const tough = data.source === 'anki' ? data.fsrs?.troubleCards?.[0] : undefined
+  const fsrs = data.source === 'anki' ? data.fsrs : undefined
+  // Only for a month the toughest cards' window covers: they're from lately, not from that month. The window ends on the
+  // day the stats were read, which for an old snapshot isn't today
+  const readAt = Date.parse(data.generatedAt)
+  const readOn = Number.isNaN(readAt) ? todayKey : toDateKey(ankiDate(readAt, data.dayStartHour))
+  const tough = fsrs && month && inTroubleWindow(month, readOn, fsrs.troubleWindowDays ?? 90) ? fsrs.troubleCards?.[0] : undefined
   return (
     <div className="space-y-6">
       <PageHeader

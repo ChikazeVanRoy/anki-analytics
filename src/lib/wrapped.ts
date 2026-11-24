@@ -2,7 +2,7 @@
 // a card was first studied per month, so there are no monthly new-card counts.
 
 import type { AnkiData } from '../data/types'
-import { dayNumber } from './dates'
+import { dayNumber, keyFromDayNumber } from './dates'
 
 export interface Wrapped {
   month: string // YYYY-MM
@@ -26,6 +26,13 @@ const previousMonth = (month: string) => {
   const [y, m] = month.split('-').map(Number)
   return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`
 }
+
+/**
+ * Whether a month overlaps the window the toughest cards come from (the last `windowDays` days). Those cards are
+ * "lately", so a month long before it would wrongly get today's toughest card.
+ */
+export const inTroubleWindow = (month: string, todayKey: string, windowDays: number) =>
+  month >= keyFromDayNumber(dayNumber(todayKey) - windowDays + 1).slice(0, 7)
 
 /** The month to open on: the latest finished one, or this month if it's the only one with reviews. */
 export const defaultMonth = (months: string[], todayKey: string) => months.find((m) => m < todayKey.slice(0, 7)) ?? months[0]
