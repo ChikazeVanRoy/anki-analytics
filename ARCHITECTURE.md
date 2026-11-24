@@ -84,7 +84,7 @@ or is the Tailscale name set up for the phone; the phone only gets the app files
 | `GET /api/status` | Whether Anki is open and whether a refresh would bring in new reviews. Compares file dates only and never opens Anki's collection | 200 |
 | `GET /snapshot.json` | Returns the file saved by `npm run snapshot`: `{ version, data: AnkiData }` | 200, 404 (none saved) |
 | `POST /api/refresh` | Requires header `X-Requested-By: anki-analytics`; re-copies the collection from Anki, then returns fresh `AnkiData` | 200, 403, 409 (Anki open / bad profile), 500 |
-| `GET /api/version` | The commit the server started from, and whether the checkout has moved on since | 200 |
+| `GET /api/version` | The commit the server started from; `restartNeeded` when the server's own code changed since (not its command-line scripts or tests) or the built pages are older than their source; `startedBy` (`service` under the LaunchAgent), so the app can say how to restart | 200 |
 | `POST /api/update` | Requires the same header; runs `git fetch` and a fast-forward from GitHub when you press Update. The only request that leaves the Mac apart from the Firebase upload | 200, 403, 500 |
 | anything else | | 404 (403 for a foreign Host) |
 

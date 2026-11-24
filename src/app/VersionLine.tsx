@@ -5,7 +5,16 @@ import { messages as m } from '../i18n'
 export function VersionLine() {
   const { version, checking, outcome, checkForUpdate } = useVersion()
   if (!version) return null
-  const note = outcome?.kind === 'current' ? m.data.appUpToDate : outcome?.kind === 'updated' ? m.data.appUpdated(outcome.commits) : outcome?.kind === 'problem' ? m.data.appUpdateProblem(outcome.message) : version.restartNeeded ? m.data.restartNeeded : null
+  const note =
+    outcome?.kind === 'current'
+      ? m.data.appUpToDate
+      : outcome?.kind === 'updated'
+        ? m.data.appUpdated(outcome.commits, version.restartNeeded ? version.restart : null)
+        : outcome?.kind === 'problem'
+          ? m.data.appUpdateProblem(outcome.message)
+          : version.restartNeeded
+            ? m.data.restartNeeded(version.restart)
+            : null
   return (
     <p className="mt-2">
       {m.data.version(version.commit, version.date)}

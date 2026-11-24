@@ -3,8 +3,10 @@ import { useCallback, useEffect, useState } from 'react'
 export interface AppVersion {
   commit: string
   date: string | null
-  /** A newer version has been fetched since this server started; opening the launcher again runs it. */
+  /** What runs is behind the checkout: the server's code changed since it started, or the pages need building. */
   restartNeeded: boolean
+  /** How to restart: the background service (npm run service -- restart) or the launcher. */
+  restart: 'service' | 'launcher'
 }
 
 export type UpdateOutcome = { kind: 'current' } | { kind: 'updated'; commits: number } | { kind: 'problem'; message: string }
@@ -13,7 +15,10 @@ async function fetchVersion(): Promise<AppVersion | null> {
   try {
     const res = await fetch('/api/version')
     const body = res.ok ? ((await res.json()) as Partial<AppVersion>) : null
-    return body && typeof body.commit === 'string' ? { commit: body.commit, date: body.date ?? null, restartNeeded: !!body.restartNeeded } : null
+    const started = (body as { startedBy?: unknown } | null)?.startedBy
+    return body && typeof body.commit === 'string'
+      ? { commit: body.commit, date: body.date ?? null, restartNeeded: !!body.restartNeeded, restart: started === 'service' ? 'service' : 'launcher' }
+      : null
   } catch {
     return null // No API: nothing to show
   }
@@ -44,8 +49,9 @@ export function useVersion() {
       const body = (await res.json()) as { outcome?: string; commits?: number; message?: string; error?: string }
       if (body.outcome === 'current') setOutcome({ kind: 'current' })
       else if (body.outcome === 'updated') {
-        setOutcome({ kind: 'updated', commits: body.commits ?? 1 })
+        // The new version first, so the note says straight away whether a restart is needed
         setVersion((await fetchVersion()) ?? version)
+        setOutcome({ kind: 'updated', commits: body.commits ?? 1 })
       } else setOutcome({ kind: 'problem', message: body.message ?? body.error ?? 'The update failed.' })
     } catch {
       setOutcome({ kind: 'problem', message: 'The local API didn’t answer.' })

@@ -19,7 +19,7 @@ import { ankiStatus, COLLECTION_COPY, copyCollection, CopyError, type AnkiStatus
 import { isForwarded, isPhoneRequest, loadPhoneHost, phoneSnapshot } from './phoneAccess.ts'
 import { readSnapshotFile, SNAPSHOT_FILE, writeSnapshot } from './snapshot.ts'
 import { DIST_DIR, serveFile } from './staticFiles.ts'
-import { gitIn, readVersion, updateFromGitHub, type UpdateResult, type VersionInfo } from './version.ts'
+import { gitIn, pagesOutdated, readVersion, serverCodeChanged, startedBy, updateFromGitHub, type UpdateResult, type VersionInfo } from './version.ts'
 
 const ALLOWED_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]'])
 
@@ -49,6 +49,10 @@ export interface ApiDeps {
   /** Whether snapshots go to your Firebase project, and how that's going (null: they don't). */
   cloud: () => ReturnType<typeof cloudInfo>
   version: () => VersionInfo
+  /** Whether what runs is behind the checkout: the server's code changed since it started, or the pages need building. */
+  outOfDate: (running: string | null, current: string | null) => boolean
+  /** 'service' when launchd runs this as the background service, so restarting means `npm run service -- restart`. */
+  startedBy: () => 'service' | 'other'
   update: () => Promise<UpdateResult>
   log: (message: string) => void
   distDir: string
@@ -67,6 +71,9 @@ const defaults: ApiDeps = {
   sync: readSyncStatus,
   cloud: () => cloudInfo(),
   version: () => readVersion(REPO_DIR),
+  outOfDate: (running, current) =>
+    running !== current && (running === null || current === null || serverCodeChanged(REPO_DIR, running, current) || pagesOutdated(REPO_DIR)),
+  startedBy: () => startedBy(),
   update: () => updateFromGitHub(gitIn(REPO_DIR), () => readVersion(REPO_DIR)),
   log: console.log,
   distDir: DIST_DIR,
@@ -127,7 +134,8 @@ export function createApiServer(overrides: Partial<ApiDeps> = {}): Server {
 
     if (req.method === 'GET' && req.url === '/api/version') {
       const current = deps.version()
-      return send(res, 200, { ...running, restartNeeded: current.commit !== running.commit })
+      // Only when it matters: a commit that changed neither the server nor the pages (once built) needs no restart
+      return send(res, 200, { ...running, restartNeeded: deps.outOfDate(running.commit, current.commit), startedBy: deps.startedBy() })
     }
 
     if (req.method === 'POST' && req.url === '/api/update') {

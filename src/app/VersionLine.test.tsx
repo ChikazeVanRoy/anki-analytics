@@ -26,7 +26,7 @@ describe('VersionLine', () => {
     render(<VersionLine />)
     expect(await screen.findByText(new RegExp('abc1234'))).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: messages.data.checkForUpdates }))
-    expect((await screen.findByRole('status')).textContent).toBe(messages.data.appUpdated(2))
+    expect((await screen.findByRole('status')).textContent).toBe(messages.data.appUpdated(2, 'launcher'))
     const post = fetchMock.mock.calls.find(([u]) => u === '/api/update')![1]!
     expect((post.headers as Record<string, string>)['X-Requested-By']).toBe('anki-analytics')
   })
@@ -48,5 +48,18 @@ describe('VersionLine', () => {
     const { container } = render(<VersionLine />)
     await new Promise((r) => setTimeout(r, 20))
     expect(container.textContent).toBe('')
+  })
+
+  it('says how to restart the background service, and only when something it runs changed', async () => {
+    let version: Record<string, unknown> = { commit: 'abc1234', date: null, restartNeeded: true, startedBy: 'service' }
+    vi.stubGlobal('fetch', async () => json(version))
+    render(<VersionLine />)
+    expect((await screen.findByRole('status')).textContent).toBe(messages.data.restartNeeded('service'))
+    expect(messages.data.restartNeeded('service')).toContain('npm run service -- restart')
+    cleanup()
+    version = { ...version, restartNeeded: false }
+    render(<VersionLine />)
+    await screen.findByText(/abc1234/)
+    expect(screen.queryByRole('status')).toBeNull()
   })
 })

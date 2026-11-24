@@ -368,11 +368,18 @@ describe('canUpdate', () => {
 describe('version and update', () => {
   it('reports the running version, and whether the checkout has moved on', async () => {
     let commit = 'aaa1111'
-    const { server, port } = await start({ version: () => ({ commit, date: '2026-11-06' }) })
+    let serverChanged = true
+    const { server, port } = await start({
+      version: () => ({ commit, date: '2026-11-06' }),
+      outOfDate: (running, current) => running !== current && serverChanged,
+      startedBy: () => 'service',
+    })
     try {
-      expect((await call(port, '/api/version')).body).toEqual({ commit: 'aaa1111', date: '2026-11-06', restartNeeded: false })
+      expect((await call(port, '/api/version')).body).toEqual({ commit: 'aaa1111', date: '2026-11-06', restartNeeded: false, startedBy: 'service' })
       commit = 'bbb2222'
-      expect((await call(port, '/api/version')).body).toEqual({ commit: 'aaa1111', date: '2026-11-06', restartNeeded: true })
+      expect((await call(port, '/api/version')).body).toEqual({ commit: 'aaa1111', date: '2026-11-06', restartNeeded: true, startedBy: 'service' })
+      serverChanged = false // a commit that only changed the pages, already built
+      expect((await call(port, '/api/version')).body).toMatchObject({ restartNeeded: false })
     } finally {
       server.close()
     }

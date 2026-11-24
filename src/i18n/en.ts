@@ -65,9 +65,14 @@ export const en = {
     checkForUpdates: 'Check for app updates',
     checkingForUpdates: 'Checking…',
     appUpToDate: 'The app is up to date.',
-    appUpdated: (commits: number) => `Got ${commits} new ${commits === 1 ? 'change' : 'changes'}. Close the launcher window and open it again to use them.`,
+    // restart: how to start using them, or null when nothing the running app uses changed
+    appUpdated: (commits: number, restart: 'service' | 'launcher' | null) =>
+      `Got ${commits} new ${commits === 1 ? 'change' : 'changes'}. ${restart === 'service' ? 'To use them, run npm run service -- restart in Terminal.' : restart === 'launcher' ? 'Close the launcher window and open it again to use them.' : 'Nothing needs restarting.'}`,
     appUpdateProblem: (message: string) => `Couldn’t update the app: ${message}`,
-    restartNeeded: 'A newer version is downloaded. Close the launcher window and open it again to use it.',
+    restartNeeded: (restart: 'service' | 'launcher') =>
+      restart === 'service'
+        ? 'A newer version is downloaded. To use it, run npm run service -- restart in Terminal.'
+        : 'A newer version is downloaded. Close the launcher window and open it again to use it.',
     footerSample: 'Showing generated sample data. Real statistics are read locally from a copy of your collection.',
   },
   cloud: {
