@@ -12,4 +12,7 @@ export function parseRoute(hash: string): Route {
   return (ROUTES as readonly string[]).includes(name) ? (name as Route) : 'home'
 }
 
+/** The navigation item a page sits under: Wrapped is opened from Home, so Home stays marked while it's open. */
+export const navRouteOf = (route: Route): (typeof NAV_ROUTES)[number] => (route === 'wrapped' ? 'home' : route)
+
 export const routeHref = (route: Route) => (route === 'home' ? '#/' : `#/${route}`)

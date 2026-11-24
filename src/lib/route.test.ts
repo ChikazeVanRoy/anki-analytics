@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseRoute, routeHref } from './route'
+import { navRouteOf, parseRoute, routeHref } from './route'
 
 describe('parseRoute', () => {
   it('maps hashes to sections', () => {
@@ -14,5 +14,12 @@ describe('parseRoute', () => {
   })
   it('round-trips with routeHref', () => {
     for (const r of ['home', 'activity', 'planner', 'advanced'] as const) expect(parseRoute(routeHref(r))).toBe(r)
+  })
+})
+
+describe('navRouteOf', () => {
+  it('keeps Home marked while Wrapped, opened from it, is showing', () => {
+    expect(navRouteOf('wrapped')).toBe('home')
+    expect(navRouteOf('planner')).toBe('planner')
   })
 })

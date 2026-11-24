@@ -5,7 +5,7 @@ import { ActivityIcon, AdvancedIcon, CloseIcon, HomeIcon, Logo, MoonIcon, Planne
 import type { AnkiData } from '../data/types'
 import { messages as m } from '../i18n'
 import { formatCopiedAt } from '../lib/format'
-import { NAV_ROUTES, routeHref, type Route } from '../lib/route'
+import { NAV_ROUTES, navRouteOf, routeHref, type Route } from '../lib/route'
 import type { ThemeChoice } from './useTheme'
 import { VersionLine } from './VersionLine'
 
@@ -74,12 +74,12 @@ export function AppShell(props: ShellProps) {
             <ul className="flex gap-1 rounded-2xl bg-surface-2 p-1">
               {NAV_ROUTES.map((r) => {
                 const Icon = NAV_ICONS[r]
-                const active = r === route
+                const active = r === navRouteOf(route)
                 return (
                   <li key={r}>
                     <a
                       href={routeHref(r)}
-                      aria-current={active ? 'page' : undefined}
+                      aria-current={r === route ? 'page' : active ? 'true' : undefined}
                       className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-bold transition-all ${
                         active ? 'bg-surface text-brand-strong shadow-card' : 'text-muted hover:text-ink'
                       }`}
@@ -253,12 +253,12 @@ export function AppShell(props: ShellProps) {
         <ul className="mx-auto grid max-w-md grid-cols-4">
           {NAV_ROUTES.map((r) => {
             const Icon = NAV_ICONS[r]
-            const active = r === route
+            const active = r === navRouteOf(route)
             return (
               <li key={r}>
                 <a
                   href={routeHref(r)}
-                  aria-current={active ? 'page' : undefined}
+                  aria-current={r === route ? 'page' : active ? 'true' : undefined}
                   className={`flex flex-col items-center gap-1 py-2.5 text-[11px] font-bold transition-colors ${
                     active ? 'text-brand-strong' : 'text-muted'
                   }`}
