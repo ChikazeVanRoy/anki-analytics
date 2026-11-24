@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildPlist, plistPath, SERVICE_LABEL } from './backgroundService.ts'
+import { buildPlist, nodePathIn, plistPath, SERVICE_LABEL } from './backgroundService.ts'
 
 describe('plistPath', () => {
   it('lives in the user LaunchAgents folder', () => {
@@ -22,5 +22,14 @@ describe('buildPlist', () => {
 
   it('escapes XML characters in paths', () => {
     expect(buildPlist({ nodePath: '/a&b/node', repoDir: '/x', port: 1 })).toContain('/a&amp;b/node')
+  })
+})
+
+describe('nodePathIn', () => {
+  it('reads back the node a saved LaunchAgent runs', () => {
+    const plist = buildPlist({ nodePath: '/Users/x/.nvm/versions/node/v26.13.0/bin/node', repoDir: '/r & d', port: 5174 })
+    expect(nodePathIn(plist)).toBe('/Users/x/.nvm/versions/node/v26.13.0/bin/node')
+    expect(nodePathIn(buildPlist({ nodePath: '/a&b/node', repoDir: '/r', port: 1 }))).toBe('/a&b/node')
+    expect(nodePathIn('<plist></plist>')).toBeNull()
   })
 })

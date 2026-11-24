@@ -10,6 +10,12 @@ export function plistPath(home = homedir()): string {
   return join(home, 'Library', 'LaunchAgents', `${SERVICE_LABEL}.plist`)
 }
 
+/** The node binary a saved LaunchAgent runs: the first program argument. Null if the file isn't one of ours. */
+export function nodePathIn(plist: string): string | null {
+  const args = /<key>ProgramArguments<\/key>\s*<array>\s*<string>([^<]*)<\/string>/.exec(plist)
+  return args ? args[1].replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&') : null
+}
+
 const escapeXml = (text: string) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
 export interface ServiceOptions {
