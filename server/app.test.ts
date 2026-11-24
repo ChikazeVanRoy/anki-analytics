@@ -9,7 +9,7 @@ import { DatabaseSync } from 'node:sqlite'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { AnkiData } from '../src/data/types.ts'
 import { readConfigJson } from './ankiConfig.ts'
-import { createApiServer, isAllowedHost } from './app.ts'
+import { createApiServer, isAllowedHost, STATS_REUSE_MS, statsKey } from './app.ts'
 import { canUpdate, CopyError } from './collection.ts'
 import { DeckConfigError } from './deckGroups.ts'
 
@@ -19,7 +19,8 @@ writeFileSync(existing, 'not really sqlite') // only its existence matters; `rea
 const fakeData = { source: 'anki', daily: [], decks: [] } as unknown as AnkiData
 
 function start(overrides: Parameters<typeof createApiServer>[0]) {
-  const server = createApiServer({ log: () => {}, saveSnapshot: () => {}, cloud: () => null, ...overrides })
+  // statsKey: no reuse unless a test is about it, so each test's read is the one it set up
+  const server = createApiServer({ log: () => {}, saveSnapshot: () => {}, cloud: () => null, statsKey: () => null, ...overrides })
   return new Promise<{ server: Server; port: number }>((resolve) =>
     server.listen(0, '127.0.0.1', () => resolve({ server, port: (server.address() as AddressInfo).port })),
   )
@@ -396,5 +397,37 @@ describe('version and update', () => {
     } finally {
       server.close()
     }
+  })
+})
+
+describe('reusing stats', () => {
+  it('reads once until what the stats depend on changes, and a refresh always reads the new copy', async () => {
+    let key = 'copy-1'
+    const read = vi.fn(() => fakeData)
+    const copy = vi.fn(() => {
+      key = 'copy-2' // a new copy has a new time and size
+      return { profile: 'p', bytes: 1 }
+    })
+    const { server, port } = await start({ collectionPath: existing, read, copy, statsKey: () => key })
+    try {
+      await call(port, '/api/stats')
+      await call(port, '/api/stats')
+      expect(read).toHaveBeenCalledTimes(1)
+      await call(port, '/api/refresh', { method: 'POST', headers: { 'x-requested-by': 'anki-analytics' } })
+      expect(read).toHaveBeenCalledTimes(2)
+      await call(port, '/api/stats')
+      expect(read).toHaveBeenCalledTimes(2)
+    } finally {
+      server.close()
+    }
+  })
+
+  it('keys on the copy, the deck config and a five-minute window', () => {
+    const at = 1_800_000_000_000 // on a window boundary
+    const key = statsKey(existing, at, join(dir, 'no-config.json'))
+    expect(key).not.toBeNull()
+    expect(statsKey(existing, at + STATS_REUSE_MS - 1, join(dir, 'no-config.json'))).toBe(key)
+    expect(statsKey(existing, at + STATS_REUSE_MS, join(dir, 'no-config.json'))).not.toBe(key)
+    expect(statsKey(join(dir, 'missing.anki2'), at)).toBeNull()
   })
 })

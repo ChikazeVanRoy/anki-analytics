@@ -8,13 +8,13 @@
 //   GET  anything else -> the built app from dist/, when there is one (the launcher runs the app this way)
 // A request from your phone (see phoneAccess.ts) only gets the app and a snapshot without note text.
 
-import { existsSync } from 'node:fs'
+import { existsSync, statSync } from 'node:fs'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import type { AnkiData } from '../src/data/types.ts'
 import { readCurrentStats } from './anki.ts'
 import { readSyncStatus, type SyncStatus } from './ankiSync.ts'
 import { cloudInfo } from './cloud.ts'
-import { DeckConfigError } from './deckGroups.ts'
+import { CONFIG_PATH, DeckConfigError } from './deckGroups.ts'
 import { ankiStatus, COLLECTION_COPY, copyCollection, CopyError, type AnkiStatus } from './collection.ts'
 import { isForwarded, isPhoneRequest, loadPhoneHost, phoneSnapshot } from './phoneAccess.ts'
 import { readSnapshotFile, SNAPSHOT_FILE, writeSnapshot } from './snapshot.ts'
@@ -40,6 +40,11 @@ export function isAllowedHost(host: string | undefined): boolean {
 export interface ApiDeps {
   collectionPath: string
   read: (path: string) => AnkiData
+  /**
+   * What the stats depend on, so a read can be reused until it changes, or null to read every time. Reading replays
+   * the whole review log (about a second) and blocks every other request meanwhile.
+   */
+  statsKey: (collectionPath: string) => string | null
   snapshotPath: string
   saveSnapshot: (data: AnkiData) => void
   phoneHost: () => string | null
@@ -63,6 +68,7 @@ const REPO_DIR = new URL('..', import.meta.url).pathname
 const defaults: ApiDeps = {
   collectionPath: COLLECTION_COPY,
   read: readCurrentStats,
+  statsKey,
   snapshotPath: SNAPSHOT_FILE,
   saveSnapshot: writeSnapshot,
   phoneHost: loadPhoneHost,
@@ -79,6 +85,23 @@ const defaults: ApiDeps = {
   distDir: DIST_DIR,
 }
 
+/** Stats change slowly with the clock (recall now, what's due), so reuse a read for at most this long. */
+export const STATS_REUSE_MS = 5 * 60_000
+
+/**
+ * The copy (its time and size), the deck config, and the current five-minute window. Windows are counted from the
+ * epoch, and every time zone's hours start on one, so an Anki day's rollover always starts a new read.
+ */
+export function statsKey(collectionPath: string, now = Date.now(), configPath = CONFIG_PATH): string | null {
+  try {
+    const copy = statSync(collectionPath)
+    const config = existsSync(configPath) ? statSync(configPath).mtimeMs : 0
+    return `${copy.mtimeMs}:${copy.size}:${config}:${Math.floor(now / STATS_REUSE_MS)}`
+  } catch {
+    return null
+  }
+}
+
 function send(res: ServerResponse, status: number, body: unknown) {
   res.writeHead(status, { 'Content-Type': 'application/json' })
   res.end(JSON.stringify(body))
@@ -89,14 +112,21 @@ export function createApiServer(overrides: Partial<ApiDeps> = {}): Server {
   // What this process is running: the checkout can move on (an update) without the code in memory changing
   const running = deps.version()
   let updating: Promise<UpdateResult> | null = null
+  let lastStats: { key: string; data: AnkiData } | null = null
 
   function sendStats(res: ServerResponse, { save = false } = {}) {
     if (!existsSync(deps.collectionPath)) {
       return send(res, 503, { error: 'No collection copy yet. Quit Anki, then press Refresh.' })
     }
-    const started = performance.now()
-    const data = deps.read(deps.collectionPath)
-    deps.log(`stats: ${data.daily.length} rows in ${Math.round(performance.now() - started)}ms`)
+    const key = deps.statsKey(deps.collectionPath)
+    let data: AnkiData
+    if (key !== null && lastStats?.key === key) data = lastStats.data
+    else {
+      const started = performance.now()
+      data = deps.read(deps.collectionPath)
+      deps.log(`stats: ${data.daily.length} rows in ${Math.round(performance.now() - started)}ms`)
+      lastStats = key === null ? null : { key, data }
+    }
     if (save) {
       try {
         deps.saveSnapshot(data)

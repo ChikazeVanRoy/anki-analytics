@@ -265,7 +265,7 @@ Results are in `docs/fsrs-validation.md`.
 | Data intake | Copy of a local Anki profile (`~/Library/Application Support/Anki2`, macOS only) | Upload of Anki exports (`.colpkg`/`.apkg`, compressed `collection.anki21b`), schema-version checks, other OSes |
 | Storage | One file, `data/collection.anki2`, overwritten on refresh | Per-user storage, encryption at rest, retention and deletion, storing derived results instead of raw collections |
 | Configuration | Deck groups and exclusions in a git-ignored local config file (`anki-analytics.config.json`) | Per-user deck settings stored as data |
-| Computation | Whole collection re-read and replayed on every `GET /api/stats` (~0.5 s, blocks the server) | Caching, background jobs, horizontal scaling |
+| Computation | Whole collection re-read and replayed (~0.5–1 s, blocks the server), then reused until the copy or the deck config changes, for at most five minutes | Background jobs, horizontal scaling |
 | Security | Binds to 127.0.0.1, Host-header allowlist, refresh header, read-only SQLite; Firestore rules give each listed account only its own document | Rate limits, audit logging |
 | Deployment | `npm start` or the LaunchAgent (`npm run service`) serves the built app; `npm run dev` for development; Firebase Hosting for the phone | Monitoring, backups |
 | Quality | Unit, integration and page tests (Vitest), browser smoke tests (Playwright) | CI |
@@ -275,8 +275,9 @@ Results are in `docs/fsrs-validation.md`.
 - **Single-user by construction.** File paths, the Anki-process check (`pgrep`), the version check
   (`/Applications/Anki.app`) and the local config file are specific to one person's Mac. A SaaS needs a different
   data-intake path, not just more servers.
-- **Recomputed on every request.** `GET /api/stats` reads the full `revlog` and replays every card
-  synchronously (`server/fsrsData.ts`), blocking the Node event loop. Fine for one user, not for many.
+- **Recomputed often.** `GET /api/stats` reads the full `revlog` and replays every card synchronously
+  (`server/fsrsData.ts`), blocking the Node event loop. The result is reused until the copy or the deck config
+  changes, for at most five minutes (`statsKey` in `server/app.ts`). Fine for one user, not for many.
 - **The browser receives detailed data.** Per-card FSRS states are sent to the client. Acceptable locally;
   for other people's data it raises privacy and payload-size questions.
 - **The forecast is a model.** It assumes FSRS-6 default parameters (your presets have none optimised), and
