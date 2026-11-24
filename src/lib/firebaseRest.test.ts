@@ -144,7 +144,7 @@ describe('the snapshot document', () => {
     const google = fakeFirebase()
     const session = await signIn(google.config, google.email, google.password, google.net)
     await putSnapshot(google.config, session, text, 'x', google.net)
-    const gz = (google.stored()?.gz as { bytesValue: string }).bytesValue
+    const gz = (google.stored()!.gz as { bytesValue: string }).bytesValue // stored just above
     expect(gz.length).toBeLessThan(text.length / 2)
   })
 
