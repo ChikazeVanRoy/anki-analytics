@@ -329,7 +329,7 @@ export const en = {
     garden: {
       stage: { flower: 'Long interval', sprout: 'Learning', bud: 'Not yet tested', wilt: 'Needs water' },
       living: { flower: 'Known well', sprout: 'Growing', bud: 'Not yet tested', wilt: 'Needs water' },
-      hint: 'Tap a plant to see its card.',
+      hint: 'Tap a plant, or use the arrow keys, to see its card.',
       plant: (front: string, stage: string, recall: string, due: string) => `${front}: ${stage.toLowerCase()}, ${recall} chance of recall, ${due}`,
       plantNoText: 'A card',
       plantGroup: (shown: string, unit: number) => (unit > 1 ? `${shown} One of about ${int(unit)} like it.` : shown),

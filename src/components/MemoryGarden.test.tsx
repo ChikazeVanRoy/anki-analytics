@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
+import { messages } from '../i18n'
 import type { Deck } from '../data/types'
 import type { GardenBed, Plant } from '../lib/garden'
 import { GardenPlot } from './MemoryGarden'
@@ -26,7 +27,7 @@ function garden() {
   return { plants, pick, shown }
 }
 
-const HINT = 'Tap a plant to see its card.'
+const HINT = messages.home.garden.hint
 
 describe('GardenPlot', () => {
   afterEach(cleanup)
