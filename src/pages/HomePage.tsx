@@ -46,7 +46,8 @@ import { ankiToday, answerCounts, deckSummaries, lastNDays, retentionSplit, summ
 
 const m = messages.home
 
-export function HomePage({ data, fromSnapshot = false }: { data: AnkiData; fromSnapshot?: boolean }) {
+/** `ankiOpen`: Anki is open on this Mac, so a refresh would be refused until it closes. */
+export function HomePage({ data, fromSnapshot = false, ankiOpen = false }: { data: AnkiData; fromSnapshot?: boolean; ankiOpen?: boolean }) {
   const today = useMemo(() => ankiToday(data), [data])
   const byDate = useMemo(() => totalsByDate(data.daily), [data])
   // An old copy can't see the days since it was made, so every window ends on its day, not today
@@ -115,6 +116,7 @@ export function HomePage({ data, fromSnapshot = false }: { data: AnkiData; fromS
         streakAsOf={copyLabel}
         sample={sample}
         fromSnapshot={fromSnapshot}
+        ankiOpen={ankiOpen}
         copied={sample ? null : messages.data.copiedAt(formatCopiedAt(data.generatedAt))}
       />
 
@@ -256,9 +258,11 @@ function Hero({
   streakAsOf,
   sample,
   fromSnapshot,
+  ankiOpen,
   copied,
 }: {
   fromSnapshot: boolean
+  ankiOpen: boolean
   greeting: string
   status: string
   due: TodayWork | null
@@ -305,18 +309,19 @@ function Hero({
           </div>
         </div>
       </div>
-      {next && <NextUp step={next} fromSnapshot={fromSnapshot} />}
+      {next && <NextUp step={next} fromSnapshot={fromSnapshot} ankiOpen={ankiOpen} />}
       {due && <TodayPlanRow due={due} plan={plan} />}
     </section>
   )
 }
 
 /** The one thing to do now, bigger than everything around it. */
-function NextUp({ step, fromSnapshot }: { step: NextStep; fromSnapshot: boolean }) {
+function NextUp({ step, fromSnapshot, ankiOpen }: { step: NextStep; fromSnapshot: boolean; ankiOpen: boolean }) {
   const n = m.next
   const title =
     step.kind === 'reviews' ? n.reviews(step.cards, step.minutes) : step.kind === 'new' ? (step.capped ? n.freshCapped(step.cards, step.minutes) : n.fresh(step.minutes)) : step.kind === 'done' ? n.done : fromSnapshot ? n.snapshotRefresh : n.refresh
-  const sub = step.kind === 'done' ? n.doneSub : fromSnapshot ? n.snapshotSub : step.kind === 'refresh' ? n.refreshSub : n.sub
+  const sub =
+    step.kind === 'done' ? n.doneSub : fromSnapshot ? n.snapshotSub : step.kind === 'refresh' ? (ankiOpen ? n.refreshSubAnkiOpen : n.refreshSub) : n.sub
   return (
     <div className="relative mt-4 rounded-2xl bg-surface p-4 shadow-card">
       <p className="text-xs font-extrabold tracking-wide text-brand-strong uppercase">{n.label}</p>

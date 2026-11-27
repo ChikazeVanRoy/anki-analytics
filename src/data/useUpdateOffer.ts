@@ -26,6 +26,8 @@ export function useUpdateOffer(copiedAt: string | undefined, newDay: boolean) {
   // Whether this Mac uploads snapshots to Firebase for the phone, and how that's going
   const [cloud, setCloud] = useState<{ problem?: { message: string; at: string } } | null>(null)
   const [cloudDismissed, setCloudDismissed] = useState<string | null>(null)
+  // Anki is open on this Mac: a refresh is refused until it closes, so the page shouldn't suggest one
+  const [ankiOpen, setAnkiOpen] = useState(false)
 
   useEffect(() => {
     let stopped = false
@@ -42,11 +44,14 @@ export function useUpdateOffer(copiedAt: string | undefined, newDay: boolean) {
         const modified = copied ? body?.copyModified : body?.sourceModified
         if (stopped) return
         setAvailable(reason && modified != null ? { modified, reason } : null)
+        setAnkiOpen(!!body?.ankiRunning)
         setSyncProblem(body?.sync && SYNC_PROBLEMS.includes(body.sync.outcome) ? body.sync : null)
         setCloud(body?.cloud ?? null)
         if (!body?.cloud?.problem) setCloudDismissed(null) // fixed: a later failure is news again
       } catch {
-        if (!stopped) setAvailable(null) // API not running: there's nothing to offer
+        if (stopped) return
+        setAvailable(null) // API not running: there's nothing to offer
+        setAnkiOpen(false)
       }
     }
     void check()
@@ -72,5 +77,6 @@ export function useUpdateOffer(copiedAt: string | undefined, newDay: boolean) {
     cloudOn: cloud !== null,
     cloudProblem: cloud?.problem && cloud.problem.message !== cloudDismissed ? cloud.problem.message : null,
     dismissCloud,
+    ankiOpen,
   }
 }

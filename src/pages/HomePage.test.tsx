@@ -155,6 +155,13 @@ describe('Home Today plan', () => {
     expect(screen.getByText(messages.home.today.stale)).toBeTruthy()
     expect(screen.queryByText(messages.home.today.timeLabel)).toBeNull()
   })
+
+  it('doesn’t suggest pressing Refresh while Anki is open, as the copy would be refused', () => {
+    const old = new Date(Date.now() - 3 * 86_400_000).toISOString()
+    render(<HomePage data={{ ...realShapedData(), generatedAt: old }} ankiOpen />)
+    expect(screen.getByText(messages.home.next.refreshSubAnkiOpen)).toBeTruthy()
+    expect(screen.queryByText(messages.home.next.refreshSub)).toBeNull()
+  })
 })
 
 describe('Home decks', () => {

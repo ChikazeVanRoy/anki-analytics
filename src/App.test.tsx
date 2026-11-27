@@ -6,6 +6,7 @@ import { mockData } from './data/mockData'
 import { messages } from './i18n'
 import { formatCopiedAt } from './lib/format'
 import { SNAPSHOT_VERSION } from './lib/snapshot'
+import { realShapedData } from './test/fsrsFixture'
 
 // The clock the page reads, so a test can cross midnight without stepping real intervals
 const clock = vi.hoisted(() => ({ now: null as number | null }))
@@ -228,6 +229,19 @@ describe('fresh data when Anki closes', () => {
     status = { ...updates, updateAvailable: false }
     await act(async () => void window.dispatchEvent(new Event('focus')))
     await waitFor(() => expect(refresh).toHaveBeenCalledTimes(2))
+  })
+
+  it('says to quit Anki, not to press Refresh, while the status says Anki is open', async () => {
+    const old = JSON.stringify({ ...realShapedData(), generatedAt: new Date(Date.now() - 2 * 86_400_000).toISOString() })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) =>
+        new Response(url === '/api/status' ? JSON.stringify({ ankiRunning: true, updateAvailable: false, sourceModified: 1 }) : old),
+      ),
+    )
+    render(<App />)
+    expect(await screen.findByText(messages.home.next.refreshSubAnkiOpen)).toBeTruthy()
+    expect(screen.queryByText(messages.home.next.refreshSub)).toBeNull()
   })
 
   it('lets a refresh already running bring the update in, rather than copying twice', async () => {

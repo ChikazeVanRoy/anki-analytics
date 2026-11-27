@@ -32,7 +32,7 @@ export default function App() {
   const ankiDay = useAnkiDay(state.status === 'ready' ? state.data.dayStartHour : 0)
   const real = state.status === 'ready' && state.data.source === 'anki' ? state.data : null
   const newDay = !!real && copiedOnEarlierDay(real, ankiToday(real))
-  const { update, version, dismissUpdate, syncProblem, dismissSync, cloudOn, cloudProblem, dismissCloud } = useUpdateOffer(state.status === 'ready' ? state.data.generatedAt : undefined, newDay)
+  const { update, version, dismissUpdate, syncProblem, dismissSync, cloudOn, cloudProblem, dismissCloud, ankiOpen } = useUpdateOffer(state.status === 'ready' ? state.data.generatedAt : undefined, newDay)
   // Anki closed with something new, so fetch it without being asked. Each reason for each version is tried once, and the offer
   // only appears if that fails, so a refresh that can't work isn't retried every few seconds
   const attempt = update && version !== null ? `${update}:${version}` : null
@@ -90,6 +90,7 @@ export default function App() {
               route={route}
               data={state.data}
               fromSnapshot={state.fromSnapshot}
+              ankiOpen={ankiOpen}
               range={range}
               onRangeChange={setRange}
             />
@@ -100,7 +101,7 @@ export default function App() {
   )
 }
 
-function Page({ route, data, fromSnapshot, range, onRangeChange }: { route: string; data: AnkiData; fromSnapshot?: boolean; range: RangeKey; onRangeChange: (r: RangeKey) => void }) {
+function Page({ route, data, fromSnapshot, ankiOpen, range, onRangeChange }: { route: string; data: AnkiData; fromSnapshot?: boolean; ankiOpen: boolean; range: RangeKey; onRangeChange: (r: RangeKey) => void }) {
   const today = useMemo(() => ankiToday(data), [data])
   switch (route) {
     case 'activity':
@@ -112,6 +113,6 @@ function Page({ route, data, fromSnapshot, range, onRangeChange }: { route: stri
     case 'advanced':
       return <AdvancedPage data={data} today={today} />
     default:
-      return <HomePage data={data} fromSnapshot={fromSnapshot} />
+      return <HomePage data={data} fromSnapshot={fromSnapshot} ankiOpen={ankiOpen} />
   }
 }

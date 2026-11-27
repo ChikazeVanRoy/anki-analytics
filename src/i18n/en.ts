@@ -177,6 +177,8 @@ export const en = {
       doneSub: 'Nothing left in Anki. Enjoy the rest of your day.',
       refresh: 'Update your copy to see today’s cards',
       refreshSub: 'Quit Anki and it updates by itself, or press Refresh.',
+      // A refresh is refused while Anki is open, so don't suggest one
+      refreshSubAnkiOpen: 'Anki is open. Quit it when you’re done and this page updates by itself.',
       snapshotRefresh: 'Today’s cards aren’t in this snapshot yet',
       sub: 'Open Anki when you’re ready. This page updates when you close it.',
       snapshotSub: 'Open Anki when you’re ready. Your reviews appear here after the next update.',
