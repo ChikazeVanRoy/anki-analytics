@@ -40,14 +40,27 @@ export interface SnapshotDeps {
  * Returns why the copy was skipped, if it was. Throws the CopyError when there is no copy to fall back on.
  */
 export function makeSnapshot({ collectionPath, copy, read, write }: SnapshotDeps): { data: AnkiData; skippedCopy?: string } {
-  let skippedCopy: string | undefined
-  try {
-    copy()
-  } catch (err) {
-    if (!(err instanceof CopyError) || !existsSync(collectionPath)) throw err
-    skippedCopy = err.message
-  }
+  const skippedCopy = copyOrKeep(collectionPath, copy)
   const data = read(collectionPath)
   write(data)
   return { data, skippedCopy }
+}
+
+/** The same, with the stats read elsewhere (a worker thread), so the running server keeps answering meanwhile. */
+export async function makeSnapshotAsync({ collectionPath, copy, read, write }: Omit<SnapshotDeps, 'read'> & { read: (path: string) => Promise<AnkiData> }) {
+  const skippedCopy = copyOrKeep(collectionPath, copy)
+  const data = await read(collectionPath)
+  write(data)
+  return { data, skippedCopy }
+}
+
+/** Takes a new copy, or says why the existing one is used instead. Throws when there's no copy to fall back on. */
+function copyOrKeep(collectionPath: string, copy: () => unknown): string | undefined {
+  try {
+    copy()
+    return undefined
+  } catch (err) {
+    if (!(err instanceof CopyError) || !existsSync(collectionPath)) throw err
+    return err.message
+  }
 }

@@ -2,12 +2,12 @@
 // Run with: npm run api   (Node runs this TypeScript file directly, no build step)
 
 import { existsSync } from 'node:fs'
-import { readCurrentStats } from './anki.ts'
 import { createApiServer } from './app.ts'
 import { AUTO_SNAPSHOT_EVERY_MS, refreshSnapshotIfStale } from './autoSnapshot.ts'
 import { ankiStatus, COLLECTION_COPY, copyCollection } from './collection.ts'
 import { realCloudDeps, uploadSnapshot } from './cloud.ts'
-import { makeSnapshot, SNAPSHOT_FILE, writeSnapshot } from './snapshot.ts'
+import { readStatsInWorker } from './readStats.ts'
+import { makeSnapshotAsync, SNAPSHOT_FILE, writeSnapshot } from './snapshot.ts'
 
 const HOST = '127.0.0.1'
 const PORT = Number(process.env.ANKI_ANALYTICS_PORT) || 5174
@@ -18,7 +18,8 @@ createApiServer().listen(PORT, HOST, () => {
     refreshSnapshotIfStale({
       hasSnapshot: () => existsSync(SNAPSHOT_FILE),
       updateAvailable: () => ankiStatus().updateAvailable,
-      save: () => void makeSnapshot({ collectionPath: COLLECTION_COPY, copy: copyCollection, read: readCurrentStats, write: (data) => writeSnapshot(data) }),
+      // The read happens in a worker thread, so the pages and the phone route keep answering while it runs
+      save: async () => void (await makeSnapshotAsync({ collectionPath: COLLECTION_COPY, copy: copyCollection, read: readStatsInWorker, write: (data) => writeSnapshot(data) })),
       log: console.log,
     })
   // Sends the latest snapshot to your own Firebase project when that's set up (npm run cloud), and only when it changed
@@ -39,10 +40,17 @@ createApiServer().listen(PORT, HOST, () => {
       uploading = false
     }
   }
-  const tick = () => {
-    check()
-    void upload()
+  let ticking = false
+  const tick = async () => {
+    if (ticking) return // a slow read can outlast the five minutes between checks
+    ticking = true
+    try {
+      await check()
+      await upload() // after the check, so a snapshot it just saved goes straight to the phone
+    } finally {
+      ticking = false
+    }
   }
-  tick()
-  setInterval(tick, AUTO_SNAPSHOT_EVERY_MS).unref()
+  void tick()
+  setInterval(() => void tick(), AUTO_SNAPSHOT_EVERY_MS).unref()
 })

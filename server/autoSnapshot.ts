@@ -8,15 +8,16 @@ export interface AutoSnapshotDeps {
   hasSnapshot: () => boolean
   /** Whether Anki has closed cleanly with newer data than the copy (ankiStatus().updateAvailable) */
   updateAvailable: () => boolean
-  save: () => void
+  /** May take a while: the stats are read in a worker thread. */
+  save: () => void | Promise<void>
   log: (message: string) => void
 }
 
-/** One check. Returns whether a snapshot was saved. A failure is logged and left for the next check. */
-export function refreshSnapshotIfStale({ hasSnapshot, updateAvailable, save, log }: AutoSnapshotDeps): boolean {
+/** One check. Resolves to whether a snapshot was saved. A failure is logged and left for the next check. */
+export async function refreshSnapshotIfStale({ hasSnapshot, updateAvailable, save, log }: AutoSnapshotDeps): Promise<boolean> {
   try {
     if (hasSnapshot() && !updateAvailable()) return false
-    save()
+    await save()
     log('snapshot: saved a fresh one for the phone')
     return true
   } catch (err) {
