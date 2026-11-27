@@ -401,19 +401,34 @@ describe('version and update', () => {
 })
 
 describe('reusing stats', () => {
-  it('reads once until what the stats depend on changes, and a refresh always reads the new copy', async () => {
-    let key = 'copy-1'
+  const refresh = { method: 'POST', headers: { 'x-requested-by': 'anki-analytics' } }
+  /** A read that finishes only when the test says so, as a slow read on a busy Mac would. */
+  function slowRead() {
+    const pending: ((data: AnkiData) => void)[] = []
+    const read = vi.fn(() => new Promise<AnkiData>((resolve) => pending.push(resolve)))
+    return { read, finish: (data: AnkiData = fakeData) => pending.shift()!(data), waiting: () => pending.length }
+  }
+  /** Waits for what the server does next, however busy the machine is (a fixed pause would be flaky under load). */
+  async function until(done: () => boolean) {
+    for (let waited = 0; !done(); waited += 10) {
+      if (waited > 10_000) throw new Error('Gave up waiting')
+      await new Promise((r) => setTimeout(r, 10))
+    }
+  }
+
+  it('reads once until the copy changes, and a refresh always reads the new copy', async () => {
+    let source = 'copy-1'
     const read = vi.fn(() => fakeData)
     const copy = vi.fn(() => {
-      key = 'copy-2' // a new copy has a new time and size
+      source = 'copy-2' // a new copy has a new time and size
       return { profile: 'p', bytes: 1 }
     })
-    const { server, port } = await start({ collectionPath: existing, read, copy, statsKey: () => key })
+    const { server, port } = await start({ collectionPath: existing, read, copy, statsKey: () => ({ source, window: 1 }) })
     try {
       await call(port, '/api/stats')
       await call(port, '/api/stats')
       expect(read).toHaveBeenCalledTimes(1)
-      await call(port, '/api/refresh', { method: 'POST', headers: { 'x-requested-by': 'anki-analytics' } })
+      await call(port, '/api/refresh', refresh)
       expect(read).toHaveBeenCalledTimes(2)
       await call(port, '/api/stats')
       expect(read).toHaveBeenCalledTimes(2)
@@ -422,12 +437,90 @@ describe('reusing stats', () => {
     }
   })
 
-  it('keys on the copy, the deck config and a five-minute window', () => {
+  it('keeps answering other requests during a slow read, and shares that read', async () => {
+    const slow = slowRead()
+    const snapshotPath = join(dir, 'during-read.json')
+    writeFileSync(snapshotPath, '{"version":1}')
+    const { server, port } = await start({ collectionPath: existing, read: slow.read, snapshotPath, statsKey: () => ({ source: 'c', window: 1 }) })
+    try {
+      const first = call(port, '/api/stats')
+      const second = call(port, '/api/stats')
+      await until(() => slow.waiting() === 1)
+      expect(await call(port, '/snapshot.json')).toEqual({ status: 200, body: { version: 1 } }) // not stuck behind the read
+      expect(slow.read).toHaveBeenCalledTimes(1)
+      slow.finish()
+      expect((await first).status).toBe(200)
+      expect((await second).status).toBe(200)
+    } finally {
+      server.close()
+    }
+  })
+
+  it('answers with the last stats once their five minutes are up, while it reads them again', async () => {
+    let window = 1
+    const slow = slowRead()
+    const older = { ...fakeData, generatedAt: 'older' } as AnkiData
+    const newer = { ...fakeData, generatedAt: 'newer' } as AnkiData
+    const { server, port } = await start({ collectionPath: existing, read: slow.read, statsKey: () => ({ source: 'c', window }) })
+    try {
+      const first = call(port, '/api/stats')
+      await until(() => slow.waiting() === 1)
+      slow.finish(older)
+      await first
+      window = 2
+      expect((await call(port, '/api/stats')).body).toMatchObject({ generatedAt: 'older' }) // straight away
+      await until(() => slow.waiting() === 1) // and reading again meanwhile
+      slow.finish(newer)
+      await until(() => slow.read.mock.results.length === 2)
+      let body: unknown
+      for (let i = 0; i < 100; i++) {
+        body = (await call(port, '/api/stats')).body
+        if ((body as { generatedAt?: string }).generatedAt === 'newer') break
+        await new Promise((r) => setTimeout(r, 10))
+      }
+      expect(body).toMatchObject({ generatedAt: 'newer' })
+      expect(slow.read).toHaveBeenCalledTimes(2)
+    } finally {
+      server.close()
+    }
+  })
+
+  it('never lets a slow read of an older copy replace a newer one', async () => {
+    let source = 'old'
+    const slow = slowRead()
+    const { server, port } = await start({ collectionPath: existing, read: slow.read, statsKey: () => ({ source, window: 1 }) })
+    try {
+      const old = call(port, '/api/stats')
+      await until(() => slow.waiting() === 1)
+      source = 'new'
+      const fresh = call(port, '/api/stats')
+      await until(() => slow.waiting() === 2)
+      slow.finish({ ...fakeData, generatedAt: 'old' } as AnkiData) // the old copy's read
+      slow.finish({ ...fakeData, generatedAt: 'new' } as AnkiData)
+      await Promise.all([old, fresh])
+      expect(slow.read).toHaveBeenCalledTimes(2)
+      expect((await call(port, '/api/stats')).body).toMatchObject({ generatedAt: 'new' })
+    } finally {
+      server.close()
+    }
+  })
+
+  it('says what is wrong with the deck config when a read in the background fails on it', async () => {
+    const read = () => Promise.reject(new DeckConfigError('anki-analytics.config.json: bad'))
+    const { server, port } = await start({ collectionPath: existing, read, statsKey: () => ({ source: 'c', window: 1 }) })
+    try {
+      expect(await call(port, '/api/stats')).toEqual({ status: 500, body: { error: 'anki-analytics.config.json: bad' } })
+    } finally {
+      server.close()
+    }
+  })
+
+  it('keys on the copy and the deck config, with a five-minute window', () => {
     const at = 1_800_000_000_000 // on a window boundary
-    const key = statsKey(existing, at, join(dir, 'no-config.json'))
-    expect(key).not.toBeNull()
-    expect(statsKey(existing, at + STATS_REUSE_MS - 1, join(dir, 'no-config.json'))).toBe(key)
-    expect(statsKey(existing, at + STATS_REUSE_MS, join(dir, 'no-config.json'))).not.toBe(key)
+    const noConfig = join(dir, 'no-config.json')
+    const key = statsKey(existing, at, noConfig)!
+    expect(statsKey(existing, at + STATS_REUSE_MS - 1, noConfig)).toEqual(key)
+    expect(statsKey(existing, at + STATS_REUSE_MS, noConfig)).toEqual({ source: key.source, window: key.window + 1 })
     expect(statsKey(join(dir, 'missing.anki2'), at)).toBeNull()
   })
 })
