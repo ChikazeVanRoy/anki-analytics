@@ -278,7 +278,7 @@ Results are in `docs/fsrs-validation.md`.
 - **Recomputed often.** `GET /api/stats` reads the full `revlog` and replays every card with synchronous SQLite
   (`server/fsrsData.ts`), in a worker thread (`server/readStats.ts`) so the rest of the server keeps answering. The
   result is reused until the copy or the deck config changes, and refreshed in the background after five minutes
-  (`statsKey` in `server/app.ts`). Fine for one user, not for many.
+  (`server/statsReader.ts`, shared by the API and the automatic snapshot). Fine for one user, not for many.
 - **The browser receives detailed data.** Per-card FSRS states are sent to the client. Acceptable locally;
   for other people's data it raises privacy and payload-size questions.
 - **The forecast is a model.** It assumes FSRS-6 default parameters (your presets have none optimised), and

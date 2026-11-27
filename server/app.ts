@@ -8,15 +8,16 @@
 //   GET  anything else -> the built app from dist/, when there is one (the launcher runs the app this way)
 // A request from your phone (see phoneAccess.ts) only gets the app and a snapshot without note text.
 
-import { existsSync, statSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import type { AnkiData } from '../src/data/types.ts'
 import { readSyncStatus, type SyncStatus } from './ankiSync.ts'
 import { cloudInfo } from './cloud.ts'
-import { CONFIG_PATH, DeckConfigError } from './deckGroups.ts'
+import { DeckConfigError } from './deckGroups.ts'
 import { ankiStatus, COLLECTION_COPY, copyCollection, CopyError, type AnkiStatus } from './collection.ts'
 import { isForwarded, isPhoneRequest, loadPhoneHost, phoneSnapshot } from './phoneAccess.ts'
 import { readStatsInWorker } from './readStats.ts'
+import { createStatsReader, statsKey, type StatsKey, type StatsReader } from './statsReader.ts'
 import { readSnapshotFile, SNAPSHOT_FILE, writeSnapshot } from './snapshot.ts'
 import { DIST_DIR, serveFile } from './staticFiles.ts'
 import { gitIn, pagesOutdated, readVersion, serverCodeChanged, startedBy, updateFromGitHub, type UpdateResult, type VersionInfo } from './version.ts'
@@ -41,12 +42,10 @@ export interface ApiDeps {
   collectionPath: string
   /** Reads the stats: in a worker thread by default, as a read can take a minute on a busy Mac. */
   read: (path: string) => AnkiData | Promise<AnkiData>
-  /**
-   * What the stats depend on, so a read can be reused, or null to read every time: `source` (the copy and the deck
-   * config) and `window`, the five-minute stretch the read belongs to. A read stays good while its source does; once its
-   * window has passed it's still answered with, while a new one is read in the background.
-   */
-  statsKey: (collectionPath: string) => { source: string; window: number } | null
+  /** What the stats depend on, so a read can be reused (see statsReader.ts), or null to read every time. */
+  statsKey: (collectionPath: string) => StatsKey
+  /** The shared reader, when something else in the process (the automatic snapshot) uses it too. Built from the above otherwise. */
+  stats?: StatsReader
   snapshotPath: string
   saveSnapshot: (data: AnkiData) => void
   phoneHost: () => string | null
@@ -87,23 +86,6 @@ const defaults: ApiDeps = {
   distDir: DIST_DIR,
 }
 
-/** Stats change slowly with the clock (recall now, what's due), so reuse a read for at most this long. */
-export const STATS_REUSE_MS = 5 * 60_000
-
-/**
- * The copy (its time and size), the deck config, and the current five-minute window. Windows are counted from the
- * epoch, and every time zone's hours start on one, so an Anki day's rollover always starts a new read.
- */
-export function statsKey(collectionPath: string, now = Date.now(), configPath = CONFIG_PATH): { source: string; window: number } | null {
-  try {
-    const copy = statSync(collectionPath)
-    const config = existsSync(configPath) ? statSync(configPath).mtimeMs : 0
-    return { source: `${copy.mtimeMs}:${copy.size}:${config}`, window: Math.floor(now / STATS_REUSE_MS) }
-  } catch {
-    return null
-  }
-}
-
 function send(res: ServerResponse, status: number, body: unknown) {
   res.writeHead(status, { 'Content-Type': 'application/json' })
   res.end(JSON.stringify(body))
@@ -114,48 +96,13 @@ export function createApiServer(overrides: Partial<ApiDeps> = {}): Server {
   // What this process is running: the checkout can move on (an update) without the code in memory changing
   const running = deps.version()
   let updating: Promise<UpdateResult> | null = null
-  let lastStats: { source: string; window: number; started: number; data: AnkiData } | null = null
-  let reads = 0 // numbers reads in the order they start: a slow older read must not replace a newer one
-  /** The read under way, shared by every request that wants it, so a slow read is never started twice. */
-  let reading: { source: string | null; done: Promise<AnkiData> } | null = null
-
-  function readNow(key: ReturnType<ApiDeps['statsKey']>): Promise<AnkiData> {
-    const source = key?.source ?? null
-    if (reading && source !== null && reading.source === source) return reading.done
-    const started = performance.now()
-    const order = ++reads
-    const done = Promise.resolve()
-      .then(() => deps.read(deps.collectionPath))
-      .then((data) => {
-        deps.log(`stats: ${data.daily.length} rows in ${Math.round(performance.now() - started)}ms`)
-        // A read that started later may have finished first: keep the newer one
-        if (key !== null && (lastStats === null || lastStats.started < order)) lastStats = { ...key, started: order, data }
-        return data
-      })
-      .finally(() => {
-        if (reading?.done === done) reading = null
-      })
-    reading = { source, done }
-    return done
-  }
-
-  /** The stats for the copy as it is now: reused while it hasn't changed, and refreshed in the background once old. */
-  function currentStats(): Promise<AnkiData> {
-    const key = deps.statsKey(deps.collectionPath)
-    if (key !== null && lastStats?.source === key.source) {
-      if (lastStats.window !== key.window && !reading) {
-        readNow(key).catch((err) => console.error('The stats could not be read again:', err)) // the last ones still stand
-      }
-      return Promise.resolve(lastStats.data)
-    }
-    return readNow(key)
-  }
+  const stats = deps.stats ?? createStatsReader(deps)
 
   async function sendStats(res: ServerResponse, { save = false } = {}) {
     if (!existsSync(deps.collectionPath)) {
       return send(res, 503, { error: 'No collection copy yet. Quit Anki, then press Refresh.' })
     }
-    const data = await currentStats()
+    const data = await stats.current()
     if (save) {
       try {
         deps.saveSnapshot(data)
@@ -183,7 +130,7 @@ export function createApiServer(overrides: Partial<ApiDeps> = {}): Server {
     send(res, 404, { error: 'Not found' })
   }
 
-  function handle(req: IncomingMessage, res: ServerResponse) {
+  async function handle(req: IncomingMessage, res: ServerResponse) {
     if (isPhoneRequest(req.headers, deps.phoneHost())) return handlePhone(req, res)
     if (!isAllowedHost(req.headers.host) || isForwarded(req.headers)) return send(res, 403, { error: 'Forbidden host' })
 
@@ -217,6 +164,7 @@ export function createApiServer(overrides: Partial<ApiDeps> = {}): Server {
       // A custom header can't be sent cross-site without a CORS preflight, which this server never
       // approves. So other websites open in your browser can't trigger a refresh.
       if (req.headers['x-requested-by'] !== 'anki-analytics') return send(res, 403, { error: 'Forbidden' })
+      await stats.idle() // never replace the copy while a read of it is under way
       try {
         const { profile, bytes } = deps.copy()
         deps.log(`refresh: copied profile "${profile}" (${(bytes / 1e6).toFixed(1)} MB)`)

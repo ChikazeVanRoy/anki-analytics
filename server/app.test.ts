@@ -9,7 +9,8 @@ import { DatabaseSync } from 'node:sqlite'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { AnkiData } from '../src/data/types.ts'
 import { readConfigJson } from './ankiConfig.ts'
-import { createApiServer, isAllowedHost, STATS_REUSE_MS, statsKey } from './app.ts'
+import { createApiServer, isAllowedHost } from './app.ts'
+import { STATS_REUSE_MS, statsKey } from './statsReader.ts'
 import { canUpdate, CopyError } from './collection.ts'
 import { DeckConfigError } from './deckGroups.ts'
 
@@ -500,6 +501,35 @@ describe('reusing stats', () => {
       await Promise.all([old, fresh])
       expect(slow.read).toHaveBeenCalledTimes(2)
       expect((await call(port, '/api/stats')).body).toMatchObject({ generatedAt: 'new' })
+    } finally {
+      server.close()
+    }
+  })
+
+  it('waits for a read under way before replacing the copy it reads', async () => {
+    const slow = slowRead()
+    const order: string[] = []
+    let source = 'old'
+    const copy = () => {
+      order.push('copy')
+      source = 'new' // a new copy has a new time and size
+      return { profile: 'p', bytes: 1 }
+    }
+    const { server, port } = await start({ collectionPath: existing, read: slow.read, copy, statsKey: () => ({ source, window: 1 }) })
+    try {
+      const stats = call(port, '/api/stats')
+      await until(() => slow.waiting() === 1)
+      const refreshed = call(port, '/api/refresh', refresh)
+      await new Promise((r) => setTimeout(r, 50))
+      expect(order).toEqual([]) // still reading the old copy
+      order.push('read done')
+      slow.finish()
+      await stats
+      await until(() => order.length === 2)
+      await until(() => slow.waiting() === 1) // the refresh reads the new copy
+      slow.finish()
+      expect((await refreshed).status).toBe(200)
+      expect(order).toEqual(['read done', 'copy'])
     } finally {
       server.close()
     }

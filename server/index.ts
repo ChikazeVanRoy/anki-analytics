@@ -8,6 +8,7 @@ import { ankiStatus, COLLECTION_COPY, copyCollection } from './collection.ts'
 import { realCloudDeps, uploadSnapshot } from './cloud.ts'
 import { stampConsole } from './logStamp.ts'
 import { readStatsInWorker } from './readStats.ts'
+import { createStatsReader, statsKey } from './statsReader.ts'
 import { makeSnapshotAsync, SNAPSHOT_FILE, writeSnapshot } from './snapshot.ts'
 
 stampConsole() // every line in data/server.log says when it happened
@@ -15,14 +16,20 @@ stampConsole() // every line in data/server.log says when it happened
 const HOST = '127.0.0.1'
 const PORT = Number(process.env.ANKI_ANALYTICS_PORT) || 5174
 
-createApiServer().listen(PORT, HOST, () => {
+// One reader for the API and the automatic snapshot: the same copy is read once, and never replaced mid-read
+const stats = createStatsReader({ collectionPath: COLLECTION_COPY, read: readStatsInWorker, statsKey, log: (message) => console.log(message) })
+
+createApiServer({ stats }).listen(PORT, HOST, () => {
   console.log(`Anki API on http://${HOST}:${PORT}  (GET /api/stats, POST /api/refresh)`)
   const check = () =>
     refreshSnapshotIfStale({
       hasSnapshot: () => existsSync(SNAPSHOT_FILE),
       updateAvailable: () => ankiStatus().updateAvailable,
-      // The read happens in a worker thread, so the pages and the phone route keep answering while it runs
-      save: async () => void (await makeSnapshotAsync({ collectionPath: COLLECTION_COPY, copy: copyCollection, read: readStatsInWorker, write: (data) => writeSnapshot(data) })),
+      // Through the shared reader: the pages and the phone route keep answering, and an open page's read is reused
+      save: async () => {
+        await stats.idle() // never replace the copy while a read of it is under way
+        await makeSnapshotAsync({ collectionPath: COLLECTION_COPY, copy: copyCollection, read: () => stats.current(), write: (data) => writeSnapshot(data) })
+      },
       log: console.log,
     })
   // Sends the latest snapshot to your own Firebase project when that's set up (npm run cloud), and only when it changed
