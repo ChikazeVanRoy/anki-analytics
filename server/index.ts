@@ -6,8 +6,11 @@ import { createApiServer } from './app.ts'
 import { AUTO_SNAPSHOT_EVERY_MS, refreshSnapshotIfStale } from './autoSnapshot.ts'
 import { ankiStatus, COLLECTION_COPY, copyCollection } from './collection.ts'
 import { realCloudDeps, uploadSnapshot } from './cloud.ts'
+import { stampConsole } from './logStamp.ts'
 import { readStatsInWorker } from './readStats.ts'
 import { makeSnapshotAsync, SNAPSHOT_FILE, writeSnapshot } from './snapshot.ts'
+
+stampConsole() // every line in data/server.log says when it happened
 
 const HOST = '127.0.0.1'
 const PORT = Number(process.env.ANKI_ANALYTICS_PORT) || 5174

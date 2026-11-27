@@ -83,7 +83,7 @@ const defaults: ApiDeps = {
     running !== current && (running === null || current === null || serverCodeChanged(REPO_DIR, running, current) || pagesOutdated(REPO_DIR)),
   startedBy: () => startedBy(),
   update: () => updateFromGitHub(gitIn(REPO_DIR), () => readVersion(REPO_DIR)),
-  log: console.log,
+  log: (message) => console.log(message), // looked up when called, so the timestamps index.ts adds apply
   distDir: DIST_DIR,
 }
 
