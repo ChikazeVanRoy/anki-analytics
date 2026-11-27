@@ -33,7 +33,7 @@ function serviceWorker(): Plugin {
 export default defineConfig({
   plugins: [react(), tailwindcss(), serviceWorker()],
   // Planner tests wait through several debounced simulation runs in real time, which a busy machine can stretch
-  test: { testTimeout: 20_000 },
+  test: { testTimeout: 20_000, setupFiles: ['src/test/setup.ts'] },
   server: {
     // Forward these to the local Node API, so the browser sees one origin (no CORS setup needed)
     proxy: { '/api': 'http://127.0.0.1:5174', '/snapshot.json': 'http://127.0.0.1:5174' },
